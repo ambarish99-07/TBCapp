@@ -1,0 +1,85 @@
+import { z } from "zod";
+import { CreateOrderCartSchema, ResolvedCartLineSchema } from "./cart.js";
+
+export const OrderStatusSchema = z.enum([
+  "received",
+  "preparing",
+  "out-for-delivery",
+  "delivered",
+  "cancelled",
+]);
+export type OrderStatus = z.infer<typeof OrderStatusSchema>;
+
+export const PaymentMethodSchema = z.enum(["cod", "razorpay"]);
+export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
+
+export const PaymentStatusSchema = z.enum(["pending", "paid", "failed", "refunded"]);
+export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+
+export const LoyaltyTierSchema = z.enum(["first-order", "returning", "gold"]).nullable();
+
+export const DeliveryDetailsSchema = z.object({
+  fullName: z.string().min(1),
+  phone: z.string().min(1),
+  address: z.string().min(1),
+  city: z.string().min(1),
+  pincode: z.string().min(1),
+  mapsLink: z.string().optional(),
+  specialInstructions: z.string().optional(),
+});
+export type DeliveryDetails = z.infer<typeof DeliveryDetailsSchema>;
+
+export const OrderTotalsSchema = z.object({
+  subtotal: z.number().nonnegative(),
+  punchCardDiscount: z.number().nonnegative(),
+  websiteDiscount: z.number().nonnegative(),
+  loyaltyDiscount: z.number().nonnegative(),
+  deliveryFee: z.number().nonnegative(),
+  tax: z.number().nonnegative(),
+  total: z.number().nonnegative(),
+});
+export type OrderTotals = z.infer<typeof OrderTotalsSchema>;
+
+export const PaymentInfoSchema = z.object({
+  method: PaymentMethodSchema,
+  status: PaymentStatusSchema,
+  razorpayOrderId: z.string().optional(),
+  razorpayPaymentId: z.string().optional(),
+});
+export type PaymentInfo = z.infer<typeof PaymentInfoSchema>;
+
+export const StatusHistoryEntrySchema = z.object({
+  status: OrderStatusSchema,
+  at: z.string(), // ISO timestamp
+  note: z.string().optional(),
+});
+export type StatusHistoryEntry = z.infer<typeof StatusHistoryEntrySchema>;
+
+/** What the client POSTs to create an order — no prices, no totals, server derives everything. */
+export const CreateOrderRequestSchema = z.object({
+  items: CreateOrderCartSchema,
+  delivery: DeliveryDetailsSchema,
+  paymentMethod: PaymentMethodSchema,
+});
+export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
+
+/** Full persisted/returned order shape. */
+export const OrderSchema = z.object({
+  id: z.string(),
+  /** Separate unguessable token for guest order lookup — never the DB primary key. */
+  accessToken: z.string(),
+  orderNumber: z.string(),
+  userId: z.string().nullable(),
+  items: z.array(ResolvedCartLineSchema),
+  delivery: DeliveryDetailsSchema,
+  totals: OrderTotalsSchema,
+  /** Snapshot at order time — a later tier change must never retroactively alter a past order's charge. */
+  loyaltyTierAtOrder: LoyaltyTierSchema,
+  estimatedMinutes: z.number().int().positive(),
+  status: OrderStatusSchema,
+  statusHistory: z.array(StatusHistoryEntrySchema),
+  payment: PaymentInfoSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Order = z.infer<typeof OrderSchema>;

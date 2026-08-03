@@ -1,0 +1,15 @@
+import { Router } from "express";
+import type { Env } from "../../config/env.js";
+import { optionalAuth, requireAuth } from "../auth/auth.middleware.js";
+import { getMyOrders, getOrderByAccessToken, getOrderById, postOrder } from "./orders.controller.js";
+
+export function createOrdersRouter(env: Env): Router {
+  const router = Router();
+
+  router.post("/", optionalAuth(env.JWT_SECRET), postOrder(env));
+  router.get("/mine", requireAuth(env.JWT_SECRET), getMyOrders);
+  router.get("/guest/:accessToken", getOrderByAccessToken);
+  router.get("/:id", requireAuth(env.JWT_SECRET), getOrderById);
+
+  return router;
+}

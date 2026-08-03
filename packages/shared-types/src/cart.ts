@@ -1,0 +1,64 @@
+import { z } from "zod";
+import { AddOnIdSchema } from "./menu.js";
+
+export const MAX_LINE_ITEMS_PER_ORDER = 50;
+export const MAX_QUANTITY_PER_LINE = 20;
+
+export const SugarLevelSchema = z.enum(["less", "regular", "extra"]);
+export type SugarLevel = z.infer<typeof SugarLevelSchema>;
+
+export const IceLevelSchema = z.enum(["less", "regular", "extra"]);
+export type IceLevel = z.infer<typeof IceLevelSchema>;
+
+export const CustomizationSchema = z.object({
+  sugarLevel: SugarLevelSchema,
+  iceLevel: IceLevelSchema,
+  addOnIds: z.array(AddOnIdSchema),
+});
+export type Customization = z.infer<typeof CustomizationSchema>;
+
+/** "Choose N" combo lines use a synthetic id `combo:<comboId>:<anything>` instead of a real menu item id. */
+const COMBO_LINE_ID_PREFIX = "combo:";
+
+export function isComboLineId(menuItemId: string): boolean {
+  return menuItemId.startsWith(COMBO_LINE_ID_PREFIX);
+}
+
+export function makeComboLineId(comboId: string, discriminator: string): string {
+  return `${COMBO_LINE_ID_PREFIX}${comboId}:${discriminator}`;
+}
+
+/**
+ * What the client sends when building a cart/placing an order. Deliberately has
+ * NO price fields and no display fields (name/image) — those are always
+ * server-resolved and snapshotted, never accepted from the client. This is what
+ * makes "never trust a client-submitted price" structurally true rather than a
+ * convention someone has to remember to enforce.
+ */
+export const CartLineRequestSchema = z.object({
+  lineId: z.string(),
+  menuItemId: z.string(),
+  quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
+  customization: CustomizationSchema,
+});
+export type CartLineRequest = z.infer<typeof CartLineRequestSchema>;
+
+export const CreateOrderCartSchema = z.array(CartLineRequestSchema).min(1).max(MAX_LINE_ITEMS_PER_ORDER);
+
+/**
+ * A cart line after the server has resolved it against the current menu — this is
+ * what actually gets persisted on an Order and returned to clients for display.
+ */
+export const ResolvedCartLineSchema = z.object({
+  lineId: z.string(),
+  menuItemId: z.string(),
+  signatureName: z.string(),
+  commonName: z.string(),
+  image: z.string(),
+  unitPrice: z.number().nonnegative(),
+  /** Snapshotted alongside unitPrice at order time — add-on prices can change later without altering past orders. */
+  addOnPrices: z.array(z.number().nonnegative()),
+  quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
+  customization: CustomizationSchema,
+});
+export type ResolvedCartLine = z.infer<typeof ResolvedCartLineSchema>;
