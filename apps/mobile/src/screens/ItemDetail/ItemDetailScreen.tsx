@@ -3,12 +3,12 @@ import { ADD_ON_PRICES } from "@tbc/pricing";
 import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useMenuItems } from "../../api/menu.api.js";
-import { AddOnSelector } from "../../components/AddOnSelector.js";
-import { PlaceholderBadge } from "../../components/PlaceholderBadge.js";
-import { theme } from "../../constants/theme.js";
-import { useCartStore } from "../../state/cartStore.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { useMenuItems } from "../../api/menu.api";
+import { AddOnSelector } from "../../components/AddOnSelector";
+import { PlaceholderBadge } from "../../components/PlaceholderBadge";
+import { theme } from "../../constants/theme";
+import { useCartStore } from "../../state/cartStore";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ItemDetail">;
 

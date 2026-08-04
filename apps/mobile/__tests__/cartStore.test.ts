@@ -1,6 +1,6 @@
 import { computePricing } from "@tbc/pricing";
 import { beforeEach, describe, expect, it } from "vitest";
-import { useCartStore, type CartLine } from "../src/state/cartStore.js";
+import { useCartStore, type CartLine } from "../src/state/cartStore";
 
 function makeLine(overrides: Partial<CartLine> = {}): CartLine {
   return {

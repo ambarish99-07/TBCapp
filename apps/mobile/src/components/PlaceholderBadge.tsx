@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme.js";
+import { theme } from "../constants/theme";
 
 /**
  * Flags sample/stock content so it's never mistaken for real product photography

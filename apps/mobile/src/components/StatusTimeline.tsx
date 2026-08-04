@@ -1,6 +1,6 @@
 import type { OrderStatus, StatusHistoryEntry } from "@tbc/shared-types";
 import { StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme.js";
+import { theme } from "../constants/theme";
 
 const STEPS: OrderStatus[] = ["received", "preparing", "out-for-delivery", "delivered"];
 const STEP_LABELS: Record<OrderStatus, string> = {

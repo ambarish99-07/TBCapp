@@ -2,13 +2,13 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { PaymentMethod } from "@tbc/shared-types";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { createOrderRequest } from "../../api/orders.api.js";
-import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api.js";
-import { PriceBreakdown } from "../../components/PriceBreakdown.js";
-import { theme } from "../../constants/theme.js";
-import { useCartStore } from "../../state/cartStore.js";
-import { useAuthContext } from "../../state/useAuthContext.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { createOrderRequest } from "../../api/orders.api";
+import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
+import { PriceBreakdown } from "../../components/PriceBreakdown";
+import { theme } from "../../constants/theme";
+import { useCartStore } from "../../state/cartStore";
+import { useAuthContext } from "../../state/useAuthContext";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Checkout">;
 

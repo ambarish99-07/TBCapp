@@ -1,10 +1,10 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { loginRequest } from "../../api/auth.api.js";
-import { theme } from "../../constants/theme.js";
-import { useAuthStore } from "../../state/authStore.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { loginRequest } from "../../api/auth.api";
+import { theme } from "../../constants/theme";
+import { useAuthStore } from "../../state/authStore";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 

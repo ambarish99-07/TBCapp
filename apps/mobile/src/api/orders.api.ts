@@ -1,5 +1,5 @@
 import type { CreateOrderRequest, Order } from "@tbc/shared-types";
-import { apiClient } from "./client.js";
+import { apiClient } from "./client";
 
 export async function createOrderRequest(payload: CreateOrderRequest): Promise<Order> {
   const { data } = await apiClient.post<{ order: Order }>("/orders", payload);

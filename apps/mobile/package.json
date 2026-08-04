@@ -2,7 +2,7 @@
   "name": "@tbc/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@babel/runtime": "^7.25.0",
     "@tbc/pricing": "workspace:*",
     "@tbc/shared-types": "workspace:*",
     "@react-navigation/native": "^7.0.0",

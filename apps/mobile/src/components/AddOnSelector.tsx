@@ -1,7 +1,7 @@
 import { ADD_ON_PRICES } from "@tbc/pricing";
 import type { AddOnId } from "@tbc/shared-types";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme.js";
+import { theme } from "../constants/theme";
 
 const ADD_ON_LABELS: Record<AddOnId, string> = {
   "whipped-cream": "Whipped Cream",

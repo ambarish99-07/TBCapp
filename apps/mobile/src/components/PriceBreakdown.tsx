@@ -1,6 +1,6 @@
 import type { PricingResult } from "@tbc/pricing";
 import { StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme.js";
+import { theme } from "../constants/theme";
 
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (

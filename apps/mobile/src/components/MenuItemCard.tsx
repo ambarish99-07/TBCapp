@@ -1,7 +1,7 @@
 import type { MenuItem } from "@tbc/shared-types";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme.js";
-import { PlaceholderBadge } from "./PlaceholderBadge.js";
+import { theme } from "../constants/theme";
+import { PlaceholderBadge } from "./PlaceholderBadge";
 
 interface Props {
   item: MenuItem;

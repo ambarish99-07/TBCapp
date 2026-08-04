@@ -1,11 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { fetchMyOrders } from "../../api/orders.api.js";
-import { theme } from "../../constants/theme.js";
-import { useAuthStore } from "../../state/authStore.js";
-import { useAuthContext } from "../../state/useAuthContext.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { fetchMyOrders } from "../../api/orders.api";
+import { theme } from "../../constants/theme";
+import { useAuthStore } from "../../state/authStore";
+import { useAuthContext } from "../../state/useAuthContext";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Account">;
 

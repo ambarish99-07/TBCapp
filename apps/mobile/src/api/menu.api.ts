@@ -1,6 +1,6 @@
 import type { CuratedCombo, ChooseNCombo, MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "./client.js";
+import { apiClient } from "./client";
 
 export function useMenuItems() {
   return useQuery({

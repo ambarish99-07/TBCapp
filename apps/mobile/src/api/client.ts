@@ -1,6 +1,6 @@
 import axios from "axios";
 import Constants from "expo-constants";
-import { useAuthStore } from "../state/authStore.js";
+import { useAuthStore } from "../state/authStore";
 
 const apiBaseUrl = (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? "http://localhost:4000";
 

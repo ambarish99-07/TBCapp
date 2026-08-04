@@ -2,10 +2,10 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { Order } from "@tbc/shared-types";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { fetchOrderByAccessToken } from "../../api/orders.api.js";
-import { StatusTimeline } from "../../components/StatusTimeline.js";
-import { theme } from "../../constants/theme.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { fetchOrderByAccessToken } from "../../api/orders.api";
+import { StatusTimeline } from "../../components/StatusTimeline";
+import { theme } from "../../constants/theme";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "GuestLookup">;
 

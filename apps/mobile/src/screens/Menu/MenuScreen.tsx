@@ -2,11 +2,11 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MenuCategory } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useMenuItems } from "../../api/menu.api.js";
-import { MenuItemCard } from "../../components/MenuItemCard.js";
-import { theme } from "../../constants/theme.js";
-import { useCartStore } from "../../state/cartStore.js";
-import type { RootStackParamList } from "../../navigation/types.js";
+import { useMenuItems } from "../../api/menu.api";
+import { MenuItemCard } from "../../components/MenuItemCard";
+import { theme } from "../../constants/theme";
+import { useCartStore } from "../../state/cartStore";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
 

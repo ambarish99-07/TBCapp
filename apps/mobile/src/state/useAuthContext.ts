@@ -1,5 +1,5 @@
 import { resolveTier } from "@tbc/pricing";
-import { useAuthStore } from "./authStore.js";
+import { useAuthStore } from "./authStore";
 
 /** Derives the {isLoggedIn, tier, ordersSinceReward} shape cartStore.computeTotals expects. */
 export function useAuthContext() {

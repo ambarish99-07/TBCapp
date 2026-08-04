@@ -1,15 +1,15 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AccountScreen } from "../screens/Account/AccountScreen.js";
-import { LoginScreen } from "../screens/Auth/LoginScreen.js";
-import { SignupScreen } from "../screens/Auth/SignupScreen.js";
-import { CartScreen } from "../screens/Cart/CartScreen.js";
-import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen.js";
-import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen.js";
-import { ItemDetailScreen } from "../screens/ItemDetail/ItemDetailScreen.js";
-import { MenuScreen } from "../screens/Menu/MenuScreen.js";
-import { OrderStatusScreen } from "../screens/OrderStatus/OrderStatusScreen.js";
-import type { RootStackParamList } from "./types.js";
+import { AccountScreen } from "../screens/Account/AccountScreen";
+import { LoginScreen } from "../screens/Auth/LoginScreen";
+import { SignupScreen } from "../screens/Auth/SignupScreen";
+import { CartScreen } from "../screens/Cart/CartScreen";
+import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
+import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
+import { ItemDetailScreen } from "../screens/ItemDetail/ItemDetailScreen";
+import { MenuScreen } from "../screens/Menu/MenuScreen";
+import { OrderStatusScreen } from "../screens/OrderStatus/OrderStatusScreen";
+import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

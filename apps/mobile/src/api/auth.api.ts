@@ -1,5 +1,5 @@
 import type { LoginRequest, SignupRequest, User } from "@tbc/shared-types";
-import { apiClient } from "./client.js";
+import { apiClient } from "./client";
 
 interface AuthResponse {
   token: string;
