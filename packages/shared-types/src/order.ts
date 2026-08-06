@@ -16,7 +16,8 @@ export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export const PaymentStatusSchema = z.enum(["pending", "paid", "failed", "refunded"]);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 
-export const LoyaltyTierSchema = z.enum(["first-order", "returning", "gold"]).nullable();
+export const DiscountReasonSchema = z.enum(["none", "quantity-tier", "premium"]);
+export const RewardReasonSchema = z.enum(["none", "sixth-order-cold-coffee", "tenth-order-free-drink"]);
 
 export const DeliveryDetailsSchema = z.object({
   fullName: z.string().min(1),
@@ -26,14 +27,17 @@ export const DeliveryDetailsSchema = z.object({
   pincode: z.string().min(1),
   mapsLink: z.string().optional(),
   specialInstructions: z.string().optional(),
+  /** Customer-entered placeholder for real geolocation — only affects pricing for premium members. */
+  distanceFromShopKm: z.number().nonnegative().optional(),
 });
 export type DeliveryDetails = z.infer<typeof DeliveryDetailsSchema>;
 
 export const OrderTotalsSchema = z.object({
   subtotal: z.number().nonnegative(),
-  punchCardDiscount: z.number().nonnegative(),
-  websiteDiscount: z.number().nonnegative(),
-  loyaltyDiscount: z.number().nonnegative(),
+  discountAmount: z.number().nonnegative(),
+  discountReason: DiscountReasonSchema,
+  rewardAmount: z.number().nonnegative(),
+  rewardReason: RewardReasonSchema,
   deliveryFee: z.number().nonnegative(),
   tax: z.number().nonnegative(),
   total: z.number().nonnegative(),
@@ -73,8 +77,8 @@ export const OrderSchema = z.object({
   items: z.array(ResolvedCartLineSchema),
   delivery: DeliveryDetailsSchema,
   totals: OrderTotalsSchema,
-  /** Snapshot at order time — a later tier change must never retroactively alter a past order's charge. */
-  loyaltyTierAtOrder: LoyaltyTierSchema,
+  /** Snapshot at order time — a later premium-status change must never retroactively alter a past order's charge. */
+  isPremiumMemberAtOrder: z.boolean(),
   estimatedMinutes: z.number().int().positive(),
   status: OrderStatusSchema,
   statusHistory: z.array(StatusHistoryEntrySchema),

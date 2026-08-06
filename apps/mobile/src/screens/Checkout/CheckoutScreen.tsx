@@ -40,10 +40,12 @@ export function CheckoutScreen({ navigation }: Props) {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Patna");
   const [pincode, setPincode] = useState("");
+  const [distanceFromShopKm, setDistanceFromShopKm] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [submitting, setSubmitting] = useState(false);
 
-  const result = computeTotals(auth);
+  const parsedDistanceKm = distanceFromShopKm.trim() === "" ? null : Number(distanceFromShopKm);
+  const result = computeTotals({ ...auth, distanceFromShopKm: parsedDistanceKm });
 
   async function handlePlaceOrder() {
     if (!fullName || !phone || !address || !city || !pincode) {
@@ -60,7 +62,14 @@ export function CheckoutScreen({ navigation }: Props) {
           quantity: line.quantity,
           customization: { sugarLevel: line.sugarLevel, iceLevel: line.iceLevel, addOnIds: line.addOnIds },
         })),
-        delivery: { fullName, phone, address, city, pincode },
+        delivery: {
+          fullName,
+          phone,
+          address,
+          city,
+          pincode,
+          distanceFromShopKm: parsedDistanceKm != null && !Number.isNaN(parsedDistanceKm) ? parsedDistanceKm : undefined,
+        },
         paymentMethod,
       });
 
@@ -95,6 +104,14 @@ export function CheckoutScreen({ navigation }: Props) {
       <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} multiline />
       <TextInput style={styles.input} placeholder="City" value={city} onChangeText={setCity} />
       <TextInput style={styles.input} placeholder="Pincode" value={pincode} onChangeText={setPincode} keyboardType="number-pad" />
+      <TextInput
+        style={styles.input}
+        placeholder="Distance from shop (km)"
+        value={distanceFromShopKm}
+        onChangeText={setDistanceFromShopKm}
+        keyboardType="decimal-pad"
+      />
+      <Text style={styles.helperText}>Premium members get free delivery within 4km.</Text>
 
       <Text style={styles.sectionTitle}>Payment Method</Text>
       <View style={styles.paymentRow}>
@@ -125,6 +142,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing(1.25),
     marginBottom: theme.spacing(1),
   },
+  helperText: { fontSize: 11, color: theme.colors.muted, marginBottom: theme.spacing(1) },
   paymentRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
   paymentOption: { flex: 1, padding: theme.spacing(1.5), borderRadius: theme.radius, backgroundColor: theme.colors.surface, alignItems: "center" },
   paymentOptionActive: { backgroundColor: theme.colors.primary },

@@ -10,12 +10,14 @@ function makeLine(overrides: Partial<CartLine> = {}): CartLine {
     commonName: "Rich Chocolate Shake",
     image: "https://example.com/img.jpg",
     unitPrice: 220,
+    originalUnitPrice: 220,
     addOnPrices: [30],
     quantity: 1,
     sugarLevel: "regular",
     iceLevel: "regular",
     addOnIds: ["whipped-cream"],
     isCombo: false,
+    category: "signature-shakes",
     ...overrides,
   };
 }
@@ -27,19 +29,20 @@ describe("cartStore.computeTotals — no drift from @tbc/pricing", () => {
 
   it("produces exactly the same result as calling computePricing directly with equivalent input", () => {
     useCartStore.getState().addLine(makeLine());
-    useCartStore.getState().addLine(makeLine({ lineId: "l2", unitPrice: 150, addOnPrices: [], quantity: 2 }));
+    useCartStore
+      .getState()
+      .addLine(makeLine({ lineId: "l2", unitPrice: 150, originalUnitPrice: 150, addOnPrices: [], quantity: 2, category: "cold-coffee" }));
 
-    const auth = { isLoggedIn: true, tier: "returning" as const, ordersSinceReward: 1 };
+    const auth = { isLoggedIn: true, loyalty: { completedOrderCount: 1, isPremiumMemberOverride: false } };
     const storeResult = useCartStore.getState().computeTotals(auth);
 
     const directResult = computePricing({
       lines: [
-        { unitPrice: 220, addOnPrices: [30], quantity: 1, isCombo: false },
-        { unitPrice: 150, addOnPrices: [], quantity: 2, isCombo: false },
+        { unitPrice: 220, addOnPrices: [30], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 150, addOnPrices: [], quantity: 2, isCombo: false, category: "cold-coffee" },
       ],
       isLoggedIn: true,
-      tier: "returning",
-      punchCard: { ordersSinceReward: 1 },
+      loyalty: { completedOrderCount: 1, isPremiumMemberOverride: false },
     });
 
     expect(storeResult).toEqual(directResult);
@@ -47,10 +50,11 @@ describe("cartStore.computeTotals — no drift from @tbc/pricing", () => {
 
   it("reflects quantity changes immediately in the live preview total", () => {
     useCartStore.getState().addLine(makeLine({ addOnPrices: [] }));
-    const before = useCartStore.getState().computeTotals({ isLoggedIn: false, tier: null, ordersSinceReward: 0 });
+    const auth = { isLoggedIn: false, loyalty: { completedOrderCount: 0, isPremiumMemberOverride: false } };
+    const before = useCartStore.getState().computeTotals(auth);
 
     useCartStore.getState().setQuantity("l1", 3);
-    const after = useCartStore.getState().computeTotals({ isLoggedIn: false, tier: null, ordersSinceReward: 0 });
+    const after = useCartStore.getState().computeTotals(auth);
 
     expect(after.subtotal).toBe(before.subtotal * 3);
   });

@@ -2,107 +2,191 @@ import { describe, expect, it } from "vitest";
 import { computePricing } from "../src/computePricing.js";
 import type { PricingInput } from "../src/types.js";
 
-describe("computePricing", () => {
-  it("guest order: only the website discount applies, delivery fee charged below threshold", () => {
+const baseLoyalty = { completedOrderCount: 0, isPremiumMemberOverride: false };
+
+describe("computePricing — quantity-tier discount", () => {
+  it("a single item gets no discount", () => {
     const input: PricingInput = {
-      lines: [{ unitPrice: 300, addOnPrices: [30], quantity: 1, isCombo: false }],
+      lines: [{ unitPrice: 300, addOnPrices: [30], quantity: 1, isCombo: false, category: "signature-shakes" }],
       isLoggedIn: false,
-      tier: null,
-      punchCard: { ordersSinceReward: 0 },
+      loyalty: baseLoyalty,
     };
     const result = computePricing(input);
 
     expect(result.subtotal).toBe(330);
-    expect(result.punchCardDiscount).toBe(0); // guests never get this
-    expect(result.websiteDiscountAmount).toBe(33);
-    expect(result.loyaltyDiscountAmount).toBe(0); // null tier
-    expect(result.bestPercentDiscount).toBe(33);
+    expect(result.discountAmount).toBe(0);
+    expect(result.discountReason).toBe("none");
     expect(result.deliveryFee).toBe(39);
-    expect(result.tax).toBe(15); // round(297 * 0.05)
-    expect(result.total).toBe(351);
+    expect(result.tax).toBe(17); // round(330 * 0.05)
+    expect(result.total).toBe(386);
   });
 
-  it("returning tier beats the flat website discount and unlocks free delivery at >= 499", () => {
-    const input: PricingInput = {
-      lines: [{ unitPrice: 250, addOnPrices: [], quantity: 2, isCombo: false }],
-      isLoggedIn: true,
-      tier: "returning",
-      punchCard: { ordersSinceReward: 2 },
-    };
-    const result = computePricing(input);
-
-    expect(result.subtotal).toBe(500);
-    expect(result.websiteDiscountAmount).toBe(50);
-    expect(result.loyaltyDiscountAmount).toBe(75);
-    expect(result.bestPercentDiscount).toBe(75); // loyalty wins, NOT both stacked
-    expect(result.deliveryFee).toBe(0);
-    expect(result.tax).toBe(21); // round(425 * 0.05)
-    expect(result.total).toBe(446);
-  });
-
-  it("gold tier's percent discount and the punch-card discount stack additively", () => {
+  it("two items get a 10% discount on the non-combo subtotal", () => {
     const input: PricingInput = {
       lines: [
-        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false },
-        { unitPrice: 150, addOnPrices: [], quantity: 1, isCombo: false },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
       ],
       isLoggedIn: true,
-      tier: "gold",
-      punchCard: { ordersSinceReward: 5 },
+      loyalty: baseLoyalty,
     };
     const result = computePricing(input);
 
-    expect(result.subtotal).toBe(350);
-    expect(result.loyaltyDiscountAmount).toBe(70);
-    expect(result.websiteDiscountAmount).toBe(35);
-    expect(result.bestPercentDiscount).toBe(70);
-    expect(result.punchCardDiscount).toBe(75); // stacks on top of bestPercentDiscount
-    expect(result.deliveryFee).toBe(39);
-    expect(result.tax).toBe(10); // round(205 * 0.05)
-    expect(result.total).toBe(254);
+    expect(result.subtotal).toBe(400);
+    expect(result.discountAmount).toBe(40);
+    expect(result.discountReason).toBe("quantity-tier");
+    expect(result.total).toBe(417); // (400-40)*1.05 + 39 delivery
   });
 
-  it("free-delivery threshold boundary: exactly 499 is free, 498 is not", () => {
-    const at499 = computePricing({
-      lines: [{ unitPrice: 499, addOnPrices: [], quantity: 1, isCombo: false }],
+  it("three items get a 15% discount, four or more get 20%", () => {
+    const threeItems = computePricing({
+      lines: [
+        { unitPrice: 100, addOnPrices: [], quantity: 3, isCombo: false, category: "signature-shakes" },
+      ],
       isLoggedIn: false,
-      tier: null,
-      punchCard: { ordersSinceReward: 0 },
+      loyalty: baseLoyalty,
     });
-    const at498 = computePricing({
-      lines: [{ unitPrice: 498, addOnPrices: [], quantity: 1, isCombo: false }],
-      isLoggedIn: false,
-      tier: null,
-      punchCard: { ordersSinceReward: 0 },
-    });
+    expect(threeItems.discountAmount).toBe(45); // round(300 * 0.15)
 
-    expect(at499.deliveryFee).toBe(0);
-    expect(at498.deliveryFee).toBe(39);
+    const fourItems = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 4, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
+    });
+    expect(fourItems.discountAmount).toBe(80); // round(400 * 0.20)
   });
 
-  it("bestPercentDiscount is always max(website, loyalty), never their sum", () => {
+  it("shakes and cold coffee quantities combine toward the same tier", () => {
     const result = computePricing({
-      lines: [{ unitPrice: 1000, addOnPrices: [], quantity: 1, isCombo: false }],
-      isLoggedIn: true,
-      tier: "gold",
-      punchCard: { ordersSinceReward: 0 },
+      lines: [
+        { unitPrice: 100, addOnPrices: [], quantity: 2, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
     });
-
-    expect(result.bestPercentDiscount).toBe(Math.max(result.websiteDiscountAmount, result.loyaltyDiscountAmount));
-    expect(result.bestPercentDiscount).not.toBe(result.websiteDiscountAmount + result.loyaltyDiscountAmount);
+    // total qty = 3 -> 15%, not evaluated separately per category
+    expect(result.discountAmount).toBe(45);
   });
+});
 
-  it("combo lines are priced flat and excluded from the punch-card's cheapest-line search", () => {
+describe("computePricing — combo lines are excluded from the quantity tier", () => {
+  it("a combo line doesn't count toward quantity, doesn't get the % discount, and isn't discounted further", () => {
     const result = computePricing({
       lines: [
         { unitPrice: 379, addOnPrices: [], quantity: 1, isCombo: true },
-        { unitPrice: 220, addOnPrices: [], quantity: 1, isCombo: false },
+        { unitPrice: 220, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
       ],
-      isLoggedIn: true,
-      tier: "first-order",
-      punchCard: { ordersSinceReward: 5 },
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
     });
 
-    expect(result.punchCardDiscount).toBe(110); // round(0.5 * 220), combo line ignored
+    expect(result.subtotal).toBe(599);
+    expect(result.discountAmount).toBe(0); // only 1 non-combo item -> 0% tier
+    expect(result.deliveryFee).toBe(0); // subtotal >= 499
+  });
+});
+
+describe("computePricing — premium membership", () => {
+  it("premium members get a flat 25% instead of the quantity tier, even on a single item", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 1000, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 15, isPremiumMemberOverride: false },
+    });
+
+    expect(result.isPremiumMember).toBe(true);
+    expect(result.discountReason).toBe("premium");
+    expect(result.discountAmount).toBe(250);
+  });
+
+  it("an admin override grants premium regardless of completedOrderCount", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 0, isPremiumMemberOverride: true },
+    });
+    expect(result.isPremiumMember).toBe(true);
+  });
+
+  it("guests are never premium even with a high completedOrderCount value passed in by mistake", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: { completedOrderCount: 999, isPremiumMemberOverride: false },
+    });
+    expect(result.isPremiumMember).toBe(false);
+    expect(result.discountReason).toBe("none");
+  });
+
+  it("premium members within the free-delivery radius pay no delivery fee even below the ₹499 threshold", () => {
+    const withinRadius = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 15, isPremiumMemberOverride: false },
+      distanceFromShopKm: 3,
+    });
+    expect(withinRadius.deliveryFee).toBe(0);
+
+    const outsideRadius = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 15, isPremiumMemberOverride: false },
+      distanceFromShopKm: 10,
+    });
+    expect(outsideRadius.deliveryFee).toBe(39);
+  });
+
+  it("non-premium customers get no radius-based free delivery even if a distance happens to be provided", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 0, isPremiumMemberOverride: false },
+      distanceFromShopKm: 1,
+    });
+    expect(result.deliveryFee).toBe(39);
+  });
+});
+
+describe("computePricing — milestone rewards stack on top of the discount", () => {
+  it("order #6 stacks the cold-coffee reward with whatever quantity discount applies", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 5, isPremiumMemberOverride: false }, // this order is #6
+    });
+
+    expect(result.discountAmount).toBe(50); // 10% of 500
+    expect(result.rewardAmount).toBe(100); // 50% of the 200 cold coffee
+    expect(result.rewardReason).toBe("sixth-order-cold-coffee");
+    expect(result.total).toBe(368); // (500-50-100)*1.05 + 0 delivery (subtotal >= 499? no, 500 >= 499 -> free)
+  });
+
+  it("order #10 gives a free drink stacked with the quantity discount", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 150, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 9, isPremiumMemberOverride: false }, // this order is #10
+    });
+
+    expect(result.rewardAmount).toBe(150);
+    expect(result.rewardReason).toBe("tenth-order-free-drink");
+  });
+
+  it("bestPercentDiscount and rewardAmount are never conflated — total reflects both subtracted independently", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 1000, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 5, isPremiumMemberOverride: false },
+    });
+    // qty=1 -> 0% tier discount, but order #6 reward still applies to the cold coffee
+    expect(result.discountAmount).toBe(0);
+    expect(result.rewardAmount).toBe(500);
   });
 });

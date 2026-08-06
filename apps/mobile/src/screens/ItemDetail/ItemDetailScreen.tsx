@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ADD_ON_PRICES } from "@tbc/pricing";
+import { ADD_ON_PRICES, round } from "@tbc/pricing";
 import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -36,8 +36,9 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
   const addOnTotal = addOnIds.reduce((sum, id) => sum + ADD_ON_PRICES[id], 0);
-  const lineTotal = (item.price + addOnTotal) * quantity;
+  const lineTotal = (effectivePrice + addOnTotal) * quantity;
 
   function handleAddToCart() {
     addLine({
@@ -46,13 +47,15 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       signatureName: item!.signatureName,
       commonName: item!.commonName,
       image: item!.image,
-      unitPrice: item!.price,
+      unitPrice: effectivePrice,
+      originalUnitPrice: item!.price,
       addOnPrices: addOnIds.map((id) => ADD_ON_PRICES[id]),
       quantity,
       sugarLevel,
       iceLevel,
       addOnIds,
       isCombo: false,
+      category: item!.category,
     });
     navigation.navigate("Cart");
   }
@@ -67,7 +70,17 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       <Text style={styles.name}>{item.signatureName}</Text>
       <Text style={styles.subtitle}>{item.commonName}</Text>
       <Text style={styles.description}>{item.description}</Text>
-      <Text style={styles.price}>₹{item.price}</Text>
+      <View style={styles.priceRow}>
+        {item.salePercent ? (
+          <>
+            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+            <Text style={styles.price}>₹{effectivePrice}</Text>
+            <Text style={styles.saleBadge}>{item.salePercent}% OFF</Text>
+          </>
+        ) : (
+          <Text style={styles.price}>₹{item.price}</Text>
+        )}
+      </View>
 
       <Text style={styles.sectionTitle}>Sugar Level</Text>
       <View style={styles.levelRow}>
@@ -123,7 +136,19 @@ const styles = StyleSheet.create({
   name: { fontSize: 22, fontWeight: "800", color: theme.colors.text, marginTop: theme.spacing(2) },
   subtitle: { fontSize: 13, color: theme.colors.muted },
   description: { fontSize: 14, color: theme.colors.text, marginTop: 8 },
-  price: { fontSize: 18, fontWeight: "700", color: theme.colors.primary, marginTop: 8 },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  price: { fontSize: 18, fontWeight: "700", color: theme.colors.primary },
+  priceStrikethrough: { fontSize: 14, color: theme.colors.muted, textDecorationLine: "line-through" },
+  saleBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#fff",
+    backgroundColor: theme.colors.danger,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
   sectionTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.text, marginTop: theme.spacing(2), marginBottom: 8 },
   levelRow: { flexDirection: "row", gap: 8 },
   levelChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: theme.colors.surface },

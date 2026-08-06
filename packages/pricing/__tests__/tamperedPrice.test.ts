@@ -13,17 +13,15 @@ import { computePricing } from "../src/computePricing.js";
 describe("computePricing price-input contract", () => {
   it("prices exactly the unitPrice it's given, with no independent verification", () => {
     const genuineResult = computePricing({
-      lines: [{ unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false }],
+      lines: [{ unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
       isLoggedIn: false,
-      tier: null,
-      punchCard: { ordersSinceReward: 0 },
+      loyalty: { completedOrderCount: 0, isPremiumMemberOverride: false },
     });
 
     const tamperedResult = computePricing({
-      lines: [{ unitPrice: 1, addOnPrices: [], quantity: 1, isCombo: false }],
+      lines: [{ unitPrice: 1, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
       isLoggedIn: false,
-      tier: null,
-      punchCard: { ordersSinceReward: 0 },
+      loyalty: { completedOrderCount: 0, isPremiumMemberOverride: false },
     });
 
     expect(genuineResult.total).not.toBe(tamperedResult.total);

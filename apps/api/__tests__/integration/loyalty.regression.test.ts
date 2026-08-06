@@ -35,7 +35,13 @@ async function placeCodOrder(token: string) {
       items: [
         {
           lineId: "l1",
-          menuItemId: "choco-crush",
+          menuItemId: "choco-crush", // shake, ₹220
+          quantity: 1,
+          customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+        },
+        {
+          lineId: "l2",
+          menuItemId: "cold-brew-classic", // cold coffee, ₹180
           quantity: 1,
           customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
         },
@@ -46,24 +52,36 @@ async function placeCodOrder(token: string) {
 }
 
 /**
- * Regression test for a real bug found in the original build: registered-user
- * loyalty/punch-card counters were never wired up to advance at all. This test
- * places several orders as one logged-in user and asserts both the loyalty tier
- * (via completedOrderCount) and the punch-card counter visibly move, including
- * the punch-card discount actually firing on the 6th order and resetting after.
+ * Regression coverage for the milestone/premium reward system: places 16 orders
+ * as one logged-in user and asserts completedOrderCount advances every time,
+ * the 6th/16th-order cold-coffee reward and the 10th-order free-drink reward
+ * both fire on schedule, and premium membership (with its flat 25% discount)
+ * kicks in starting with the order placed after the 15th completes.
  */
-describe("loyalty tier + punch-card counters advance across a logged-in user's orders", () => {
-  it("increments completedOrderCount and ordersSinceReward per COD order, firing + resetting the punch card at order 6", async () => {
-    await MenuItemModel.create({
-      _id: "choco-crush",
-      signatureName: "Choco Crush",
-      commonName: "Rich Chocolate Shake",
-      description: "A rich, indulgent chocolate shake.",
-      price: 220,
-      category: "signature-shakes",
-      image: "https://example.com/choco-crush.jpg",
-      flavorBadges: ["Chocolate Lover"],
-    });
+describe("milestone rewards and premium membership advance across a logged-in user's orders", () => {
+  it("fires the 6th-order reward, the 10th-order reward, and unlocks premium at order 16", async () => {
+    await MenuItemModel.create([
+      {
+        _id: "choco-crush",
+        signatureName: "Choco Crush",
+        commonName: "Rich Chocolate Shake",
+        description: "A rich, indulgent chocolate shake.",
+        price: 220,
+        category: "signature-shakes",
+        image: "https://example.com/choco-crush.jpg",
+        flavorBadges: [],
+      },
+      {
+        _id: "cold-brew-classic",
+        signatureName: "Cold Brew Classic",
+        commonName: "Classic Cold Coffee",
+        description: "A classic, smooth cold coffee.",
+        price: 180,
+        category: "cold-coffee",
+        image: "https://example.com/cold-brew.jpg",
+        flavorBadges: [],
+      },
+    ]);
 
     const signupResponse = await request(app).post("/auth/signup").send({
       email: "loyal@example.com",
@@ -74,27 +92,50 @@ describe("loyalty tier + punch-card counters advance across a logged-in user's o
     expect(signupResponse.status).toBe(201);
     const token: string = signupResponse.body.token;
 
-    // Orders 1-5: no punch-card discount yet, counters climb by 1 each time.
+    // Orders 1-5: quantity-tier discount only (2 items -> 10%), no milestone reward yet.
     for (let i = 1; i <= 5; i++) {
       const orderResponse = await placeCodOrder(token);
       expect(orderResponse.status).toBe(201);
-      expect(orderResponse.body.order.totals.punchCardDiscount).toBe(0);
+      expect(orderResponse.body.order.totals.discountReason).toBe("quantity-tier");
+      expect(orderResponse.body.order.totals.rewardReason).toBe("none");
 
       const me = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
       expect(me.body.user.loyalty.completedOrderCount).toBe(i);
-      expect(me.body.user.punchCard.ordersSinceReward).toBe(i);
     }
 
-    // Order 6: ordersSinceReward is now 5 -> punch-card discount fires, and
-    // completedOrderCount=5 already qualified the user for the "gold" tier.
+    // Order 6: 50% off the cheapest cold-coffee unit (₹180 -> ₹90 reward).
     const sixthOrder = await placeCodOrder(token);
-    expect(sixthOrder.status).toBe(201);
-    expect(sixthOrder.body.order.totals.punchCardDiscount).toBeGreaterThan(0);
-    expect(sixthOrder.body.order.loyaltyTierAtOrder).toBe("gold");
+    expect(sixthOrder.body.order.totals.rewardReason).toBe("sixth-order-cold-coffee");
+    expect(sixthOrder.body.order.totals.rewardAmount).toBe(90);
 
-    const meAfterSixth = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
-    expect(meAfterSixth.body.user.loyalty.completedOrderCount).toBe(6);
-    // The reward just fired, so the punch-card cycle resets to 0 rather than climbing to 6.
-    expect(meAfterSixth.body.user.punchCard.ordersSinceReward).toBe(0);
+    // Orders 7-9: back to no reward.
+    for (let i = 7; i <= 9; i++) {
+      const orderResponse = await placeCodOrder(token);
+      expect(orderResponse.body.order.totals.rewardReason).toBe("none");
+    }
+
+    // Order 10: the cheapest eligible drink (₹180 cold coffee) is entirely free.
+    const tenthOrder = await placeCodOrder(token);
+    expect(tenthOrder.body.order.totals.rewardReason).toBe("tenth-order-free-drink");
+    expect(tenthOrder.body.order.totals.rewardAmount).toBe(180);
+    expect(tenthOrder.body.order.isPremiumMemberAtOrder).toBe(false);
+
+    // Orders 11-15: still not premium (completedOrderCount reaches 15 only after order 15 completes).
+    for (let i = 11; i <= 15; i++) {
+      const orderResponse = await placeCodOrder(token);
+      expect(orderResponse.body.order.isPremiumMemberAtOrder).toBe(false);
+    }
+
+    const meBeforeSixteenth = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
+    expect(meBeforeSixteenth.body.user.loyalty.completedOrderCount).toBe(15);
+
+    // Order 16: premium is now active (flat 25%), AND this is also a 6th-cycle-position
+    // order (16 mod 10 = 6), so the cold-coffee reward stacks on top of it.
+    const sixteenthOrder = await placeCodOrder(token);
+    expect(sixteenthOrder.body.order.isPremiumMemberAtOrder).toBe(true);
+    expect(sixteenthOrder.body.order.totals.discountReason).toBe("premium");
+    expect(sixteenthOrder.body.order.totals.discountAmount).toBe(100); // round(400 * 0.25)
+    expect(sixteenthOrder.body.order.totals.rewardReason).toBe("sixth-order-cold-coffee");
+    expect(sixteenthOrder.body.order.totals.rewardAmount).toBe(90);
   });
 });

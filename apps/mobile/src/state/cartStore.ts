@@ -1,4 +1,4 @@
-import { computePricing, type LoyaltyTier, type PricingResult } from "@tbc/pricing";
+import { computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
 import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { create } from "zustand";
 
@@ -10,18 +10,22 @@ export interface CartLine {
   image: string;
   /** The price shown here is for live preview only — the server re-derives it independently at order time. */
   unitPrice: number;
+  /** Pre-sale-discount price, for strikethrough display — equals unitPrice when the item wasn't on sale. */
+  originalUnitPrice: number;
   addOnPrices: number[];
   quantity: number;
   sugarLevel: SugarLevel;
   iceLevel: IceLevel;
   addOnIds: AddOnId[];
   isCombo: boolean;
+  /** Absent for combo lines — drives the 6th/10th-order milestone rewards. */
+  category?: DrinkCategory;
 }
 
 interface AuthContext {
   isLoggedIn: boolean;
-  tier: LoyaltyTier;
-  ordersSinceReward: number;
+  loyalty: LoyaltyState;
+  distanceFromShopKm?: number | null;
 }
 
 interface CartState {
@@ -60,10 +64,11 @@ export const useCartStore = create<CartState>((set, get) => ({
         addOnPrices: line.addOnPrices,
         quantity: line.quantity,
         isCombo: line.isCombo,
+        category: line.category,
       })),
       isLoggedIn: auth.isLoggedIn,
-      tier: auth.tier,
-      punchCard: { ordersSinceReward: auth.ordersSinceReward },
+      loyalty: auth.loyalty,
+      distanceFromShopKm: auth.distanceFromShopKm,
     });
   },
 }));

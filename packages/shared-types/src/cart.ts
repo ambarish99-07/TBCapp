@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AddOnIdSchema } from "./menu.js";
+import { AddOnIdSchema, MenuCategorySchema } from "./menu.js";
 
 export const MAX_LINE_ITEMS_PER_ORDER = 50;
 export const MAX_QUANTITY_PER_LINE = 20;
@@ -54,11 +54,16 @@ export const ResolvedCartLineSchema = z.object({
   menuItemId: z.string(),
   signatureName: z.string(),
   commonName: z.string(),
-  image: z.string(),
+  /** Absent for combos without a representative photo (e.g. "choose your own"). */
+  image: z.string().optional(),
   unitPrice: z.number().nonnegative(),
+  /** Pre-sale-discount price, for strikethrough display — equals unitPrice when the item wasn't on sale. */
+  originalUnitPrice: z.number().nonnegative(),
   /** Snapshotted alongside unitPrice at order time — add-on prices can change later without altering past orders. */
   addOnPrices: z.array(z.number().nonnegative()),
   quantity: z.number().int().min(1).max(MAX_QUANTITY_PER_LINE),
   customization: CustomizationSchema,
+  /** Absent for combo lines — drives milestone-reward eligibility (see @tbc/pricing). */
+  category: MenuCategorySchema.optional(),
 });
 export type ResolvedCartLine = z.infer<typeof ResolvedCartLineSchema>;

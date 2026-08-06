@@ -15,11 +15,14 @@ const OrderLineSchema = new Schema(
     menuItemId: { type: String, required: true },
     signatureName: { type: String, required: true },
     commonName: { type: String, required: true },
-    image: { type: String, required: true },
+    // Not required — combos without a single representative photo (e.g. "choose your own") may omit it.
+    image: { type: String },
     unitPrice: { type: Number, required: true, min: 0 },
+    originalUnitPrice: { type: Number, required: true, min: 0 },
     addOnPrices: { type: [Number], default: [] },
     quantity: { type: Number, required: true, min: 1, max: 20 },
     customization: { type: CustomizationSchema, required: true },
+    category: { type: String, enum: ["signature-shakes", "cold-coffee"] },
   },
   { _id: false }
 );
@@ -33,6 +36,7 @@ const DeliveryDetailsSchema = new Schema(
     pincode: { type: String, required: true },
     mapsLink: { type: String },
     specialInstructions: { type: String },
+    distanceFromShopKm: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -40,9 +44,14 @@ const DeliveryDetailsSchema = new Schema(
 const OrderTotalsSchema = new Schema(
   {
     subtotal: { type: Number, required: true },
-    punchCardDiscount: { type: Number, required: true },
-    websiteDiscount: { type: Number, required: true },
-    loyaltyDiscount: { type: Number, required: true },
+    discountAmount: { type: Number, required: true },
+    discountReason: { type: String, enum: ["none", "quantity-tier", "premium"], required: true },
+    rewardAmount: { type: Number, required: true },
+    rewardReason: {
+      type: String,
+      enum: ["none", "sixth-order-cold-coffee", "tenth-order-free-drink"],
+      required: true,
+    },
     deliveryFee: { type: Number, required: true },
     tax: { type: Number, required: true },
     total: { type: Number, required: true },
@@ -83,7 +92,8 @@ const OrderSchema = new Schema(
     items: { type: [OrderLineSchema], required: true },
     delivery: { type: DeliveryDetailsSchema, required: true },
     totals: { type: OrderTotalsSchema, required: true },
-    loyaltyTierAtOrder: { type: String, enum: ["first-order", "returning", "gold", null], default: null },
+    // Snapshot at order time — a later premium-status change must never retroactively alter a past order's charge.
+    isPremiumMemberAtOrder: { type: Boolean, required: true, default: false },
     estimatedMinutes: { type: Number, required: true, default: 35 },
     status: {
       type: String,

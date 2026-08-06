@@ -55,6 +55,10 @@ export function MenuScreen({ navigation }: Props) {
         ))}
       </View>
 
+      <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
+        <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-shake bundles</Text>
+      </Pressable>
+
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}
       {error && <Text style={styles.info}>Couldn't load the menu. Pull to retry.</Text>}
 
@@ -90,6 +94,8 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: theme.colors.primary },
   tabText: { fontSize: 12, color: theme.colors.text },
   tabTextActive: { color: "#fff", fontWeight: "700" },
+  combosBanner: { backgroundColor: theme.colors.accent, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(2) },
+  combosBannerText: { color: "#fff", fontWeight: "700", fontSize: 12, textAlign: "center" },
   info: { textAlign: "center", color: theme.colors.muted, marginBottom: theme.spacing(1) },
   cartButton: {
     position: "absolute",

@@ -2,6 +2,18 @@ import type { PricingResult } from "@tbc/pricing";
 import { StyleSheet, Text, View } from "react-native";
 import { theme } from "../constants/theme";
 
+const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
+  none: "",
+  "quantity-tier": "Multi-item discount",
+  premium: "Premium member discount (25%)",
+};
+
+const REWARD_LABELS: Record<PricingResult["rewardReason"], string> = {
+  none: "",
+  "sixth-order-cold-coffee": "6th-order reward: 50% off cold coffee",
+  "tenth-order-free-drink": "10th-order reward: free drink",
+};
+
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <View style={styles.row}>
@@ -16,18 +28,17 @@ export function PriceBreakdown({ result }: { result: PricingResult }) {
   return (
     <View style={styles.card}>
       <Row label="Subtotal" value={`₹${result.subtotal}`} />
-      {result.bestPercentDiscount > 0 && (
-        <Row
-          label={result.loyaltyDiscountAmount >= result.websiteDiscountAmount ? "Loyalty discount" : "Direct-order discount"}
-          value={`-₹${result.bestPercentDiscount}`}
-          muted
-        />
+      {result.discountAmount > 0 && (
+        <Row label={DISCOUNT_LABELS[result.discountReason]} value={`-₹${result.discountAmount}`} muted />
       )}
-      {result.punchCardDiscount > 0 && <Row label="Punch card reward" value={`-₹${result.punchCardDiscount}`} muted />}
+      {result.rewardAmount > 0 && (
+        <Row label={REWARD_LABELS[result.rewardReason]} value={`-₹${result.rewardAmount}`} muted />
+      )}
       <Row label="Delivery fee" value={result.deliveryFee === 0 ? "Free" : `₹${result.deliveryFee}`} muted />
       <Row label="Tax (5%)" value={`₹${result.tax}`} muted />
       <View style={styles.divider} />
       <Row label="Total" value={`₹${result.total}`} />
+      {result.isPremiumMember && <Text style={styles.premiumNote}>✨ Premium member pricing applied</Text>}
     </View>
   );
 }
@@ -39,4 +50,5 @@ const styles = StyleSheet.create({
   value: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
   muted: { fontWeight: "400", color: theme.colors.muted },
   divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 6 },
+  premiumNote: { marginTop: 8, fontSize: 12, color: theme.colors.primary, fontWeight: "700" },
 });

@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
-import { advanceLoyaltyAndPunchCard } from "../orders/loyaltyAdvance.js";
+import { advanceLoyaltyOrderCount } from "../orders/loyaltyAdvance.js";
 import { createRazorpayOrder } from "./razorpay.client.js";
 import { verifyRazorpaySignature } from "./verifySignature.js";
 
@@ -90,11 +90,10 @@ export function verifyRazorpayPaymentHandler(env: Env): RequestHandler {
     order.payment.razorpayPaymentId = razorpay_payment_id;
     await order.save();
 
-    // Loyalty/punch-card counters and the new-order WhatsApp alert only fire here,
-    // after genuine payment confirmation — never at order-creation time for online payment.
+    // Loyalty order count and the new-order WhatsApp alert only fire here, after
+    // genuine payment confirmation — never at order-creation time for online payment.
     if (order.userId) {
-      const punchCardRewardUsed = order.totals.punchCardDiscount > 0;
-      await advanceLoyaltyAndPunchCard(String(order.userId), { punchCardRewardUsed });
+      await advanceLoyaltyOrderCount(String(order.userId));
     }
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,

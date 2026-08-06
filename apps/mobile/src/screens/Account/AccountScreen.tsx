@@ -1,20 +1,17 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { PREMIUM_ORDER_THRESHOLD, resolveIsPremiumMember } from "@tbc/pricing";
 import { useQuery } from "@tanstack/react-query";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { fetchMyOrders } from "../../api/orders.api";
 import { theme } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
-import { useAuthContext } from "../../state/useAuthContext";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Account">;
 
-const TIER_LABELS = { "first-order": "First Order", returning: "Returning Customer", gold: "Gold Member" } as const;
-
 export function AccountScreen({ navigation }: Props) {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const auth = useAuthContext();
   const { data: orders } = useQuery({ queryKey: ["my-orders"], queryFn: fetchMyOrders, enabled: !!user });
 
   if (!user) {
@@ -28,17 +25,24 @@ export function AccountScreen({ navigation }: Props) {
     );
   }
 
+  const isPremium = resolveIsPremiumMember(user.loyalty);
+
   return (
     <View style={styles.screen}>
       <Text style={styles.name}>{user.fullName}</Text>
       <Text style={styles.email}>{user.email}</Text>
 
       <View style={styles.loyaltyCard}>
-        <Text style={styles.loyaltyTier}>{auth.tier ? TIER_LABELS[auth.tier] : "—"}</Text>
+        <Text style={styles.loyaltyTier}>{isPremium ? "✨ Premium Member" : "Standard Member"}</Text>
         <Text style={styles.loyaltyMeta}>{user.loyalty.completedOrderCount} orders completed</Text>
-        <Text style={styles.loyaltyMeta}>
-          Punch card: {user.punchCard.ordersSinceReward}/5 towards your next 50% off reward
-        </Text>
+        {!isPremium && (
+          <Text style={styles.loyaltyMeta}>
+            {Math.max(0, PREMIUM_ORDER_THRESHOLD - user.loyalty.completedOrderCount)} more orders to unlock Premium
+            Membership (flat 25% off + free delivery within 4km)
+          </Text>
+        )}
+        <Text style={styles.perkNote}>Every 6th order: 50% off a cold coffee</Text>
+        <Text style={styles.perkNote}>Every 10th order: a free drink</Text>
       </View>
 
       <Text style={styles.sectionTitle}>Order History</Text>
@@ -72,6 +76,7 @@ const styles = StyleSheet.create({
   loyaltyCard: { backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2), marginBottom: theme.spacing(2) },
   loyaltyTier: { fontSize: 16, fontWeight: "800", color: theme.colors.primary },
   loyaltyMeta: { fontSize: 12, color: theme.colors.muted, marginTop: 4 },
+  perkNote: { fontSize: 12, color: theme.colors.text, marginTop: 6 },
   sectionTitle: { fontSize: 14, fontWeight: "700", marginBottom: theme.spacing(1) },
   orderRow: { paddingVertical: theme.spacing(1), borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   orderNumber: { fontWeight: "700" },

@@ -1,13 +1,16 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
 
 /**
- * Curated combos (e.g. "Chocolate Duo") are for menu-display/grouping only — the
- * order flow never references them directly, since ordering a curated combo just
- * means adding each constituent item individually at full price (per spec).
+ * Both combo types are ordered the same way — via a synthetic
+ * `combo:<comboId>:<payload>` line id (see priceResolver.ts). Curated combos
+ * (e.g. "Chocolate Duo") have fixed constituent items (`itemIds`, always
+ * exactly two shakes); "choose N" combos (e.g. "pick any 2 shakes") let the
+ * customer pick which items from `eligibleItemIds` fill the `chooseCount`
+ * slots — encoded in the line id's payload as `itemId1+itemId2`.
  *
- * "Choose N" combos (e.g. "pick any 2 for ₹379") DO participate directly in the
- * order flow via a synthetic `combo:<comboId>:<discriminator>` line id — see
- * apps/api/src/modules/pricing/priceResolver.ts.
+ * No stored price on either type — every combo is priced live as 15% off the
+ * sum of its constituent items' current base prices (@tbc/pricing's
+ * computeComboPrice), so it can never drift out of sync with menu prices.
  */
 const ComboSchema = new Schema(
   {
@@ -15,7 +18,6 @@ const ComboSchema = new Schema(
     type: { type: String, enum: ["curated", "choose-n"], required: true },
     name: { type: String, required: true },
     description: { type: String, required: true },
-    price: { type: Number, required: true, min: 0 },
     image: { type: String },
     // curated only
     itemIds: { type: [String], default: undefined },

@@ -1,6 +1,7 @@
-import { DELIVERY_FEE, FREE_DELIVERY_THRESHOLD, TAX_PCT, WEBSITE_DISCOUNT_PCT } from "./constants.js";
-import { loyaltyPercent } from "./loyalty.js";
-import { computePunchCardDiscount } from "./punchCard.js";
+import { DELIVERY_FEE, FREE_DELIVERY_RADIUS_KM, FREE_DELIVERY_THRESHOLD, PREMIUM_DISCOUNT_PCT, TAX_PCT } from "./constants.js";
+import { computeMilestoneReward } from "./milestoneReward.js";
+import { resolveIsPremiumMember } from "./premium.js";
+import { quantityDiscountPercent } from "./quantityDiscount.js";
 import { round } from "./rounding.js";
 import type { PricingInput, PricingResult } from "./types.js";
 
@@ -10,36 +11,47 @@ function lineTotal(line: PricingInput["lines"][number]): number {
 }
 
 /**
- * Pure pricing engine — no I/O, no DB lookups. Callers (API order-creation and the
- * mobile cart-preview) must resolve real unitPrice/addOnPrices themselves before
- * calling this, so both sides share identical math and can never drift apart.
+ * Pure pricing engine — no I/O, no DB lookups. Callers (API order-creation and
+ * the mobile cart-preview) must resolve real unitPrice/addOnPrices/category
+ * themselves before calling this, so both sides share identical math and can
+ * never drift apart.
  */
 export function computePricing(input: PricingInput): PricingResult {
-  const subtotal = input.lines.reduce((sum, line) => sum + lineTotal(line), 0);
+  const comboLines = input.lines.filter((line) => line.isCombo);
+  const nonComboLines = input.lines.filter((line) => !line.isCombo);
 
-  const punchCardDiscount = computePunchCardDiscount(input.lines, input.isLoggedIn, input.punchCard);
+  const comboSubtotal = comboLines.reduce((sum, line) => sum + lineTotal(line), 0);
+  const nonComboSubtotal = nonComboLines.reduce((sum, line) => sum + lineTotal(line), 0);
+  const subtotal = comboSubtotal + nonComboSubtotal;
 
-  const websiteDiscountAmount = round(subtotal * WEBSITE_DISCOUNT_PCT);
-  const loyaltyDiscountAmount = round(subtotal * loyaltyPercent(input.tier));
+  const nonComboQuantity = nonComboLines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // Website discount and loyalty discount are mutually exclusive — customer gets
-  // whichever is larger, never both stacked. Punch-card discount stacks on top of
-  // this (different layer: single item vs. whole subtotal) — intentional.
-  const bestPercentDiscount = Math.max(websiteDiscountAmount, loyaltyDiscountAmount);
+  // Combo lines already carry their own bundled price and are deliberately
+  // excluded from this discount — applying it on top would double-discount
+  // an already-discounted bundle.
+  const isPremiumMember = input.isLoggedIn && resolveIsPremiumMember(input.loyalty);
+  const discountReason = isPremiumMember ? "premium" : quantityDiscountPercent(nonComboQuantity) > 0 ? "quantity-tier" : "none";
+  const discountPercent = isPremiumMember ? PREMIUM_DISCOUNT_PCT : quantityDiscountPercent(nonComboQuantity);
+  const discountAmount = round(nonComboSubtotal * discountPercent);
 
-  const deliveryFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const milestoneReward = computeMilestoneReward(input.lines, input.isLoggedIn, input.loyalty.completedOrderCount);
 
-  const taxableAmount = subtotal - bestPercentDiscount - punchCardDiscount;
+  const isWithinFreeDeliveryRadius =
+    isPremiumMember && input.distanceFromShopKm != null && input.distanceFromShopKm <= FREE_DELIVERY_RADIUS_KM;
+  const deliveryFee = isWithinFreeDeliveryRadius || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+
+  const taxableAmount = subtotal - discountAmount - milestoneReward.amount;
   const tax = round(taxableAmount * TAX_PCT);
 
   const total = taxableAmount + tax + deliveryFee;
 
   return {
     subtotal,
-    punchCardDiscount,
-    websiteDiscountAmount,
-    loyaltyDiscountAmount,
-    bestPercentDiscount,
+    isPremiumMember,
+    discountAmount,
+    discountReason,
+    rewardAmount: milestoneReward.amount,
+    rewardReason: milestoneReward.reason,
     deliveryFee,
     tax,
     total,

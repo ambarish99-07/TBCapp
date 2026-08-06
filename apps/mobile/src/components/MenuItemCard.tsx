@@ -1,3 +1,4 @@
+import { round } from "@tbc/pricing";
 import type { MenuItem } from "@tbc/shared-types";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../constants/theme";
@@ -9,11 +10,18 @@ interface Props {
 }
 
 export function MenuItemCard({ item, onPress }: Props) {
+  const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.imageWrap}>
         <Image source={{ uri: item.image }} style={styles.image} />
         <PlaceholderBadge />
+        {item.salePercent && (
+          <View style={styles.saleCorner}>
+            <Text style={styles.saleCornerText}>{item.salePercent}% OFF</Text>
+          </View>
+        )}
       </View>
       <View style={styles.body}>
         <Text style={styles.name}>{item.signatureName}</Text>
@@ -23,7 +31,14 @@ export function MenuItemCard({ item, onPress }: Props) {
           {item.isPopular && <Text style={styles.badge}>Trending</Text>}
           {item.isNew && <Text style={styles.badge}>New</Text>}
         </View>
-        <Text style={styles.price}>₹{item.price}</Text>
+        {item.salePercent ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+            <Text style={styles.price}>₹{effectivePrice}</Text>
+          </View>
+        ) : (
+          <Text style={styles.price}>₹{item.price}</Text>
+        )}
       </View>
     </Pressable>
   );
@@ -54,4 +69,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   price: { marginTop: 6, fontSize: 14, fontWeight: "700", color: theme.colors.primary },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  priceStrikethrough: { fontSize: 12, color: theme.colors.muted, textDecorationLine: "line-through" },
+  saleCorner: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: theme.colors.danger,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  saleCornerText: { color: "#fff", fontSize: 9, fontWeight: "700" },
 });

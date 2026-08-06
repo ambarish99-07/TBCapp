@@ -27,28 +27,42 @@ export const MenuItemSchema = z.object({
   isStaffPick: z.boolean().optional(),
   /** Other menu item ids this pairs well with — powers "frequently bought together" and recommendations. */
   pairsWith: z.array(z.string()).optional(),
+  /** When set, this item's real charged price is `price * (1 - salePercent/100)` — `price` stays the shown strikethrough price. Only a few items should carry this, not the whole menu. */
+  salePercent: z.number().min(1).max(99).optional(),
 });
 export type MenuItem = z.infer<typeof MenuItemSchema>;
 
-/** Fixed/curated combo (e.g. "Chocolate Duo") — priced as a bundle of specific constituent items. */
+/**
+ * Fixed/curated combo (e.g. "Chocolate Duo", always exactly two shakes). No
+ * stored price — always computed live as 15% off the sum of the constituent
+ * items' current base prices (see @tbc/pricing's computeComboPrice), so it can
+ * never drift out of sync if an item's price changes later.
+ */
 export const CuratedComboSchema = z.object({
+  type: z.literal("curated"),
   id: z.string(),
   name: z.string(),
   description: z.string(),
   itemIds: z.array(z.string()).min(2),
-  price: z.number().positive(),
   image: z.string().optional(),
 });
 export type CuratedCombo = z.infer<typeof CuratedComboSchema>;
 
-/** "Choose N" combo (e.g. "pick any 2 for ₹379") — flat bundle price, no add-ons allowed. */
+/**
+ * "Choose N" combo (e.g. "pick any 2 shakes") — the customer picks which
+ * eligible items fill the slots; price is likewise always computed live as
+ * 15% off the sum of whichever items they picked, not a flat advertised price.
+ */
 export const ChooseNComboSchema = z.object({
+  type: z.literal("choose-n"),
   id: z.string(),
   name: z.string(),
   description: z.string(),
   chooseCount: z.number().int().positive(),
   eligibleItemIds: z.array(z.string()).min(2),
-  price: z.number().positive(),
   image: z.string().optional(),
 });
 export type ChooseNCombo = z.infer<typeof ChooseNComboSchema>;
+
+export const ComboSchema = z.discriminatedUnion("type", [CuratedComboSchema, ChooseNComboSchema]);
+export type Combo = z.infer<typeof ComboSchema>;

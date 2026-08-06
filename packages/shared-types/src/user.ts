@@ -3,16 +3,16 @@ import { z } from "zod";
 export const UserRoleSchema = z.enum(["customer", "admin"]);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
+/**
+ * completedOrderCount alone drives quantity-tier discount milestones (6th/10th
+ * order cycles) and premium-membership unlocking (15+ orders) — see @tbc/pricing.
+ * isPremiumMemberOverride lets an admin manually grant premium regardless of count.
+ */
 export const LoyaltyStateSchema = z.object({
   completedOrderCount: z.number().int().nonnegative(),
-  isGoldMember: z.boolean(),
+  isPremiumMemberOverride: z.boolean(),
 });
 export type LoyaltyState = z.infer<typeof LoyaltyStateSchema>;
-
-export const PunchCardStateSchema = z.object({
-  ordersSinceReward: z.number().int().nonnegative(),
-});
-export type PunchCardState = z.infer<typeof PunchCardStateSchema>;
 
 /** Public-facing user shape — never includes passwordHash. */
 export const UserSchema = z.object({
@@ -22,7 +22,6 @@ export const UserSchema = z.object({
   phone: z.string(),
   role: UserRoleSchema,
   loyalty: LoyaltyStateSchema,
-  punchCard: PunchCardStateSchema,
 });
 export type User = z.infer<typeof UserSchema>;
 

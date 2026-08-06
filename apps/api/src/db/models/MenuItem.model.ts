@@ -16,6 +16,8 @@ const MenuItemSchema = new Schema(
     isNew: { type: Boolean, default: false },
     isStaffPick: { type: Boolean, default: false },
     pairsWith: { type: [String], default: [] },
+    /** When set, the charged price is price * (1 - salePercent/100); `price` stays the shown strikethrough value. Only a few items should carry this. */
+    salePercent: { type: Number, min: 1, max: 99 },
   },
   // `isNew` is a name Mongoose documents also use internally (tracks whether a
   // doc has been saved yet) — harmless to shadow here since we only ever read it

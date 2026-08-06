@@ -1,6 +1,8 @@
+export { computeComboPrice } from "./comboPricing.js";
 export { computePricing } from "./computePricing.js";
-export { computePunchCardDiscount } from "./punchCard.js";
-export { loyaltyPercent, resolveTier } from "./loyalty.js";
+export { computeMilestoneReward } from "./milestoneReward.js";
+export { resolveIsPremiumMember } from "./premium.js";
+export { quantityDiscountPercent } from "./quantityDiscount.js";
 export { scorePairings, getRecommendations } from "./recommendation.js";
 export { round } from "./rounding.js";
 export * from "./constants.js";

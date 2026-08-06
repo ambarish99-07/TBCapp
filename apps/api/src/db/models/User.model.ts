@@ -2,15 +2,10 @@ import { Schema, model, type InferSchemaType } from "mongoose";
 
 const LoyaltyStateSchema = new Schema(
   {
+    // Drives quantity-tier/premium/milestone-reward logic in @tbc/pricing — see resolveIsPremiumMember.
     completedOrderCount: { type: Number, required: true, default: 0 },
-    isGoldMember: { type: Boolean, required: true, default: false },
-  },
-  { _id: false }
-);
-
-const PunchCardStateSchema = new Schema(
-  {
-    ordersSinceReward: { type: Number, required: true, default: 0 },
+    // Admin-settable override to manually grant premium regardless of completedOrderCount.
+    isPremiumMemberOverride: { type: Boolean, required: true, default: false },
   },
   { _id: false }
 );
@@ -23,7 +18,6 @@ const UserSchema = new Schema(
     phone: { type: String, required: true },
     role: { type: String, enum: ["customer", "admin"], required: true, default: "customer" },
     loyalty: { type: LoyaltyStateSchema, required: true, default: () => ({}) },
-    punchCard: { type: PunchCardStateSchema, required: true, default: () => ({}) },
   },
   { timestamps: true }
 );

@@ -1,4 +1,4 @@
-import { computePricing, resolveTier, type LoyaltyTier } from "@tbc/pricing";
+import { computePricing } from "@tbc/pricing";
 import type { CreateOrderRequest } from "@tbc/shared-types";
 import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
@@ -6,7 +6,7 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
 import { generateAccessToken } from "./accessToken.js";
-import { advanceLoyaltyAndPunchCard } from "./loyaltyAdvance.js";
+import { advanceLoyaltyOrderCount } from "./loyaltyAdvance.js";
 import { generateOrderNumber } from "./orderNumber.js";
 
 export class OrderValidationError extends Error {}
@@ -14,21 +14,20 @@ export class OrderValidationError extends Error {}
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
   const { resolvedLines, pricingLines } = await resolveCartLines(request.items);
 
-  let tier: LoyaltyTier = null;
-  let punchCard = { ordersSinceReward: 0 };
+  const loyalty = { completedOrderCount: 0, isPremiumMemberOverride: false };
 
   if (userId) {
     const user = await UserModel.findById(userId);
     if (!user) throw new OrderValidationError("User not found");
-    tier = resolveTier(user.loyalty.completedOrderCount, user.loyalty.isGoldMember);
-    punchCard = { ordersSinceReward: user.punchCard.ordersSinceReward };
+    loyalty.completedOrderCount = user.loyalty.completedOrderCount;
+    loyalty.isPremiumMemberOverride = user.loyalty.isPremiumMemberOverride;
   }
 
   const pricingResult = computePricing({
     lines: pricingLines,
     isLoggedIn: userId !== null,
-    tier,
-    punchCard,
+    loyalty,
+    distanceFromShopKm: request.delivery.distanceFromShopKm ?? null,
   });
 
   const order = await OrderModel.create({
@@ -39,14 +38,15 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     delivery: request.delivery,
     totals: {
       subtotal: pricingResult.subtotal,
-      punchCardDiscount: pricingResult.punchCardDiscount,
-      websiteDiscount: pricingResult.websiteDiscountAmount,
-      loyaltyDiscount: pricingResult.loyaltyDiscountAmount,
+      discountAmount: pricingResult.discountAmount,
+      discountReason: pricingResult.discountReason,
+      rewardAmount: pricingResult.rewardAmount,
+      rewardReason: pricingResult.rewardReason,
       deliveryFee: pricingResult.deliveryFee,
       tax: pricingResult.tax,
       total: pricingResult.total,
     },
-    loyaltyTierAtOrder: tier,
+    isPremiumMemberAtOrder: pricingResult.isPremiumMember,
     estimatedMinutes: 35,
     status: "received",
     statusHistory: [{ status: "received", at: new Date() }],
@@ -56,8 +56,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   if (request.paymentMethod === "cod") {
     // COD orders are trusted at face value — genuinely "complete" immediately.
     if (userId) {
-      const punchCardRewardUsed = pricingResult.punchCardDiscount > 0;
-      await advanceLoyaltyAndPunchCard(userId, { punchCardRewardUsed });
+      await advanceLoyaltyOrderCount(userId);
     }
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,

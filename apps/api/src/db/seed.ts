@@ -46,6 +46,41 @@ const PLACEHOLDER_MENU_ITEMS = [
     flavorBadges: ["Fruity"],
     isNew: true,
     pairsWith: ["oreo-blast"],
+    // One of only a few items on sale — not the whole menu.
+    salePercent: 30,
+  },
+  {
+    _id: "strawberry-swirl",
+    signatureName: "Strawberry Swirl",
+    commonName: "Strawberry Shake",
+    description: "[PLACEHOLDER] A sweet, swirled strawberry shake.",
+    price: 210,
+    category: "signature-shakes",
+    image: "https://images.unsplash.com/photo-1553530666-ba11a7da3888",
+    flavorBadges: ["Fruity"],
+    pairsWith: ["mango-tango"],
+  },
+  {
+    _id: "banana-nutty",
+    signatureName: "Banana Nutty",
+    commonName: "Banana Nut Shake",
+    description: "[PLACEHOLDER] A creamy banana shake with a nutty finish.",
+    price: 230,
+    category: "signature-shakes",
+    image: "https://images.unsplash.com/photo-1615478503562-ec2d8aa0e24e",
+    flavorBadges: ["Nutty"],
+    pairsWith: ["caramel-crunch"],
+  },
+  {
+    _id: "caramel-crunch",
+    signatureName: "Caramel Crunch",
+    commonName: "Caramel Shake",
+    description: "[PLACEHOLDER] A rich caramel shake with a crunchy topping.",
+    price: 225,
+    category: "signature-shakes",
+    image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699",
+    flavorBadges: ["Nutty", "Classic"],
+    pairsWith: ["banana-nutty"],
   },
   {
     _id: "cold-brew-classic",
@@ -58,31 +93,77 @@ const PLACEHOLDER_MENU_ITEMS = [
     flavorBadges: ["Coffee Favorite", "Classic"],
     isPopular: true,
   },
+  {
+    _id: "mocha-frost",
+    signatureName: "Mocha Frost",
+    commonName: "Mocha Cold Coffee",
+    description: "[PLACEHOLDER] A frosty mocha cold coffee.",
+    price: 210,
+    category: "cold-coffee",
+    image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c",
+    flavorBadges: ["Coffee Favorite", "Chocolate Lover"],
+    // One of only a few items on sale — not the whole menu.
+    salePercent: 30,
+  },
 ];
 
+const SHAKE_IDS = PLACEHOLDER_MENU_ITEMS.filter((item) => item.category === "signature-shakes").map(
+  (item) => item._id
+);
+
+/** All curated combos are exactly two shakes — price is always computed live as 15% off the pair's base prices, never stored here. */
 const PLACEHOLDER_COMBOS = [
   {
     _id: "chocolate-duo",
     type: "curated",
     name: "[PLACEHOLDER] Chocolate Duo",
     description: "Choco Crush + Oreo Blast together.",
-    price: 420,
     itemIds: ["choco-crush", "oreo-blast"],
   },
   {
-    _id: "choose-2-for-379",
+    _id: "tropical-twin",
+    type: "curated",
+    name: "[PLACEHOLDER] Tropical Twin",
+    description: "Mango Tango + Strawberry Swirl together.",
+    itemIds: ["mango-tango", "strawberry-swirl"],
+  },
+  {
+    _id: "nutty-delight",
+    type: "curated",
+    name: "[PLACEHOLDER] Nutty Delight",
+    description: "Banana Nutty + Caramel Crunch together.",
+    itemIds: ["banana-nutty", "caramel-crunch"],
+  },
+  {
+    _id: "classic-combo",
+    type: "curated",
+    name: "[PLACEHOLDER] Classic Combo",
+    description: "Choco Crush + Caramel Crunch together.",
+    itemIds: ["choco-crush", "caramel-crunch"],
+  },
+  {
+    _id: "fruity-fusion",
+    type: "curated",
+    name: "[PLACEHOLDER] Fruity Fusion",
+    description: "Mango Tango + Oreo Blast together.",
+    itemIds: ["mango-tango", "oreo-blast"],
+  },
+  {
+    _id: "choose-your-own-2",
     type: "choose-n",
-    name: "[PLACEHOLDER] Pick Any 2 for ₹379",
-    description: "Choose any 2 eligible shakes for a flat bundle price.",
-    price: 379,
+    name: "[PLACEHOLDER] Choose Your Own Duo",
+    description: "Pick any 2 signature shakes — priced at 15% off their combined price.",
     chooseCount: 2,
-    eligibleItemIds: ["choco-crush", "oreo-blast", "mango-tango", "cold-brew-classic"],
+    eligibleItemIds: SHAKE_IDS,
   },
 ];
 
 async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
+
+  await MenuItemModel.deleteMany({});
+  await ComboModel.deleteMany({});
 
   for (const item of PLACEHOLDER_MENU_ITEMS) {
     await MenuItemModel.findByIdAndUpdate(item._id, item, { upsert: true });

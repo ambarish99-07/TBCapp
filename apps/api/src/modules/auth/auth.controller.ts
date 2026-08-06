@@ -11,8 +11,7 @@ function toPublicUser(doc: {
   fullName: string;
   phone: string;
   role: "customer" | "admin";
-  loyalty: { completedOrderCount: number; isGoldMember: boolean };
-  punchCard: { ordersSinceReward: number };
+  loyalty: { completedOrderCount: number; isPremiumMemberOverride: boolean };
 }): User {
   return {
     id: String(doc._id),
@@ -21,7 +20,6 @@ function toPublicUser(doc: {
     phone: doc.phone,
     role: doc.role,
     loyalty: doc.loyalty,
-    punchCard: doc.punchCard,
   };
 }
 

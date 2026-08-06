@@ -1,5 +1,10 @@
 import cors from "cors";
 import express, { type Express } from "express";
+// Patches Express's router so a rejected promise inside an async handler is
+// forwarded to the error middleware via next(err) — without this, Express 4
+// silently drops the error and the request just hangs until the client times
+// out (this is exactly what an uncaught Mongoose validation error did before).
+import "express-async-errors";
 import { securityHeaders } from "./config/security.js";
 import type { Env } from "./config/env.js";
 import { createAdminRouter } from "./modules/admin/admin.routes.js";

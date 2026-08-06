@@ -1,31 +1,47 @@
-export type LoyaltyTier = "first-order" | "returning" | "gold" | null;
+export type DrinkCategory = "signature-shakes" | "cold-coffee";
 
 export interface CartLineInput {
-  /** Server-resolved unit price. Callers must never pass a client-submitted value here. */
+  /** Server-resolved unit price (post item-level sale price, if any). Callers must never pass a client-submitted value here. */
   unitPrice: number;
   addOnPrices: number[];
   quantity: number;
-  /** True for synthetic "choose N" combo lines — these never qualify for the punch-card discount. */
+  /** True for synthetic "choose N" combo lines — these never qualify for the quantity-tier discount or milestone rewards, and keep their own flat bundle price. */
   isCombo: boolean;
+  /** Required for non-combo lines — drives the 6th-order (cold coffee) and 10th-order (any drink) milestone rewards. Combo lines may omit it. */
+  category?: DrinkCategory;
 }
 
-export interface PunchCardState {
-  ordersSinceReward: number;
+export interface LoyaltyState {
+  /** Total completed orders before this one. Order-count-derived milestones and premium status are computed from this. */
+  completedOrderCount: number;
+  /** Admin-settable override — grants premium status regardless of completedOrderCount. */
+  isPremiumMemberOverride: boolean;
 }
 
 export interface PricingInput {
   lines: CartLineInput[];
   isLoggedIn: boolean;
-  tier: LoyaltyTier;
-  punchCard: PunchCardState;
+  loyalty: LoyaltyState;
+  /**
+   * Customer-entered distance from the shop, in km — a placeholder for real
+   * geolocation (see project memory). Only affects delivery fee for premium
+   * members; null/undefined means "unknown", never treated as in-range.
+   */
+  distanceFromShopKm?: number | null;
 }
+
+export type DiscountReason = "none" | "quantity-tier" | "premium";
 
 export interface PricingResult {
   subtotal: number;
-  punchCardDiscount: number;
-  websiteDiscountAmount: number;
-  loyaltyDiscountAmount: number;
-  bestPercentDiscount: number;
+  /** Whether this order is being priced as a premium member (15+ completed orders, or admin override). */
+  isPremiumMember: boolean;
+  /** The 0/10/15/20% (quantity tier) or 25% (premium) discount amount, applied to the non-combo subtotal only. */
+  discountAmount: number;
+  discountReason: DiscountReason;
+  /** The 6th/16th/26th... (50% off a cold coffee) or 10th/20th/30th... (one drink free) milestone reward amount, if this order qualifies. */
+  rewardAmount: number;
+  rewardReason: "none" | "sixth-order-cold-coffee" | "tenth-order-free-drink";
   deliveryFee: number;
   tax: number;
   total: number;

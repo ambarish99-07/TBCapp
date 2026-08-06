@@ -1,17 +1,18 @@
-import { resolveTier } from "@tbc/pricing";
 import { useAuthStore } from "./authStore";
 
-/** Derives the {isLoggedIn, tier, ordersSinceReward} shape cartStore.computeTotals expects. */
+/** Derives the {isLoggedIn, loyalty} shape cartStore.computeTotals expects. */
 export function useAuthContext() {
   const user = useAuthStore((state) => state.user);
 
   if (!user) {
-    return { isLoggedIn: false, tier: null, ordersSinceReward: 0 };
+    return { isLoggedIn: false, loyalty: { completedOrderCount: 0, isPremiumMemberOverride: false } };
   }
 
   return {
     isLoggedIn: true,
-    tier: resolveTier(user.loyalty.completedOrderCount, user.loyalty.isGoldMember),
-    ordersSinceReward: user.punchCard.ordersSinceReward,
+    loyalty: {
+      completedOrderCount: user.loyalty.completedOrderCount,
+      isPremiumMemberOverride: user.loyalty.isPremiumMemberOverride,
+    },
   };
 }

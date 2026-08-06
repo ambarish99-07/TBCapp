@@ -1,4 +1,4 @@
-import type { CuratedCombo, ChooseNCombo, MenuItem } from "@tbc/shared-types";
+import type { Combo, MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "./client";
 
@@ -16,7 +16,7 @@ export function useCombos() {
   return useQuery({
     queryKey: ["combos"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ combos: (CuratedCombo | ChooseNCombo)[] }>("/menu/combos");
+      const { data } = await apiClient.get<{ combos: Combo[] }>("/menu/combos");
       return data.combos;
     },
   });

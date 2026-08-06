@@ -62,10 +62,10 @@ describe("POST /orders — never trusts a client-submitted price", () => {
       });
 
     expect(response.status).toBe(201);
-    // 220 subtotal, guest -> 10% website discount = 22, deliveryFee 39 (below 499),
-    // taxableAmount 198, tax round(198*0.05)=10, total = 198+10+39 = 247.
+    // 220 subtotal, single item -> 0% quantity-tier discount, deliveryFee 39 (below 499),
+    // taxableAmount 220, tax round(220*0.05)=11, total = 220+11+39 = 270.
     expect(response.body.order.totals.subtotal).toBe(220);
-    expect(response.body.order.totals.total).toBe(247);
+    expect(response.body.order.totals.total).toBe(270);
     expect(response.body.order.items[0].unitPrice).toBe(220);
   });
 
