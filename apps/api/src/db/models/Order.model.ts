@@ -103,7 +103,17 @@ const OrderSchema = new Schema(
     statusHistory: { type: [StatusHistoryEntrySchema], default: [] },
     payment: { type: PaymentInfoSchema, required: true },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform(_doc, ret: Record<string, unknown>) {
+        ret.id = String(ret._id);
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
 );
 
 // accessToken and orderNumber already get unique indexes from `unique: true` above.

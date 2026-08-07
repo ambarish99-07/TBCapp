@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { StyleSheet, Text, View } from "react-native";
-import { fetchOrderById } from "../../api/orders.api";
+import { fetchOrderByAccessToken } from "../../api/orders.api";
 import { StatusTimeline } from "../../components/StatusTimeline";
 import { theme } from "../../constants/theme";
 import type { RootStackParamList } from "../../navigation/types";
@@ -9,11 +9,23 @@ import type { RootStackParamList } from "../../navigation/types";
 type Props = NativeStackScreenProps<RootStackParamList, "OrderStatus">;
 
 export function OrderStatusScreen({ route }: Props) {
-  const { data: order, isLoading } = useQuery({
-    queryKey: ["order", route.params.orderId],
-    queryFn: () => fetchOrderById(route.params.orderId),
+  const {
+    data: order,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["order", route.params.accessToken],
+    queryFn: () => fetchOrderByAccessToken(route.params.accessToken),
     refetchInterval: 15000,
   });
+
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <Text style={styles.errorText}>Couldn't load this order. Check your connection and try again.</Text>
+      </View>
+    );
+  }
 
   if (isLoading || !order) {
     return (
@@ -54,4 +66,5 @@ const styles = StyleSheet.create({
   summary: { marginTop: theme.spacing(3), backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
   summaryTitle: { fontSize: 12, color: theme.colors.muted, marginTop: 8 },
   summaryText: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
+  errorText: { color: theme.colors.danger, textAlign: "center", marginTop: theme.spacing(4) },
 });

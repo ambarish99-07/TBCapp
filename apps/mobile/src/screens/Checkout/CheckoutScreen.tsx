@@ -88,7 +88,7 @@ export function CheckoutScreen({ navigation }: Props) {
       }
 
       clearCart();
-      navigation.replace("OrderStatus", { orderId: order.id });
+      navigation.replace("OrderStatus", { accessToken: order.accessToken });
     } catch (err) {
       Alert.alert("Couldn't place order", err instanceof Error ? err.message : "Please try again.");
     } finally {

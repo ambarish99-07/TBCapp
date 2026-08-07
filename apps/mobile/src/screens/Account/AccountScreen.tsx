@@ -50,7 +50,7 @@ export function AccountScreen({ navigation }: Props) {
         data={orders ?? []}
         keyExtractor={(order) => order.id}
         renderItem={({ item: order }) => (
-          <Pressable style={styles.orderRow} onPress={() => navigation.navigate("OrderStatus", { orderId: order.id })}>
+          <Pressable style={styles.orderRow} onPress={() => navigation.navigate("OrderStatus", { accessToken: order.accessToken })}>
             <Text style={styles.orderNumber}>{order.orderNumber}</Text>
             <Text style={styles.orderMeta}>
               {order.status} · ₹{order.totals.total}

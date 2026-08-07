@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider, useAdminAuth } from "./auth/AdminAuthContext.js";
+import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
+import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
@@ -11,28 +13,40 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Polls for new orders and shows the SOS-style alert banner for as long as an admin is logged in, on every page. */
+function NewOrderAlerts() {
+  const { user } = useAdminAuth();
+  const { newOrders, dismiss, dismissAll } = useNewOrderAlerts(!!user);
+
+  if (!user) return null;
+  return <NewOrderAlertBanner newOrders={newOrders} onDismiss={dismiss} onDismissAll={dismissAll} />;
+}
+
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/orders"
-        element={
-          <RequireAdmin>
-            <OrdersPage />
-          </RequireAdmin>
-        }
-      />
-      <Route
-        path="/orders/:id"
-        element={
-          <RequireAdmin>
-            <OrderDetailPage />
-          </RequireAdmin>
-        }
-      />
-      <Route path="*" element={<Navigate to="/orders" replace />} />
-    </Routes>
+    <>
+      <NewOrderAlerts />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/orders"
+          element={
+            <RequireAdmin>
+              <OrdersPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/orders/:id"
+          element={
+            <RequireAdmin>
+              <OrderDetailPage />
+            </RequireAdmin>
+          }
+        />
+        <Route path="*" element={<Navigate to="/orders" replace />} />
+      </Routes>
+    </>
   );
 }
 
