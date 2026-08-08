@@ -7,6 +7,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "image": "./assets/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7EFE1"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.blendersclub.app"
