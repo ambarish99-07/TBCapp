@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
+    "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
@@ -17,7 +18,14 @@
       "bundleIdentifier": "com.blendersclub.app"
     },
     "android": {
-      "package": "com.blendersclub.app"
+      "package": "com.blendersclub.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon-foreground.png",
+        "backgroundColor": "#050403"
+      }
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
     },
     "extra": {
       "apiBaseUrl": "http://localhost:4000"
