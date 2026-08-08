@@ -13,26 +13,69 @@ export function primeAlertSound(): void {
   }
 }
 
-/** Three sharp beeps — deliberately attention-grabbing, not a soft chime, since this means "start preparing an order now." */
+const ALARM_FREQUENCY_HZ = 1600;
+const ALARM_PEAK_GAIN = 0.45;
+const DOT_SECONDS = 0.12;
+const DASH_SECONDS = 0.36;
+const ELEMENT_GAP_SECONDS = 0.12;
+const LETTER_GAP_SECONDS = 0.3;
+
+/**
+ * High-pitched Morse "SOS" (···  −−−  ···) — deliberately loud and piercing
+ * so it's audible from across a kitchen, not a soft chime. A short (~5ms)
+ * gain ramp on each tone avoids the click/pop a square wave makes when it
+ * starts/stops mid-cycle, without softening the alarm quality.
+ */
+function beepAt(ctx: AudioContext, startOffsetSeconds: number, durationSeconds: number): void {
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = "square";
+  oscillator.frequency.value = ALARM_FREQUENCY_HZ;
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+
+  const startTime = ctx.currentTime + startOffsetSeconds;
+  const endTime = startTime + durationSeconds;
+  const rampSeconds = 0.005;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(ALARM_PEAK_GAIN, startTime + rampSeconds);
+  gain.gain.setValueAtTime(ALARM_PEAK_GAIN, endTime - rampSeconds);
+  gain.gain.linearRampToValueAtTime(0, endTime);
+
+  oscillator.start(startTime);
+  oscillator.stop(endTime);
+}
+
 export function playAlertSound(): void {
   const ctx = audioContext ?? new AudioContext();
   audioContext = ctx;
 
-  const beepAt = (startOffsetSeconds: number) => {
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = "square";
-    oscillator.frequency.value = 880;
-    gain.gain.value = 0.15;
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
+  function sosPatternAt(patternStart: number): number {
+    let t = patternStart;
+    const dot = () => {
+      beepAt(ctx, t, DOT_SECONDS);
+      t += DOT_SECONDS + ELEMENT_GAP_SECONDS;
+    };
+    const dash = () => {
+      beepAt(ctx, t, DASH_SECONDS);
+      t += DASH_SECONDS + ELEMENT_GAP_SECONDS;
+    };
 
-    const startTime = ctx.currentTime + startOffsetSeconds;
-    oscillator.start(startTime);
-    oscillator.stop(startTime + 0.18);
-  };
+    dot();
+    dot();
+    dot();
+    t += LETTER_GAP_SECONDS - ELEMENT_GAP_SECONDS;
+    dash();
+    dash();
+    dash();
+    t += LETTER_GAP_SECONDS - ELEMENT_GAP_SECONDS;
+    dot();
+    dot();
+    dot();
 
-  beepAt(0);
-  beepAt(0.28);
-  beepAt(0.56);
+    return t;
+  }
+
+  const patternEnd = sosPatternAt(0);
+  sosPatternAt(patternEnd + LETTER_GAP_SECONDS);
 }
