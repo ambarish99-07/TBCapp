@@ -56,7 +56,7 @@ export function MenuScreen({ navigation }: Props) {
       </View>
 
       <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
-        <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-shake bundles</Text>
+        <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-item bundles</Text>
       </Pressable>
 
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}

@@ -2,7 +2,6 @@ import { round } from "@tbc/pricing";
 import type { MenuItem } from "@tbc/shared-types";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../constants/theme";
-import { PlaceholderBadge } from "./PlaceholderBadge";
 
 interface Props {
   item: MenuItem;
@@ -16,7 +15,6 @@ export function MenuItemCard({ item, onPress }: Props) {
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.imageWrap}>
         <Image source={{ uri: item.image }} style={styles.image} />
-        <PlaceholderBadge />
         {item.salePercent && (
           <View style={styles.saleCorner}>
             <Text style={styles.saleCornerText}>{item.salePercent}% OFF</Text>

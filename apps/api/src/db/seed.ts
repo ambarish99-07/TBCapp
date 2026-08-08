@@ -4,159 +4,236 @@ import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
 
-/**
- * DEV-ONLY placeholder seed data — NOT the real menu. Photos are Unsplash stock
- * URLs and copy is illustrative, standing in until the actual current menu
- * (real items, real photography, real prices) is supplied. Do not treat this as
- * production content; see project spec §8.
- */
-const PLACEHOLDER_MENU_ITEMS = [
-  {
-    _id: "choco-crush",
-    signatureName: "Choco Crush",
-    commonName: "Rich Chocolate Shake",
-    description: "[PLACEHOLDER] A rich, indulgent chocolate shake.",
-    price: 220,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1541658016709-82535e94bc69",
-    flavorBadges: ["Chocolate Lover"],
-    isPopular: true,
-    isStaffPick: true,
-    pairsWith: ["oreo-blast"],
-  },
-  {
-    _id: "oreo-blast",
-    signatureName: "Oreo Blast",
-    commonName: "Cookies & Cream Shake",
-    description: "[PLACEHOLDER] A creamy cookies-and-cream shake.",
-    price: 240,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699",
-    flavorBadges: ["Chocolate Lover"],
-    pairsWith: ["choco-crush"],
-  },
-  {
-    _id: "mango-tango",
-    signatureName: "Mango Tango",
-    commonName: "Mango Shake",
-    description: "[PLACEHOLDER] A fresh, fruity mango shake.",
-    price: 200,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1546173159-315724a31696",
-    flavorBadges: ["Fruity"],
-    isNew: true,
-    pairsWith: ["oreo-blast"],
-    // One of only a few items on sale — not the whole menu.
-    salePercent: 30,
-  },
-  {
-    _id: "strawberry-swirl",
-    signatureName: "Strawberry Swirl",
-    commonName: "Strawberry Shake",
-    description: "[PLACEHOLDER] A sweet, swirled strawberry shake.",
-    price: 210,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1553530666-ba11a7da3888",
-    flavorBadges: ["Fruity"],
-    pairsWith: ["mango-tango"],
-  },
-  {
-    _id: "banana-nutty",
-    signatureName: "Banana Nutty",
-    commonName: "Banana Nut Shake",
-    description: "[PLACEHOLDER] A creamy banana shake with a nutty finish.",
-    price: 230,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1615478503562-ec2d8aa0e24e",
-    flavorBadges: ["Nutty"],
-    pairsWith: ["caramel-crunch"],
-  },
-  {
-    _id: "caramel-crunch",
-    signatureName: "Caramel Crunch",
-    commonName: "Caramel Shake",
-    description: "[PLACEHOLDER] A rich caramel shake with a crunchy topping.",
-    price: 225,
-    category: "signature-shakes",
-    image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699",
-    flavorBadges: ["Nutty", "Classic"],
-    pairsWith: ["banana-nutty"],
-  },
-  {
-    _id: "cold-brew-classic",
-    signatureName: "Cold Brew Classic",
-    commonName: "Classic Cold Coffee",
-    description: "[PLACEHOLDER] A classic, smooth cold coffee.",
-    price: 180,
-    category: "cold-coffee",
-    image: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735",
-    flavorBadges: ["Coffee Favorite", "Classic"],
-    isPopular: true,
-  },
-  {
-    _id: "mocha-frost",
-    signatureName: "Mocha Frost",
-    commonName: "Mocha Cold Coffee",
-    description: "[PLACEHOLDER] A frosty mocha cold coffee.",
-    price: 210,
-    category: "cold-coffee",
-    image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c",
-    flavorBadges: ["Coffee Favorite", "Chocolate Lover"],
-    // One of only a few items on sale — not the whole menu.
-    salePercent: 30,
-  },
-];
+/** Real menu photography, served by this API at /menu-images/<slug>.png (see app.ts). */
+function imageUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
+  return `http://localhost:${env.PORT}/menu-images/${slug}.png`;
+}
 
-const SHAKE_IDS = PLACEHOLDER_MENU_ITEMS.filter((item) => item.category === "signature-shakes").map(
-  (item) => item._id
-);
+function buildMenuItems(env: ReturnType<typeof loadEnv>) {
+  return [
+    {
+      _id: "choco-crush",
+      signatureName: "Choco Crush",
+      commonName: "Rich Chocolate Shake",
+      description: "A rich, indulgent chocolate shake topped with cocoa curls and a chocolate wafer stick.",
+      price: 199,
+      category: "signature-shakes",
+      image: imageUrl(env, "choco-crush"),
+      flavorBadges: ["Chocolate Lover"],
+      isPopular: true,
+      isStaffPick: true,
+      pairsWith: ["hazelnut-heaven"],
+    },
+    {
+      _id: "cookie-crush",
+      signatureName: "Cookie Crush",
+      commonName: "Cookies & Cream Shake",
+      description: "A creamy cookies-and-cream shake loaded with chocolate sandwich cookies.",
+      price: 219,
+      category: "signature-shakes",
+      image: imageUrl(env, "cookie-crush"),
+      flavorBadges: ["Chocolate Lover"],
+      pairsWith: ["wafer-wonder"],
+    },
+    {
+      _id: "golden-crunch",
+      signatureName: "Golden Crunch",
+      commonName: "Salted Caramel Praline Shake",
+      description: "A golden caramel shake with a praline crunch and a drizzle of salted caramel.",
+      price: 229,
+      category: "signature-shakes",
+      image: imageUrl(env, "golden-crunch"),
+      flavorBadges: ["Nutty", "Classic"],
+      pairsWith: ["caramel-bliss"],
+    },
+    {
+      _id: "saffron-gold",
+      signatureName: "Saffron Gold",
+      commonName: "Saffron Pistachio Shake",
+      description: "A fragrant saffron shake finished with pistachios and a hint of cardamom.",
+      price: 249,
+      category: "signature-shakes",
+      image: imageUrl(env, "saffron-gold"),
+      flavorBadges: ["Signature", "Nutty"],
+      isStaffPick: true,
+    },
+    {
+      _id: "hazelnut-heaven",
+      signatureName: "Hazelnut Heaven",
+      commonName: "Chocolate Hazelnut Shake",
+      description: "A velvety chocolate-hazelnut shake topped with roasted hazelnuts and chocolate lace.",
+      price: 229,
+      category: "signature-shakes",
+      image: imageUrl(env, "hazelnut-heaven"),
+      flavorBadges: ["Chocolate Lover", "Nutty"],
+      pairsWith: ["choco-crush"],
+    },
+    {
+      _id: "choco-crunch-blast",
+      signatureName: "Choco Crunch Blast",
+      commonName: "Chocolate Cookie Shake",
+      description: "An extra-loaded chocolate shake with cookies, hazelnuts, and a chocolate wafer.",
+      price: 249,
+      category: "signature-shakes",
+      image: imageUrl(env, "choco-crunch-blast"),
+      flavorBadges: ["Chocolate Lover"],
+      isPopular: true,
+    },
+    {
+      _id: "caramel-bliss",
+      signatureName: "Caramel Bliss",
+      commonName: "Salted Caramel Shake",
+      description: "A smooth caramel shake with soft caramel cubes and a spun-sugar garnish.",
+      price: 219,
+      category: "signature-shakes",
+      image: imageUrl(env, "caramel-bliss"),
+      flavorBadges: ["Classic"],
+      pairsWith: ["golden-crunch"],
+    },
+    {
+      _id: "vanilla-dream",
+      signatureName: "Vanilla Dream",
+      commonName: "Classic Vanilla Bean Shake",
+      description: "A classic vanilla bean shake, simple and smooth, finished with real vanilla pods.",
+      price: 179,
+      category: "signature-shakes",
+      image: imageUrl(env, "vanilla-dream"),
+      flavorBadges: ["Classic"],
+      pairsWith: ["berry-bloom"],
+    },
+    {
+      _id: "berry-bloom",
+      signatureName: "Berry Bloom",
+      commonName: "Strawberry Shake",
+      description: "A sweet strawberry shake swirled with fresh strawberries and whipped cream.",
+      price: 229,
+      category: "signature-shakes",
+      image: imageUrl(env, "berry-bloom"),
+      flavorBadges: ["Fruity"],
+      pairsWith: ["vanilla-dream"],
+    },
+    {
+      _id: "mango-magic",
+      signatureName: "Mango Magic",
+      commonName: "Mango Shake",
+      description: "A fresh, fruity mango shake topped with ripe mango slices and toasted coconut.",
+      price: 199,
+      category: "signature-shakes",
+      image: imageUrl(env, "mango-magic"),
+      flavorBadges: ["Fruity"],
+      isNew: true,
+      pairsWith: ["banana-bliss"],
+    },
+    {
+      _id: "banana-bliss",
+      signatureName: "Banana Bliss",
+      commonName: "Banana Shake",
+      description: "A creamy banana shake topped with fresh banana slices and a cookie stick.",
+      price: 179,
+      category: "signature-shakes",
+      image: imageUrl(env, "banana-bliss"),
+      flavorBadges: ["Fruity"],
+      pairsWith: ["mango-magic"],
+    },
+    {
+      _id: "wafer-wonder",
+      signatureName: "Wafer Wonder",
+      commonName: "Chocolate Wafer Shake",
+      description: "A rich chocolate shake topped with whipped cream and chocolate wafer bars.",
+      price: 229,
+      category: "signature-shakes",
+      image: imageUrl(env, "wafer-wonder"),
+      flavorBadges: ["Chocolate Lover"],
+      pairsWith: ["cookie-crush"],
+    },
+    {
+      _id: "coffee-chill",
+      signatureName: "Coffee Chill",
+      commonName: "Classic Iced Coffee",
+      description: "A classic iced coffee over ice with a light layer of cold foam.",
+      price: 189,
+      category: "cold-coffee",
+      image: imageUrl(env, "coffee-chill"),
+      flavorBadges: ["Coffee Favorite", "Classic"],
+      isPopular: true,
+    },
+    {
+      _id: "mocha-magic",
+      signatureName: "Mocha Magic",
+      commonName: "Iced Mocha",
+      description: "A rich iced mocha layered with cream and chocolate drizzle.",
+      price: 209,
+      category: "cold-coffee",
+      image: imageUrl(env, "mocha-magic"),
+      flavorBadges: ["Coffee Favorite", "Chocolate Lover"],
+    },
+    {
+      _id: "caramel-brew",
+      signatureName: "Caramel Brew",
+      commonName: "Iced Caramel Coffee",
+      description: "A smooth iced caramel coffee finished with whipped cream and a caramel drizzle.",
+      price: 209,
+      category: "cold-coffee",
+      image: imageUrl(env, "caramel-brew"),
+      flavorBadges: ["Coffee Favorite"],
+      isStaffPick: true,
+    },
+  ];
+}
 
-/** All curated combos are exactly two shakes — price is always computed live as 15% off the pair's base prices, never stored here. */
-const PLACEHOLDER_COMBOS = [
-  {
-    _id: "chocolate-duo",
-    type: "curated",
-    name: "[PLACEHOLDER] Chocolate Duo",
-    description: "Choco Crush + Oreo Blast together.",
-    itemIds: ["choco-crush", "oreo-blast"],
-  },
-  {
-    _id: "tropical-twin",
-    type: "curated",
-    name: "[PLACEHOLDER] Tropical Twin",
-    description: "Mango Tango + Strawberry Swirl together.",
-    itemIds: ["mango-tango", "strawberry-swirl"],
-  },
-  {
-    _id: "nutty-delight",
-    type: "curated",
-    name: "[PLACEHOLDER] Nutty Delight",
-    description: "Banana Nutty + Caramel Crunch together.",
-    itemIds: ["banana-nutty", "caramel-crunch"],
-  },
-  {
-    _id: "classic-combo",
-    type: "curated",
-    name: "[PLACEHOLDER] Classic Combo",
-    description: "Choco Crush + Caramel Crunch together.",
-    itemIds: ["choco-crush", "caramel-crunch"],
-  },
-  {
-    _id: "fruity-fusion",
-    type: "curated",
-    name: "[PLACEHOLDER] Fruity Fusion",
-    description: "Mango Tango + Oreo Blast together.",
-    itemIds: ["mango-tango", "oreo-blast"],
-  },
-  {
-    _id: "choose-your-own-2",
-    type: "choose-n",
-    name: "[PLACEHOLDER] Choose Your Own Duo",
-    description: "Pick any 2 signature shakes — priced at 15% off their combined price.",
-    chooseCount: 2,
-    eligibleItemIds: SHAKE_IDS,
-  },
-];
+/** All curated combos are exactly two items — price is always computed live as 15% off the pair's base prices, never stored here. */
+function buildCombos(env: ReturnType<typeof loadEnv>, allItemIds: string[]) {
+  return [
+    {
+      _id: "choco-hazelnut-duo",
+      type: "curated",
+      name: "Choco Hazelnut Duo",
+      description: "Choco Crush + Hazelnut Heaven together.",
+      itemIds: ["choco-crush", "hazelnut-heaven"],
+      image: imageUrl(env, "choco-crush"),
+    },
+    {
+      _id: "cookies-and-wafers",
+      type: "curated",
+      name: "Cookies & Wafers",
+      description: "Cookie Crush + Wafer Wonder together.",
+      itemIds: ["cookie-crush", "wafer-wonder"],
+      image: imageUrl(env, "cookie-crush"),
+    },
+    {
+      _id: "tropical-bliss",
+      type: "curated",
+      name: "Tropical Bliss",
+      description: "Mango Magic + Banana Bliss together.",
+      itemIds: ["mango-magic", "banana-bliss"],
+      image: imageUrl(env, "mango-magic"),
+    },
+    {
+      _id: "caramel-gold-rush",
+      type: "curated",
+      name: "Caramel Gold Rush",
+      description: "Caramel Bliss + Golden Crunch together.",
+      itemIds: ["caramel-bliss", "golden-crunch"],
+      image: imageUrl(env, "caramel-bliss"),
+    },
+    {
+      _id: "berry-vanilla-delight",
+      type: "curated",
+      name: "Berry Vanilla Delight",
+      description: "Berry Bloom + Vanilla Dream together.",
+      itemIds: ["berry-bloom", "vanilla-dream"],
+      image: imageUrl(env, "berry-bloom"),
+    },
+    {
+      _id: "choose-your-own-2",
+      type: "choose-n",
+      name: "Choose Your Own Duo",
+      description: "Pick any 2 items from the full menu — priced at 15% off their combined price.",
+      chooseCount: 2,
+      eligibleItemIds: allItemIds,
+    },
+  ];
+}
 
 async function seed() {
   const env = loadEnv();
@@ -165,14 +242,17 @@ async function seed() {
   await MenuItemModel.deleteMany({});
   await ComboModel.deleteMany({});
 
-  for (const item of PLACEHOLDER_MENU_ITEMS) {
+  const menuItems = buildMenuItems(env);
+  const combos = buildCombos(env, menuItems.map((item) => item._id));
+
+  for (const item of menuItems) {
     await MenuItemModel.findByIdAndUpdate(item._id, item, { upsert: true });
   }
-  for (const combo of PLACEHOLDER_COMBOS) {
+  for (const combo of combos) {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
 
-  console.log(`Seeded ${PLACEHOLDER_MENU_ITEMS.length} placeholder menu items and ${PLACEHOLDER_COMBOS.length} combos.`);
+  console.log(`Seeded ${menuItems.length} menu items and ${combos.length} combos.`);
   await disconnectFromDatabase();
 }
 

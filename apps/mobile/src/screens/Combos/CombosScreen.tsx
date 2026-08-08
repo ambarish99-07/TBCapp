@@ -40,7 +40,7 @@ export function CombosScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>Combos</Text>
-      <Text style={styles.subtitle}>Two shakes, bundled at 15% off.</Text>
+      <Text style={styles.subtitle}>Two items, bundled at 15% off.</Text>
 
       {isLoading && <Text style={styles.info}>Loading combos…</Text>}
 
@@ -54,7 +54,7 @@ export function CombosScreen({ navigation }: Props) {
               <Pressable style={styles.card} onPress={() => navigation.navigate("ChooseCombo", { comboId: combo.id })}>
                 <View style={styles.cardBody}>
                   <Text style={styles.name}>{combo.name}</Text>
-                  <Text style={styles.meta}>Pick any {combo.chooseCount} eligible shakes · 15% off their combined price</Text>
+                  <Text style={styles.meta}>Pick any {combo.chooseCount} eligible items · 15% off their combined price</Text>
                   <View style={styles.button}>
                     <Text style={styles.buttonText}>Build Your Combo</Text>
                   </View>

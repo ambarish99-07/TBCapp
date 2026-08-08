@@ -1,5 +1,7 @@
 import cors from "cors";
 import express, { type Express } from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 // Patches Express's router so a rejected promise inside an async handler is
 // forwarded to the error middleware via next(err) — without this, Express 4
 // silently drops the error and the request just hangs until the client times
@@ -15,10 +17,16 @@ import { createPaymentsRouter } from "./modules/payments/payments.routes.js";
 import { createErrorHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Real menu photography, served directly (no CORS/auth needed for <img> tags).
+// Lives as a sibling of both src/ (dev, via tsx) and dist/ (production build).
+const PUBLIC_DIR = path.join(__dirname, "../public");
+
 export function createApp(env: Env): Express {
   const app = express();
 
   app.use(securityHeaders(env));
+  app.use("/menu-images", express.static(path.join(PUBLIC_DIR, "menu-images")));
   app.use(
     cors({
       origin: env.CORS_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean),

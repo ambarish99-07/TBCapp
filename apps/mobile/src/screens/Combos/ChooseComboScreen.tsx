@@ -59,7 +59,7 @@ export function ChooseComboScreen({ route, navigation }: Props) {
     <View style={styles.screen}>
       <Text style={styles.title}>{combo.name}</Text>
       <Text style={styles.subtitle}>
-        Pick {combo.chooseCount} shakes · {selectedIds.length}/{combo.chooseCount} selected · 15% off their combined price
+        Pick {combo.chooseCount} items · {selectedIds.length}/{combo.chooseCount} selected · 15% off their combined price
       </Text>
 
       <FlatList

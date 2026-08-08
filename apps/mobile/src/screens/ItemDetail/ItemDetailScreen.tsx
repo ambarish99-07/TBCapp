@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useMenuItems } from "../../api/menu.api";
 import { AddOnSelector } from "../../components/AddOnSelector";
-import { PlaceholderBadge } from "../../components/PlaceholderBadge";
 import { theme } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
 import type { RootStackParamList } from "../../navigation/types";
@@ -64,7 +63,6 @@ export function ItemDetailScreen({ route, navigation }: Props) {
     <ScrollView style={styles.screen}>
       <View style={styles.imageWrap}>
         <Image source={{ uri: item.image }} style={styles.image} />
-        <PlaceholderBadge />
       </View>
 
       <Text style={styles.name}>{item.signatureName}</Text>
