@@ -12,19 +12,22 @@ const LoyaltyStateSchema = new Schema(
 
 const UserSchema = new Schema(
   {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    // Both optional — a customer can sign up with just one — but `sparse: true`
+    // means the unique index only applies to documents where the field is
+    // actually set, so any number of users can share "no email" or "no phone".
+    email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    phone: { type: String, unique: true, sparse: true, trim: true },
     passwordHash: { type: String, required: true },
     fullName: { type: String, required: true },
-    phone: { type: String, required: true },
     role: { type: String, enum: ["customer", "admin"], required: true, default: "customer" },
     loyalty: { type: LoyaltyStateSchema, required: true, default: () => ({}) },
   },
   { timestamps: true }
 );
 
-// `unique: true` on the email field above is a DB-level unique index — not just an
-// app-level pre-insert check — so two concurrent signups with the same email can't
-// both race past a check-then-insert.
+// `unique: true` on email/phone above are real DB-level unique indexes — not just
+// app-level pre-insert checks — so two concurrent signups with the same email or
+// phone can't both race past a check-then-insert.
 
 export type UserDocument = InferSchemaType<typeof UserSchema>;
 export const UserModel = model("User", UserSchema);

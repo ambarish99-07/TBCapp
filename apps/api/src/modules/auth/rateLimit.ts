@@ -13,3 +13,12 @@ export const signupRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Same shape as loginRateLimiter — a real SMS provider would also bill per
+// message, so this cap matters even more once OTPs are real.
+export const otpRequestRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});

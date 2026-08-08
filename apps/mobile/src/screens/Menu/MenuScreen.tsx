@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MenuCategory } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMenuItems } from "../../api/menu.api";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { theme } from "../../constants/theme";
@@ -21,6 +22,7 @@ export function MenuScreen({ navigation }: Props) {
   const [category, setCategory] = useState<MenuCategory | "all">("all");
   const [search, setSearch] = useState("");
   const cartLineCount = useCartStore((state) => state.lines.length);
+  const insets = useSafeAreaInsets();
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -35,9 +37,16 @@ export function MenuScreen({ navigation }: Props) {
   }, [items, category, search]);
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>The Blenders Club</Text>
-      <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress.</Text>
+    <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top }]}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>The Blenders Club</Text>
+          <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress.</Text>
+        </View>
+        <Pressable style={styles.accountButton} onPress={() => navigation.navigate("Account")}>
+          <Text style={styles.accountButtonText}>Account</Text>
+        </Pressable>
+      </View>
 
       <TextInput
         style={styles.search}
@@ -80,8 +89,18 @@ export function MenuScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headerText: { flex: 1 },
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.primary },
   tagline: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(2) },
+  accountButton: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius,
+    paddingHorizontal: theme.spacing(1.5),
+    paddingVertical: theme.spacing(1),
+    marginLeft: theme.spacing(1),
+  },
+  accountButtonText: { color: theme.colors.primary, fontWeight: "700", fontSize: 12 },
   search: {
     borderWidth: 1,
     borderColor: theme.colors.border,

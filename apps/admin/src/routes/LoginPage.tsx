@@ -13,7 +13,7 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     try {
-      await login({ email, password });
+      await login({ identifier: email, password });
       navigate("/orders");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

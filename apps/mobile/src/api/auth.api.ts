@@ -1,4 +1,4 @@
-import type { LoginRequest, SignupRequest, User } from "@tbc/shared-types";
+import type { LoginRequest, RequestOtpRequest, SignupRequest, User, VerifyOtpRequest } from "@tbc/shared-types";
 import { apiClient } from "./client";
 
 interface AuthResponse {
@@ -13,6 +13,16 @@ export async function signupRequest(payload: SignupRequest): Promise<AuthRespons
 
 export async function loginRequest(payload: LoginRequest): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>("/auth/login", payload);
+  return data;
+}
+
+export async function requestOtpRequest(payload: RequestOtpRequest): Promise<{ sent: boolean }> {
+  const { data } = await apiClient.post<{ sent: boolean }>("/auth/otp/request", payload);
+  return data;
+}
+
+export async function verifyOtpRequest(payload: VerifyOtpRequest): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/otp/verify", payload);
   return data;
 }
 

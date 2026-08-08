@@ -63,6 +63,10 @@ export function recommendToCustomer(env: Env): RequestHandler {
       res.status(404).json({ error: "Customer not found" });
       return;
     }
+    if (!user.phone) {
+      res.status(400).json({ error: "Customer has no phone number on file" });
+      return;
+    }
 
     const orderedMenuItemIds = Array.from(
       new Set(

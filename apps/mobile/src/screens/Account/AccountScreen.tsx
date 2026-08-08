@@ -14,23 +14,16 @@ export function AccountScreen({ navigation }: Props) {
   const logout = useAuthStore((state) => state.logout);
   const { data: orders } = useQuery({ queryKey: ["my-orders"], queryFn: fetchMyOrders, enabled: !!user });
 
-  if (!user) {
-    return (
-      <View style={styles.screen}>
-        <Text style={styles.info}>Log in to see your loyalty status and order history.</Text>
-        <Pressable style={styles.button} onPress={() => navigation.navigate("Login")}>
-          <Text style={styles.buttonText}>Log In</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  // An account is required to reach this screen at all (see RootNavigator), so
+  // `user` is always set here in practice — this is just for TypeScript.
+  if (!user) return null;
 
   const isPremium = resolveIsPremiumMember(user.loyalty);
 
   return (
     <View style={styles.screen}>
       <Text style={styles.name}>{user.fullName}</Text>
-      <Text style={styles.email}>{user.email}</Text>
+      <Text style={styles.email}>{user.email ?? user.phone}</Text>
 
       <View style={styles.loyaltyCard}>
         <Text style={styles.loyaltyTier}>{isPremium ? "✨ Premium Member" : "Standard Member"}</Text>
@@ -68,9 +61,6 @@ export function AccountScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  info: { color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  button: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center" },
-  buttonText: { color: "#fff", fontWeight: "700" },
   name: { fontSize: 20, fontWeight: "800" },
   email: { fontSize: 13, color: theme.colors.muted, marginBottom: theme.spacing(2) },
   loyaltyCard: { backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2), marginBottom: theme.spacing(2) },
