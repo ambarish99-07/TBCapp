@@ -45,6 +45,7 @@ describe("CreateOrderRequestSchema", () => {
         city: "Patna",
         pincode: "800001",
       },
+      deliveryFor: "self",
       paymentMethod: "cod",
     });
 

@@ -44,10 +44,20 @@ export function AccountScreen({ navigation }: Props) {
         keyExtractor={(order) => order.id}
         renderItem={({ item: order }) => (
           <Pressable style={styles.orderRow} onPress={() => navigation.navigate("OrderStatus", { accessToken: order.accessToken })}>
-            <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+            <View style={styles.orderRowHeader}>
+              <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+              <Text style={[styles.deliveryForBadge, order.deliveryFor === "recipient" && styles.deliveryForBadgeRecipient]}>
+                {order.deliveryFor === "recipient" ? "For someone else" : "Delivered to me"}
+              </Text>
+            </View>
             <Text style={styles.orderMeta}>
               {order.status} · ₹{order.totals.total}
             </Text>
+            {order.deliveryFor === "recipient" && (
+              <Text style={styles.orderMeta}>
+                To {order.delivery.fullName} · {order.delivery.address}, {order.delivery.city}
+              </Text>
+            )}
           </Pressable>
         )}
       />
@@ -69,8 +79,19 @@ const styles = StyleSheet.create({
   perkNote: { fontSize: 12, color: theme.colors.text, marginTop: 6 },
   sectionTitle: { fontSize: 14, fontWeight: "700", marginBottom: theme.spacing(1) },
   orderRow: { paddingVertical: theme.spacing(1), borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  orderRowHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   orderNumber: { fontWeight: "700" },
   orderMeta: { fontSize: 12, color: theme.colors.muted },
+  deliveryForBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: theme.colors.muted,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  deliveryForBadgeRecipient: { color: theme.colors.primary, backgroundColor: theme.colors.accent + "22" },
   logoutButton: { marginTop: theme.spacing(3), alignItems: "center" },
   logoutButtonText: { color: theme.colors.danger, fontWeight: "700" },
 });

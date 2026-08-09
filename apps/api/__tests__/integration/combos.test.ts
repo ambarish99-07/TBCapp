@@ -88,6 +88,7 @@ describe("curated combo pricing", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -123,6 +124,7 @@ describe("choose-your-own combo pricing", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -155,6 +157,7 @@ describe("choose-your-own combo pricing", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -195,6 +198,7 @@ describe("choose-your-own combo pricing", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
     expect(ineligibleResponse.status).toBe(400);
@@ -212,6 +216,7 @@ describe("choose-your-own combo pricing", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
     expect(duplicateResponse.status).toBe(400);

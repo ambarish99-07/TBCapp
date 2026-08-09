@@ -62,3 +62,15 @@ export const VerifyOtpSchema = z.object({
   fullName: z.string().min(1).optional(),
 });
 export type VerifyOtpRequest = z.infer<typeof VerifyOtpSchema>;
+
+/**
+ * Two-phase: the code can be verified as correct before the account exists.
+ * `requiresName` means "verified, but this phone has no account yet" — the
+ * client collects a name and resubmits the same still-valid code instead of
+ * treating this as an error.
+ */
+export const VerifyOtpResponseSchema = z.union([
+  z.object({ requiresName: z.literal(true) }),
+  z.object({ token: z.string(), user: UserSchema }),
+]);
+export type VerifyOtpResponse = z.infer<typeof VerifyOtpResponseSchema>;

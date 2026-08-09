@@ -40,14 +40,24 @@ export function OrderStatusScreen({ route }: Props) {
       <Text style={styles.orderNumber}>{order.orderNumber}</Text>
       <Text style={styles.eta}>Estimated delivery: {order.estimatedMinutes} minutes</Text>
 
+      {order.deliveryFor === "recipient" && (
+        <Text style={styles.recipientBanner}>
+          Your order has been placed successfully and will be delivered to {order.delivery.fullName} at {order.delivery.address},{" "}
+          {order.delivery.city}.
+        </Text>
+      )}
+
       <StatusTimeline status={order.status} history={order.statusHistory} />
 
       <View style={styles.summary}>
-        <Text style={styles.summaryTitle}>Delivering to</Text>
+        <Text style={styles.summaryTitle}>{order.deliveryFor === "recipient" ? "Delivering to" : "Delivering to (you)"}</Text>
         <Text style={styles.summaryText}>{order.delivery.fullName}</Text>
         <Text style={styles.summaryText}>
-          {order.delivery.address}, {order.delivery.city} {order.delivery.pincode}
+          {[order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ")}, {order.delivery.city}{" "}
+          {order.delivery.pincode}
         </Text>
+        {order.delivery.landmark && <Text style={styles.summaryText}>Landmark: {order.delivery.landmark}</Text>}
+        <Text style={styles.summaryText}>{order.delivery.phone}</Text>
         <Text style={styles.summaryTitle}>Payment</Text>
         <Text style={styles.summaryText}>
           {order.payment.method === "cod" ? "Pay on Delivery" : "Paid Online"} · {order.payment.status}
@@ -63,6 +73,15 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
   orderNumber: { fontSize: 18, fontWeight: "800", color: theme.colors.primary },
   eta: { fontSize: 13, color: theme.colors.muted, marginBottom: theme.spacing(2) },
+  recipientBanner: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius,
+    padding: theme.spacing(1.5),
+    marginBottom: theme.spacing(2),
+    fontSize: 13,
+    color: theme.colors.text,
+    fontWeight: "600",
+  },
   summary: { marginTop: theme.spacing(3), backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
   summaryTitle: { fontSize: 12, color: theme.colors.muted, marginTop: 8 },
   summaryText: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },

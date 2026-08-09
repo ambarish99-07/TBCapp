@@ -47,6 +47,7 @@ async function placeCodOrder(token: string) {
         },
       ],
       delivery: validDelivery,
+      deliveryFor: "self",
       paymentMethod: "cod",
     });
 }

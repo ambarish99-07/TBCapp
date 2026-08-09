@@ -19,10 +19,18 @@ export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 export const DiscountReasonSchema = z.enum(["none", "quantity-tier", "premium"]);
 export const RewardReasonSchema = z.enum(["none", "sixth-order-cold-coffee", "tenth-order-free-drink"]);
 
+/**
+ * Who this order is being delivered to — always a contact/address, independent
+ * of which account placed the order (see `Order.customer` for the account
+ * owner's own identity). Used both inline on an order and for saved recipients.
+ */
 export const DeliveryDetailsSchema = z.object({
   fullName: z.string().min(1),
   phone: z.string().min(1),
   address: z.string().min(1),
+  houseNumber: z.string().optional(),
+  area: z.string().optional(),
+  landmark: z.string().optional(),
   city: z.string().min(1),
   pincode: z.string().min(1),
   mapsLink: z.string().optional(),
@@ -31,6 +39,16 @@ export const DeliveryDetailsSchema = z.object({
   distanceFromShopKm: z.number().nonnegative().optional(),
 });
 export type DeliveryDetails = z.infer<typeof DeliveryDetailsSchema>;
+
+/** Snapshot of the logged-in account that placed the order — distinct from `delivery`, which is who receives it. */
+export const OrderCustomerSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().optional(),
+});
+export type OrderCustomer = z.infer<typeof OrderCustomerSchema>;
+
+export const DeliveryForSchema = z.enum(["self", "recipient"]);
+export type DeliveryFor = z.infer<typeof DeliveryForSchema>;
 
 export const OrderTotalsSchema = z.object({
   subtotal: z.number().nonnegative(),
@@ -63,6 +81,8 @@ export type StatusHistoryEntry = z.infer<typeof StatusHistoryEntrySchema>;
 export const CreateOrderRequestSchema = z.object({
   items: CreateOrderCartSchema,
   delivery: DeliveryDetailsSchema,
+  /** Client's explicit intent — "self" prefills from the account but is still just delivery info; never inferred server-side. */
+  deliveryFor: DeliveryForSchema,
   paymentMethod: PaymentMethodSchema,
 });
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
@@ -74,6 +94,9 @@ export const OrderSchema = z.object({
   accessToken: z.string(),
   orderNumber: z.string(),
   userId: z.string().nullable(),
+  /** The account that placed and pays for the order — absent for guest orders. */
+  customer: OrderCustomerSchema.optional(),
+  deliveryFor: DeliveryForSchema,
   items: z.array(ResolvedCartLineSchema),
   delivery: DeliveryDetailsSchema,
   totals: OrderTotalsSchema,

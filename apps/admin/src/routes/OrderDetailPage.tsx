@@ -49,12 +49,22 @@ export function OrderDetailPage() {
       </h1>
 
       <section>
-        <h3>Delivery</h3>
+        <h3>Customer / Order Owner</h3>
+        <p>{order.customer?.name ?? order.delivery.fullName}</p>
+        {order.customer?.phone && <p>{order.customer.phone}</p>}
+        {!order.customer && <p style={{ color: "#8A7B6C" }}>Guest checkout — no account</p>}
+      </section>
+
+      <section style={order.deliveryFor === "recipient" ? { border: "1px solid #B3261E", borderRadius: 8, padding: 12 } : undefined}>
+        <h3>{order.deliveryFor === "recipient" ? "🚨 Delivery Recipient (not the customer)" : "Delivery Recipient (self)"}</h3>
         <p>{order.delivery.fullName}</p>
-        <p>
-          {order.delivery.address}, {order.delivery.city} {order.delivery.pincode}
-        </p>
         <p>{order.delivery.phone}</p>
+        <p>
+          {[order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ")}, {order.delivery.city}{" "}
+          {order.delivery.pincode}
+        </p>
+        {order.delivery.landmark && <p>Landmark: {order.delivery.landmark}</p>}
+        {order.delivery.specialInstructions && <p>Instructions: {order.delivery.specialInstructions}</p>}
       </section>
 
       <section>

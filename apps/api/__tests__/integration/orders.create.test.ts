@@ -58,6 +58,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -82,6 +83,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -103,6 +105,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -124,6 +127,7 @@ describe("POST /orders — payload caps", () => {
       .send({
         items: Array.from({ length: 51 }, (_, i) => ({ ...line, lineId: `l${i}` })),
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 
@@ -145,6 +149,7 @@ describe("POST /orders — payload caps", () => {
           },
         ],
         delivery: validDelivery,
+        deliveryFor: "self",
         paymentMethod: "cod",
       });
 

@@ -98,7 +98,8 @@ export function verifyRazorpayPaymentHandler(env: Env): RequestHandler {
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,
       total: order.totals.total,
-      customerName: order.delivery.fullName,
+      customerName: order.customer?.name ?? order.delivery.fullName,
+      recipientName: order.deliveryFor === "recipient" ? order.delivery.fullName : undefined,
     }).catch((err) => console.error("[payments] new-order alert threw unexpectedly:", err));
 
     res.json({ order });

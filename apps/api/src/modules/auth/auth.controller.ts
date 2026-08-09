@@ -1,6 +1,7 @@
 import { SignupRequestSchema, LoginRequestSchema, RequestOtpSchema, VerifyOtpSchema, type User } from "@tbc/shared-types";
 import { randomBytes } from "node:crypto";
 import type { RequestHandler } from "express";
+import { OtpCodeModel } from "../../db/models/OtpCode.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import type { Env } from "../../config/env.js";
 import { hashPassword, verifyPassword, verifyAgainstDummyHash } from "./auth.service.js";
@@ -11,9 +12,12 @@ import { signAccessToken } from "./jwt.js";
  * account is configured yet, same situation as WhatsApp/Razorpay elsewhere in
  * this codebase. Every OTP request "succeeds" with this fixed code instead of
  * actually sending an SMS; swap in a real provider call in requestOtp once one
- * is configured, and this constant goes away.
+ * is configured, and this constant goes away. Expiry and attempt-limiting
+ * (OtpCode model) are real, even though the code itself is fixed.
  */
 const MOCK_OTP_CODE = "123456";
+const OTP_TTL_MS = 5 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 5;
 
 function toPublicUser(doc: {
   _id: unknown;
@@ -98,9 +102,16 @@ export function requestOtp(_env: Env): RequestHandler {
   return async (req, res) => {
     const parsed = RequestOtpSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid phone number" });
+      res.status(400).json({ error: "Please enter a valid mobile number." });
       return;
     }
+
+    // Upserting means a resend simply replaces the previous code/expiry/attempts.
+    await OtpCodeModel.findOneAndUpdate(
+      { phone: parsed.data.phone },
+      { code: MOCK_OTP_CODE, expiresAt: new Date(Date.now() + OTP_TTL_MS), attempts: 0 },
+      { upsert: true }
+    );
 
     // Real send would go here. For now, log it the same way the WhatsApp
     // integration logs instead of sending when it isn't configured.
@@ -118,15 +129,35 @@ export function verifyOtp(env: Env): RequestHandler {
     }
 
     const { phone, otp, fullName } = parsed.data;
-    if (otp !== MOCK_OTP_CODE) {
-      res.status(401).json({ error: "Invalid or expired code" });
+    const pending = await OtpCodeModel.findOne({ phone });
+    if (!pending) {
+      res.status(400).json({ error: "Please request a new code." });
+      return;
+    }
+    if (pending.expiresAt.getTime() < Date.now()) {
+      await OtpCodeModel.deleteOne({ phone });
+      res.status(401).json({ error: "This OTP has expired. Please request a new one." });
+      return;
+    }
+    if (pending.attempts >= MAX_OTP_ATTEMPTS) {
+      await OtpCodeModel.deleteOne({ phone });
+      res.status(429).json({ error: "Too many incorrect attempts. Please request a new code." });
+      return;
+    }
+    if (otp !== pending.code) {
+      pending.attempts += 1;
+      await pending.save();
+      res.status(401).json({ error: "The OTP is incorrect. Please try again." });
       return;
     }
 
     let user = await UserModel.findOne({ phone });
     if (!user) {
       if (!fullName) {
-        res.status(400).json({ error: "Full name is required for a new account" });
+        // Code is verified but there's no account yet — the client collects a
+        // name and resubmits the same code, still within its expiry window,
+        // rather than treating this as an error.
+        res.json({ requiresName: true });
         return;
       }
       // OTP-verified accounts have no password of their own — a random,
@@ -136,6 +167,7 @@ export function verifyOtp(env: Env): RequestHandler {
       user = await UserModel.create({ phone, fullName, passwordHash });
     }
 
+    await OtpCodeModel.deleteOne({ phone });
     const token = signAccessToken({ userId: String(user._id), role: user.role as "customer" | "admin" }, env.JWT_SECRET, env.JWT_EXPIRES_IN);
     res.json({ token, user: toPublicUser(user) });
   };

@@ -6,21 +6,28 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
 import { generateAccessToken } from "./accessToken.js";
+import { assertWithinDeliveryZone } from "./deliveryZone.js";
 import { advanceLoyaltyOrderCount } from "./loyaltyAdvance.js";
 import { generateOrderNumber } from "./orderNumber.js";
+import { OrderValidationError } from "./orders.errors.js";
 
-export class OrderValidationError extends Error {}
+export { OrderValidationError };
 
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
   const { resolvedLines, pricingLines } = await resolveCartLines(request.items);
+  assertWithinDeliveryZone(request.delivery);
 
   const loyalty = { completedOrderCount: 0, isPremiumMemberOverride: false };
+  // Snapshot the account's own identity at order time — independent of
+  // `delivery`, which may belong to someone else entirely (see deliveryFor).
+  let customer: { name: string; phone?: string } | undefined;
 
   if (userId) {
     const user = await UserModel.findById(userId);
     if (!user) throw new OrderValidationError("User not found");
     loyalty.completedOrderCount = user.loyalty.completedOrderCount;
     loyalty.isPremiumMemberOverride = user.loyalty.isPremiumMemberOverride;
+    customer = { name: user.fullName, phone: user.phone ?? undefined };
   }
 
   const pricingResult = computePricing({
@@ -34,6 +41,8 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     accessToken: generateAccessToken(),
     orderNumber: generateOrderNumber(),
     userId,
+    customer,
+    deliveryFor: request.deliveryFor,
     items: resolvedLines,
     delivery: request.delivery,
     totals: {
@@ -61,7 +70,8 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,
       total: pricingResult.total,
-      customerName: request.delivery.fullName,
+      customerName: customer?.name ?? request.delivery.fullName,
+      recipientName: request.deliveryFor === "recipient" ? request.delivery.fullName : undefined,
     }).catch((err) => console.error("[orders] new-order alert threw unexpectedly:", err));
   }
   // razorpay orders: loyalty advance + WA alert happen only in

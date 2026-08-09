@@ -1,16 +1,24 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { loginRequest, requestOtpRequest, verifyOtpRequest } from "../../api/auth.api";
+import { OtpInput } from "../../components/OtpInput";
 import { theme } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
-type LoginMethod = "email" | "phone";
+type LoginMethod = "phone" | "email";
+type PhoneStep = "enter" | "otp" | "name";
+
+const RESEND_COOLDOWN_SECONDS = 30;
+
+function isNetworkError(err: unknown): boolean {
+  return err instanceof Error && err.message === "Network Error";
+}
 
 export function LoginScreen({ navigation }: Props) {
-  const [method, setMethod] = useState<LoginMethod>("email");
+  const [method, setMethod] = useState<LoginMethod>("phone");
   const setSession = useAuthStore((state) => state.setSession);
 
   // Email + password
@@ -19,12 +27,20 @@ export function LoginScreen({ navigation }: Props) {
   const [submittingEmail, setSubmittingEmail] = useState(false);
 
   // Phone + OTP
-  const [fullName, setFullName] = useState("");
+  const [phoneStep, setPhoneStep] = useState<PhoneStep>("enter");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) return undefined;
+    const timer = setInterval(() => setResendSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [resendSecondsLeft]);
 
   async function handleEmailLogin() {
     setSubmittingEmail(true);
@@ -33,118 +49,209 @@ export function LoginScreen({ navigation }: Props) {
       await setSession(token, user);
       // No further navigation needed — the root navigator switches to the
       // logged-in stack (starting at Menu) as soon as the session is set.
-    } catch {
-      Alert.alert("Login failed", "Check your email/phone and password and try again.");
+    } catch (err) {
+      Alert.alert(
+        "Login failed",
+        isNetworkError(err) ? "Please check your internet connection and try again." : "Check your email/phone and password and try again."
+      );
     } finally {
       setSubmittingEmail(false);
     }
   }
 
-  async function handleSendOtp() {
+  async function handleSendOtp(isResend: boolean) {
+    const cleaned = phone.replace(/\D/g, "");
+    if (cleaned.length < 7) {
+      Alert.alert("Invalid number", "Please enter a valid mobile number.");
+      return;
+    }
     setSendingOtp(true);
+    setOtpError(null);
     try {
-      await requestOtpRequest({ phone });
-      setOtpSent(true);
-    } catch {
-      Alert.alert("Couldn't send code", "Check the phone number and try again.");
+      await requestOtpRequest({ phone: cleaned });
+      setPhone(cleaned);
+      setOtp("");
+      setResendSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      if (!isResend) setPhoneStep("otp");
+    } catch (err) {
+      Alert.alert(
+        "Couldn't send code",
+        isNetworkError(err) ? "Please check your internet connection and try again." : "We couldn't complete your request right now. Please try again."
+      );
     } finally {
       setSendingOtp(false);
     }
   }
 
-  async function handleVerifyOtp() {
+  async function handleVerifyOtp(code: string) {
     setVerifyingOtp(true);
+    setOtpError(null);
     try {
-      const { token, user } = await verifyOtpRequest({ phone, otp, fullName: fullName || undefined });
-      await setSession(token, user);
-    } catch {
-      Alert.alert("Verification failed", "That code is invalid, or a full name is needed for a new account.");
+      const result = await verifyOtpRequest({ phone, otp: code, fullName: fullName || undefined });
+      if ("requiresName" in result) {
+        setPhoneStep("name");
+        return;
+      }
+      await setSession(result.token, result.user);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } }).response?.status;
+      if (status === 401) setOtpError("The OTP is incorrect. Please try again.");
+      else if (status === 429) setOtpError("Too many incorrect attempts. Please request a new code.");
+      else if (isNetworkError(err)) setOtpError("Please check your internet connection and try again.");
+      else setOtpError("This OTP has expired. Please request a new one.");
+      setOtp("");
     } finally {
       setVerifyingOtp(false);
     }
   }
 
+  async function handleCompleteSignup() {
+    if (!fullName.trim()) {
+      Alert.alert("What should we call you?", "Please enter your name to continue.");
+      return;
+    }
+    await handleVerifyOtp(otp);
+  }
+
+  function handleChangeNumber() {
+    setPhoneStep("enter");
+    setOtp("");
+    setOtpError(null);
+    setFullName("");
+  }
+
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Log In</Text>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+        <View style={styles.brand}>
+          <Image source={require("../../../assets/splash-logo.png")} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.brandName}>The Blenders Club</Text>
+          <Text style={styles.brandTagline}>Shakes, good vibes, great times.</Text>
+        </View>
 
-      <View style={styles.methodRow}>
-        <Pressable style={[styles.methodTab, method === "email" && styles.methodTabActive]} onPress={() => setMethod("email")}>
-          <Text style={[styles.methodText, method === "email" && styles.methodTextActive]}>Email</Text>
-        </Pressable>
-        <Pressable style={[styles.methodTab, method === "phone" && styles.methodTabActive]} onPress={() => setMethod("phone")}>
-          <Text style={[styles.methodText, method === "phone" && styles.methodTextActive]}>Phone (OTP)</Text>
-        </Pressable>
-      </View>
+        {method === "phone" && phoneStep !== "enter" ? null : (
+          <View style={styles.methodRow}>
+            <Pressable style={[styles.methodTab, method === "phone" && styles.methodTabActive]} onPress={() => setMethod("phone")}>
+              <Text style={[styles.methodText, method === "phone" && styles.methodTextActive]}>Mobile Number</Text>
+            </Pressable>
+            <Pressable style={[styles.methodTab, method === "email" && styles.methodTabActive]} onPress={() => setMethod("email")}>
+              <Text style={[styles.methodText, method === "email" && styles.methodTextActive]}>Email</Text>
+            </Pressable>
+          </View>
+        )}
 
-      {method === "email" ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Email or phone number"
-            value={identifier}
-            onChangeText={setIdentifier}
-            autoCapitalize="none"
-          />
-          <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-          <Pressable style={styles.button} onPress={handleEmailLogin} disabled={submittingEmail}>
-            <Text style={styles.buttonText}>{submittingEmail ? "Logging in…" : "Log In"}</Text>
+        {method === "email" ? (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Email or phone number"
+              value={identifier}
+              onChangeText={setIdentifier}
+              autoCapitalize="none"
+            />
+            <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
+            <Pressable style={styles.button} onPress={handleEmailLogin} disabled={submittingEmail}>
+              <Text style={styles.buttonText}>{submittingEmail ? "Logging in…" : "Log In"}</Text>
+            </Pressable>
+          </>
+        ) : phoneStep === "enter" ? (
+          <>
+            <View style={styles.phoneRow}>
+              <View style={styles.countryCode}>
+                <Text style={styles.countryCodeText}>+91</Text>
+              </View>
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="Enter mobile number"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                maxLength={10}
+                autoFocus
+              />
+            </View>
+            <Pressable style={styles.button} onPress={() => handleSendOtp(false)} disabled={sendingOtp}>
+              <Text style={styles.buttonText}>{sendingOtp ? "Sending…" : "Continue"}</Text>
+            </Pressable>
+          </>
+        ) : phoneStep === "otp" ? (
+          <>
+            <Text style={styles.otpTitle}>Enter OTP</Text>
+            <Text style={styles.otpHint}>We sent a verification code to{"\n"}+91 {phone}</Text>
+
+            <OtpInput value={otp} onChange={setOtp} onComplete={handleVerifyOtp} autoFocus hasError={!!otpError} />
+            {otpError && <Text style={styles.errorText}>{otpError}</Text>}
+            {verifyingOtp && <Text style={styles.otpHint}>Verifying…</Text>}
+
+            <View style={styles.resendRow}>
+              {resendSecondsLeft > 0 ? (
+                <Text style={styles.otpHint}>Resend OTP in 0:{resendSecondsLeft.toString().padStart(2, "0")}</Text>
+              ) : (
+                <Pressable onPress={() => handleSendOtp(true)} disabled={sendingOtp}>
+                  <Text style={styles.link}>{sendingOtp ? "Sending…" : "Didn't receive the OTP? Resend OTP"}</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <Pressable onPress={handleChangeNumber}>
+              <Text style={styles.link}>Change phone number</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={styles.otpTitle}>Welcome!</Text>
+            <Text style={styles.otpHint}>What should we call you?</Text>
+            <TextInput style={styles.input} placeholder="Enter your name" value={fullName} onChangeText={setFullName} autoFocus />
+            <Pressable style={styles.button} onPress={handleCompleteSignup} disabled={verifyingOtp}>
+              <Text style={styles.buttonText}>{verifyingOtp ? "Creating account…" : "Continue"}</Text>
+            </Pressable>
+          </>
+        )}
+
+        {method === "email" || phoneStep === "enter" ? (
+          <Pressable onPress={() => navigation.navigate("Signup")}>
+            <Text style={styles.link}>New here? Create an account</Text>
           </Pressable>
-        </>
-      ) : (
-        <>
-          {!otpSent ? (
-            <>
-              <TextInput style={styles.input} placeholder="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-              <Pressable style={styles.button} onPress={handleSendOtp} disabled={sendingOtp}>
-                <Text style={styles.buttonText}>{sendingOtp ? "Sending code…" : "Send OTP"}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={styles.otpHint}>Code sent to {phone}.</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="6-digit code"
-                value={otp}
-                onChangeText={setOtp}
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Full name (only needed if this is a new account)"
-                value={fullName}
-                onChangeText={setFullName}
-              />
-              <Pressable style={styles.button} onPress={handleVerifyOtp} disabled={verifyingOtp}>
-                <Text style={styles.buttonText}>{verifyingOtp ? "Verifying…" : "Verify & Log In"}</Text>
-              </Pressable>
-              <Pressable onPress={() => setOtpSent(false)}>
-                <Text style={styles.link}>Change phone number</Text>
-              </Pressable>
-            </>
-          )}
-        </>
-      )}
-
-      <Pressable onPress={() => navigation.navigate("Signup")}>
-        <Text style={styles.link}>New here? Create an account</Text>
-      </Pressable>
-    </View>
+        ) : null}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2), justifyContent: "center" },
-  title: { fontSize: 22, fontWeight: "800", marginBottom: theme.spacing(2) },
+  flex: { flex: 1, backgroundColor: theme.colors.background },
+  screen: { flexGrow: 1, padding: theme.spacing(2), justifyContent: "center" },
+  brand: { alignItems: "center", marginBottom: theme.spacing(3) },
+  logo: { width: 96, height: 96, borderRadius: 48, marginBottom: theme.spacing(1.5) },
+  brandName: { fontSize: 22, fontWeight: "800", color: theme.colors.primary },
+  brandTagline: { fontSize: 13, color: theme.colors.muted, marginTop: 4 },
   methodRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1.5) },
   methodTab: { flex: 1, padding: theme.spacing(1), borderRadius: theme.radius, backgroundColor: theme.colors.surface, alignItems: "center" },
   methodTabActive: { backgroundColor: theme.colors.primary },
   methodText: { color: theme.colors.text, fontWeight: "600" },
   methodTextActive: { color: "#fff" },
   input: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(1) },
-  otpHint: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(1) },
+  phoneRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1) },
+  countryCode: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius,
+    paddingHorizontal: theme.spacing(1.5),
+    justifyContent: "center",
+  },
+  countryCodeText: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
+  phoneInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius,
+    padding: theme.spacing(1.25),
+    fontSize: 16,
+  },
+  otpTitle: { fontSize: 20, fontWeight: "800", color: theme.colors.text, textAlign: "center", marginBottom: 4 },
+  otpHint: { fontSize: 13, color: theme.colors.muted, textAlign: "center", marginBottom: theme.spacing(2) },
+  errorText: { fontSize: 13, color: theme.colors.danger, textAlign: "center", marginTop: theme.spacing(1) },
+  resendRow: { alignItems: "center", marginTop: theme.spacing(2), marginBottom: theme.spacing(1) },
   button: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center", marginTop: theme.spacing(1) },
   buttonText: { color: "#fff", fontWeight: "700" },
   link: { textAlign: "center", color: theme.colors.primary, marginTop: theme.spacing(2) },

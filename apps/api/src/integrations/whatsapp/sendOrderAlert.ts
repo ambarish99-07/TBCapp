@@ -6,6 +6,8 @@ interface OrderAlertInfo {
   orderNumber: string;
   total: number;
   customerName: string;
+  /** Set only when this order is for someone other than the customer — who to actually hand it to. */
+  recipientName?: string;
 }
 
 /**
@@ -20,6 +22,11 @@ export async function sendNewOrderAlert(env: Env, order: OrderAlertInfo): Promis
     return;
   }
 
+  // Keeps the template's fixed 3-placeholder shape — folding the recipient in
+  // as "(for X)" rather than adding a 4th param, which would need re-approval
+  // from Meta once this template is real.
+  const orderedByText = order.recipientName ? `${order.customerName} (for ${order.recipientName})` : order.customerName;
+
   try {
     await sendWhatsAppTemplateMessage(env, {
       to: env.WHATSAPP_BUSINESS_OWNER_NUMBER,
@@ -29,7 +36,7 @@ export async function sendNewOrderAlert(env: Env, order: OrderAlertInfo): Promis
           type: "body",
           parameters: [
             { type: "text", text: order.orderNumber },
-            { type: "text", text: order.customerName },
+            { type: "text", text: orderedByText },
             { type: "text", text: `Rs. ${order.total}` },
           ],
         },

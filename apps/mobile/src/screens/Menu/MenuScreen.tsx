@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMenuItems } from "../../api/menu.api";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { theme } from "../../constants/theme";
+import { useAuthStore } from "../../state/authStore";
 import { useCartStore } from "../../state/cartStore";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -23,6 +24,8 @@ export function MenuScreen({ navigation }: Props) {
   const [search, setSearch] = useState("");
   const cartLineCount = useCartStore((state) => state.lines.length);
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
+  const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -43,8 +46,8 @@ export function MenuScreen({ navigation }: Props) {
           <Text style={styles.title}>The Blenders Club</Text>
           <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress.</Text>
         </View>
-        <Pressable style={styles.accountButton} onPress={() => navigation.navigate("Account")}>
-          <Text style={styles.accountButtonText}>Account</Text>
+        <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
+          <Text style={styles.avatarButtonText}>{initial}</Text>
         </Pressable>
       </View>
 
@@ -93,14 +96,16 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontSize: 24, fontWeight: "800", color: theme.colors.primary },
   tagline: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  accountButton: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius,
-    paddingHorizontal: theme.spacing(1.5),
-    paddingVertical: theme.spacing(1),
+  avatarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: theme.spacing(1),
   },
-  accountButtonText: { color: theme.colors.primary, fontWeight: "700", fontSize: 12 },
+  avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
   search: {
     borderWidth: 1,
     borderColor: theme.colors.border,

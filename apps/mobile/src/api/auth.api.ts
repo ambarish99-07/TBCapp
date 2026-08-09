@@ -1,4 +1,4 @@
-import type { LoginRequest, RequestOtpRequest, SignupRequest, User, VerifyOtpRequest } from "@tbc/shared-types";
+import type { LoginRequest, RequestOtpRequest, SignupRequest, User, VerifyOtpRequest, VerifyOtpResponse } from "@tbc/shared-types";
 import { apiClient } from "./client";
 
 interface AuthResponse {
@@ -21,8 +21,9 @@ export async function requestOtpRequest(payload: RequestOtpRequest): Promise<{ s
   return data;
 }
 
-export async function verifyOtpRequest(payload: VerifyOtpRequest): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>("/auth/otp/verify", payload);
+/** Returns either `{ requiresName: true }` (verified, new number) or `{ token, user }` (logged in). */
+export async function verifyOtpRequest(payload: VerifyOtpRequest): Promise<VerifyOtpResponse> {
+  const { data } = await apiClient.post<VerifyOtpResponse>("/auth/otp/verify", payload);
   return data;
 }
 

@@ -14,6 +14,7 @@ import { createAuthRouter } from "./modules/auth/auth.routes.js";
 import { createMenuRouter } from "./modules/menu/menu.routes.js";
 import { createOrdersRouter } from "./modules/orders/orders.routes.js";
 import { createPaymentsRouter } from "./modules/payments/payments.routes.js";
+import { createRecipientsRouter } from "./modules/recipients/recipients.routes.js";
 import { createErrorHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
@@ -44,6 +45,7 @@ export function createApp(env: Env): Express {
   app.use("/orders", createOrdersRouter(env));
   app.use("/payments", createPaymentsRouter(env));
   app.use("/admin", createAdminRouter(env));
+  app.use("/me/recipients", createRecipientsRouter(env));
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

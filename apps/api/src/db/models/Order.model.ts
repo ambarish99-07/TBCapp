@@ -32,11 +32,24 @@ const DeliveryDetailsSchema = new Schema(
     fullName: { type: String, required: true },
     phone: { type: String, required: true },
     address: { type: String, required: true },
+    houseNumber: { type: String },
+    area: { type: String },
+    landmark: { type: String },
     city: { type: String, required: true },
     pincode: { type: String, required: true },
     mapsLink: { type: String },
     specialInstructions: { type: String },
     distanceFromShopKm: { type: Number, min: 0 },
+  },
+  { _id: false }
+);
+
+// Snapshot of the account that placed the order — kept separate from
+// `delivery`, which is always who receives it (self or someone else).
+const OrderCustomerSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    phone: { type: String },
   },
   { _id: false }
 );
@@ -89,6 +102,8 @@ const OrderSchema = new Schema(
     accessToken: { type: String, required: true, unique: true },
     orderNumber: { type: String, required: true, unique: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    customer: { type: OrderCustomerSchema },
+    deliveryFor: { type: String, enum: ["self", "recipient"], required: true, default: "self" },
     items: { type: [OrderLineSchema], required: true },
     delivery: { type: DeliveryDetailsSchema, required: true },
     totals: { type: OrderTotalsSchema, required: true },

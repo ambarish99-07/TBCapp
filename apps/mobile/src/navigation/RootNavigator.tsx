@@ -61,8 +61,8 @@ export function RootNavigator() {
             <Stack.Screen name="Signup" component={SignupScreen} options={{ title: "Sign Up" }} />
           </Stack.Navigator>
         )}
-        {/* Persistent shortcut back to ordering, on every screen except Menu (which already is the ordering entry point). */}
-        {user && currentRouteName !== "Menu" && <OrderNowButton />}
+        {/* Persistent shortcut back to ordering — hidden on Menu (already the ordering entry point) and on Cart/Checkout (already mid-order there). */}
+        {user && !["Menu", "Cart", "Checkout"].includes(currentRouteName ?? "") && <OrderNowButton />}
       </View>
     </NavigationContainer>
   );

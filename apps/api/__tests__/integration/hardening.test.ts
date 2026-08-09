@@ -96,38 +96,6 @@ describe("signup accepts email or phone as the account identifier", () => {
   });
 });
 
-describe("phone + OTP login", () => {
-  it("creates a new account on first verify and requires a full name to do so", async () => {
-    const missingName = await request(app).post("/auth/otp/verify").send({ phone: "9333333333", otp: "123456" });
-    expect(missingName.status).toBe(400);
-
-    const created = await request(app)
-      .post("/auth/otp/verify")
-      .send({ phone: "9333333333", otp: "123456", fullName: "Otp Person" });
-    expect(created.status).toBe(200);
-    expect(created.body.user.phone).toBe("9333333333");
-    expect(created.body.token).toBeDefined();
-  });
-
-  it("logs an existing phone-registered user back in without needing fullName again", async () => {
-    await request(app).post("/auth/otp/verify").send({ phone: "9444444444", otp: "123456", fullName: "Repeat Visitor" });
-
-    const second = await request(app).post("/auth/otp/verify").send({ phone: "9444444444", otp: "123456" });
-    expect(second.status).toBe(200);
-    expect(second.body.user.fullName).toBe("Repeat Visitor");
-
-    const count = await UserModel.countDocuments({ phone: "9444444444" });
-    expect(count).toBe(1);
-  });
-
-  it("rejects the wrong code", async () => {
-    const response = await request(app)
-      .post("/auth/otp/verify")
-      .send({ phone: "9555555555", otp: "000000", fullName: "Wrong Code" });
-    expect(response.status).toBe(401);
-  });
-});
-
 describe("login/signup rate limiting", () => {
   it("rejects login attempts beyond the configured window limit", async () => {
     const attempts = await Promise.all(

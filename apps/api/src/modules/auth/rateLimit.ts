@@ -22,3 +22,14 @@ export const otpRequestRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Separate from loginRateLimiter: verifying an OTP legitimately takes more
+// attempts than a password login (the two-phase new-user flow resubmits the
+// same code with a name, resends reset the OtpCode's own attempt counter,
+// etc.) — a shared, tighter limiter would false-positive on normal usage.
+export const otpVerifyRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
