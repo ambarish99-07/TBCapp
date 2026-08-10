@@ -12,6 +12,43 @@ function imageUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
   return `http://localhost:${env.PORT}/menu-images/${slug}.png`;
 }
 
+/** Brand logo artwork, served at /brand-images/<slug>.png (see app.ts). */
+function brandLogoUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
+  return `http://localhost:${env.PORT}/brand-images/${slug}.png`;
+}
+
+function buildBrands(env: ReturnType<typeof loadEnv>) {
+  return [
+    {
+      _id: TBC_BRAND_ID,
+      name: "The Blenders Club",
+      tagline: "Shakes, good vibes, great times.",
+      status: "live" as const,
+      logoUrl: brandLogoUrl(env, "tbc"),
+      primaryColor: "#6B3F2A",
+      accentColor: "#D98E4A",
+    },
+    {
+      _id: "alchemy-tails",
+      name: "The Alchemy Tails",
+      tagline: "Crafted Mixes. Magical Experiences.",
+      status: "live" as const,
+      logoUrl: brandLogoUrl(env, "alchemy-tails"),
+      primaryColor: "#8A6D1F",
+      accentColor: "#C9A227",
+    },
+    {
+      _id: "gg-tiffin",
+      name: "GG Tiffin Service",
+      tagline: "Ghar jaise swad, roz ki yaad.",
+      status: "live" as const,
+      logoUrl: brandLogoUrl(env, "gg-tiffin"),
+      primaryColor: "#7A5A22",
+      accentColor: "#B8860B",
+    },
+  ];
+}
+
 function buildMenuItems(env: ReturnType<typeof loadEnv>) {
   return [
     {
@@ -246,18 +283,10 @@ async function seed() {
   await MenuItemModel.deleteMany({});
   await ComboModel.deleteMany({});
 
-  await BrandModel.findByIdAndUpdate(
-    TBC_BRAND_ID,
-    {
-      _id: TBC_BRAND_ID,
-      name: "The Blenders Club",
-      tagline: "Crafted to Refresh. Blended to Impress.",
-      status: "live",
-      primaryColor: "#6B3F2A",
-      accentColor: "#D98E4A",
-    },
-    { upsert: true }
-  );
+  const brands = buildBrands(env);
+  for (const brand of brands) {
+    await BrandModel.findByIdAndUpdate(brand._id, brand, { upsert: true });
+  }
 
   const menuItems = buildMenuItems(env).map((item) => ({ ...item, brandId: TBC_BRAND_ID }));
   const combos = buildCombos(env, menuItems.map((item) => item._id)).map((combo) => ({
@@ -272,7 +301,7 @@ async function seed() {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
 
-  console.log(`Seeded 1 brand, ${menuItems.length} menu items, and ${combos.length} combos.`);
+  console.log(`Seeded ${brands.length} brands, ${menuItems.length} menu items, and ${combos.length} combos.`);
   await disconnectFromDatabase();
 }
 

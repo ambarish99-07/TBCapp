@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AccountScreen } from "../screens/Account/AccountScreen";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
-import { BrandSelectScreen } from "../screens/BrandSelect/BrandSelectScreen";
 import { BulkOrderScreen } from "../screens/BulkOrder/BulkOrderScreen";
 import { CartScreen } from "../screens/Cart/CartScreen";
 import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
@@ -56,8 +55,7 @@ export function RootNavigator() {
     >
       <View style={{ flex: 1 }}>
         {user ? (
-          <Stack.Navigator initialRouteName="BrandSelect">
-            <Stack.Screen name="BrandSelect" component={BrandSelectScreen} options={{ headerShown: false }} />
+          <Stack.Navigator initialRouteName="Menu">
             <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ItemDetail" component={ItemDetailScreen} options={{ title: "Customize" }} />
             <Stack.Screen name="Combos" component={CombosScreen} options={{ title: "Combos" }} />
@@ -77,7 +75,7 @@ export function RootNavigator() {
           </Stack.Navigator>
         )}
         {/* Persistent shortcut back to ordering — hidden on Menu (already the ordering entry point) and on Cart/Checkout (already mid-order there). */}
-        {user && !["BrandSelect", "Menu", "Cart", "Checkout"].includes(currentRouteName ?? "") && <OrderNowButton />}
+        {user && !["Menu", "Cart", "Checkout"].includes(currentRouteName ?? "") && <OrderNowButton />}
       </View>
     </NavigationContainer>
   );

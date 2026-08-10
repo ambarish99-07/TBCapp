@@ -1,5 +1,4 @@
 export type RootStackParamList = {
-  BrandSelect: undefined;
   Menu: undefined;
   ItemDetail: { menuItemId: string };
   Combos: undefined;

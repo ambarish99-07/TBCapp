@@ -104,8 +104,8 @@ export function LoginScreen({}: Props) {
       <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <Image source={require("../../../assets/splash-logo.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.brandName}>The Blenders Club</Text>
-          <Text style={styles.brandTagline}>Shakes, good vibes, great times.</Text>
+          <Text style={styles.brandName}>Devour</Text>
+          <Text style={styles.brandTagline}>Food, drinks & more — delivered.</Text>
         </View>
 
         {phoneStep === "enter" ? (

@@ -1,12 +1,16 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MenuCategory } from "@tbc/shared-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBrands } from "../../api/brands.api";
 import { useMenuItems } from "../../api/menu.api";
+import { BrandCarousel } from "../../components/BrandCarousel";
 import { MenuItemCard } from "../../components/MenuItemCard";
+import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
+import { useBrandStore } from "../../state/brandStore";
 import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
@@ -22,6 +26,10 @@ const CATEGORIES: { key: MenuCategory | "all"; label: string }[] = [
 export function MenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { data: brands } = useBrands();
+  const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
+  const selectedBrand = useBrandStore((state) => state.selectedBrand);
+  const selectBrand = useBrandStore((state) => state.selectBrand);
   const { data: items, isLoading, error } = useMenuItems();
   const [category, setCategory] = useState<MenuCategory | "all">("all");
   const [search, setSearch] = useState("");
@@ -29,6 +37,16 @@ export function MenuScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
+  // Combos are only seeded for TBC today — hide the banner rather than link into an empty screen for other brands.
+  const showCombosBanner = selectedBrand?.id === "tbc";
+
+  // Land here with no brand chosen yet (fresh login) — default to the first live brand
+  // rather than showing a blank menu; the carousel below lets the customer switch.
+  useEffect(() => {
+    if (!selectedBrandId && brands && brands.length > 0) {
+      selectBrand(brands[0]);
+    }
+  }, [selectedBrandId, brands, selectBrand]);
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -42,17 +60,21 @@ export function MenuScreen({ navigation }: Props) {
     });
   }, [items, category, search]);
 
-  return (
-    <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top, backgroundColor: colors.background }]}>
+  const listHeader = (
+    <View>
       <View style={styles.headerRow}>
-        <Pressable style={styles.headerText} onPress={() => navigation.navigate("BrandSelect")}>
-          <Text style={styles.title}>The Blenders Club</Text>
-          <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress. · Switch brand</Text>
-        </Pressable>
+        <View style={styles.addressBar}>
+          <Text style={styles.addressLabel}>📍 Delivering to</Text>
+          <Text style={styles.addressValue}>{SUPPORTED_CITY}</Text>
+        </View>
         <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
           <Text style={styles.avatarButtonText}>{initial}</Text>
         </Pressable>
       </View>
+
+      <BrandCarousel colors={colors} />
+
+      {selectedBrand && <Text style={styles.brandSectionLabel}>{selectedBrand.name} Menu</Text>}
 
       <TextInput
         style={styles.search}
@@ -70,9 +92,11 @@ export function MenuScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
-        <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-item bundles</Text>
-      </Pressable>
+      {showCombosBanner && (
+        <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
+          <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-item bundles</Text>
+        </Pressable>
+      )}
 
       <Pressable style={styles.bulkOrderBanner} onPress={() => navigation.navigate("BulkOrder")}>
         <Text style={styles.bulkOrderBannerText}>🎉 Planning an event? Ask about Bulk Orders</Text>
@@ -80,10 +104,22 @@ export function MenuScreen({ navigation }: Props) {
 
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}
       {error && <Text style={styles.info}>Couldn't load the menu. Pull to retry.</Text>}
+      {!isLoading && !error && filtered.length === 0 && (
+        <Text style={styles.info}>
+          {items && items.length > 0
+            ? "No items match your search."
+            : `${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}
+        </Text>
+      )}
+    </View>
+  );
 
+  return (
+    <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top, backgroundColor: colors.background }]}>
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={{ paddingBottom: 96 }}
         renderItem={({ item }) => (
           <MenuItemCard item={item} onPress={() => navigation.navigate("ItemDetail", { menuItemId: item.id })} />
@@ -100,10 +136,10 @@ export function MenuScreen({ navigation }: Props) {
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
-    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-    headerText: { flex: 1 },
-    title: { fontSize: 24, fontWeight: "800", color: colors.primary },
-    tagline: { fontSize: 12, color: colors.muted, marginBottom: theme.spacing(2) },
+    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing(2) },
+    addressBar: { flex: 1 },
+    addressLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
+    addressValue: { fontSize: 18, fontWeight: "800", color: colors.primary, marginTop: 2 },
     avatarButton: {
       width: 40,
       height: 40,
@@ -114,6 +150,7 @@ const makeStyles = (colors: ColorPalette) =>
       marginLeft: theme.spacing(1),
     },
     avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    brandSectionLabel: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     search: {
       borderWidth: 1,
       borderColor: colors.border,

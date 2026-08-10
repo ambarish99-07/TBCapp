@@ -34,22 +34,6 @@ export const darkColors: ColorPalette = {
   border: "#3A2E22",
 };
 
-/**
- * Devour's own app-shell chrome (currently just BrandSelectScreen) — a single
- * palette, not a light/dark pair, since it's one screen and not worth doubling
- * up for. Once inside a brand's storefront, that brand's own colors take over.
- */
-export const devourColors: ColorPalette = {
-  background: "#0E0B09",
-  surface: "#1C1613",
-  text: "#F5EFE9",
-  muted: "#A89A8C",
-  primary: "#E8792C",
-  accent: "#E8792C",
-  danger: "#E5675C",
-  border: "#332822",
-};
-
 export const theme = {
   spacing: (n: number) => n * 8,
   radius: 12,
