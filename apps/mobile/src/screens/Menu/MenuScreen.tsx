@@ -5,9 +5,10 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMenuItems } from "../../api/menu.api";
 import { MenuItemCard } from "../../components/MenuItemCard";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { useCartStore } from "../../state/cartStore";
+import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
@@ -19,6 +20,8 @@ const CATEGORIES: { key: MenuCategory | "all"; label: string }[] = [
 ];
 
 export function MenuScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: items, isLoading, error } = useMenuItems();
   const [category, setCategory] = useState<MenuCategory | "all">("all");
   const [search, setSearch] = useState("");
@@ -40,7 +43,7 @@ export function MenuScreen({ navigation }: Props) {
   }, [items, category, search]);
 
   return (
-    <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top }]}>
+    <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top, backgroundColor: colors.background }]}>
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <Text style={styles.title}>The Blenders Club</Text>
@@ -56,7 +59,7 @@ export function MenuScreen({ navigation }: Props) {
         placeholder="Search the menu..."
         value={search}
         onChangeText={setSearch}
-        placeholderTextColor={theme.colors.muted}
+        placeholderTextColor={colors.muted}
       />
 
       <View style={styles.tabs}>
@@ -69,6 +72,10 @@ export function MenuScreen({ navigation }: Props) {
 
       <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
         <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-item bundles</Text>
+      </Pressable>
+
+      <Pressable style={styles.bulkOrderBanner} onPress={() => navigation.navigate("BulkOrder")}>
+        <Text style={styles.bulkOrderBannerText}>🎉 Planning an event? Ask about Bulk Orders</Text>
       </Pressable>
 
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}
@@ -90,46 +97,57 @@ export function MenuScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  headerText: { flex: 1 },
-  title: { fontSize: 24, fontWeight: "800", color: theme.colors.primary },
-  tagline: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: theme.spacing(1),
-  },
-  avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
-  search: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.25),
-    marginBottom: theme.spacing(1.5),
-  },
-  tabs: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
-  tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: theme.colors.surface },
-  tabActive: { backgroundColor: theme.colors.primary },
-  tabText: { fontSize: 12, color: theme.colors.text },
-  tabTextActive: { color: "#fff", fontWeight: "700" },
-  combosBanner: { backgroundColor: theme.colors.accent, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(2) },
-  combosBannerText: { color: "#fff", fontWeight: "700", fontSize: 12, textAlign: "center" },
-  info: { textAlign: "center", color: theme.colors.muted, marginBottom: theme.spacing(1) },
-  cartButton: {
-    position: "absolute",
-    bottom: theme.spacing(2),
-    left: theme.spacing(2),
-    right: theme.spacing(2),
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.5),
-    alignItems: "center",
-  },
-  cartButtonText: { color: "#fff", fontWeight: "700" },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+    headerText: { flex: 1 },
+    title: { fontSize: 24, fontWeight: "800", color: colors.primary },
+    tagline: { fontSize: 12, color: colors.muted, marginBottom: theme.spacing(2) },
+    avatarButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: theme.spacing(1),
+    },
+    avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    search: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(1.5),
+      color: colors.text,
+    },
+    tabs: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
+    tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: colors.surface },
+    tabActive: { backgroundColor: colors.primary },
+    tabText: { fontSize: 12, color: colors.text },
+    tabTextActive: { color: "#fff", fontWeight: "700" },
+    combosBanner: { backgroundColor: colors.accent, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(2) },
+    combosBannerText: { color: "#fff", fontWeight: "700", fontSize: 12, textAlign: "center" },
+    bulkOrderBanner: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(2),
+    },
+    bulkOrderBannerText: { color: colors.primary, fontWeight: "700", fontSize: 12, textAlign: "center" },
+    info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
+    cartButton: {
+      position: "absolute",
+      bottom: theme.spacing(2),
+      left: theme.spacing(2),
+      right: theme.spacing(2),
+      backgroundColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      alignItems: "center",
+    },
+    cartButtonText: { color: "#fff", fontWeight: "700" },
+  });

@@ -1,10 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { Order } from "@tbc/shared-types";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { fetchOrderByAccessToken } from "../../api/orders.api";
 import { StatusTimeline } from "../../components/StatusTimeline";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
+import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "GuestLookup">;
@@ -14,6 +15,8 @@ type Props = NativeStackScreenProps<RootStackParamList, "GuestLookup">;
  * never the raw order id, which would let someone enumerate other customers' orders.
  */
 export function GuestLookupScreen(_props: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [token, setToken] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +58,21 @@ export function GuestLookupScreen(_props: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  title: { fontSize: 18, fontWeight: "800", color: theme.colors.text, marginBottom: theme.spacing(2) },
-  input: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(1.5) },
-  button: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center" },
-  buttonText: { color: "#fff", fontWeight: "700" },
-  error: { color: theme.colors.danger, marginTop: theme.spacing(1.5) },
-  result: { marginTop: theme.spacing(3) },
-  orderNumber: { fontSize: 16, fontWeight: "700", marginBottom: theme.spacing(2) },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    title: { fontSize: 18, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(2) },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(1.5),
+      color: colors.text,
+    },
+    button: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center" },
+    buttonText: { color: "#fff", fontWeight: "700" },
+    error: { color: colors.danger, marginTop: theme.spacing(1.5) },
+    result: { marginTop: theme.spacing(3) },
+    orderNumber: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: theme.spacing(2) },
+  });

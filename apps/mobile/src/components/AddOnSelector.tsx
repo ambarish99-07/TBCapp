@@ -1,7 +1,9 @@
 import { ADD_ON_PRICES } from "@tbc/pricing";
 import type { AddOnId } from "@tbc/shared-types";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme";
+import type { ColorPalette } from "../constants/theme";
+import { useTheme } from "../state/themeStore";
 
 const ADD_ON_LABELS: Record<AddOnId, string> = {
   "whipped-cream": "Whipped Cream",
@@ -18,6 +20,8 @@ interface Props {
 }
 
 export function AddOnSelector({ selected, onChange, disabled }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const addOnIds = Object.keys(ADD_ON_PRICES) as AddOnId[];
 
   function toggle(id: AddOnId) {
@@ -46,18 +50,19 @@ export function AddOnSelector({ selected, onChange, disabled }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  chipSelected: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-  chipDisabled: { opacity: 0.4 },
-  chipText: { fontSize: 12, color: theme.colors.text },
-  chipTextSelected: { color: "#fff" },
-  note: { fontSize: 12, color: theme.colors.muted, marginTop: 4 },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    chip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipDisabled: { opacity: 0.4 },
+    chipText: { fontSize: 12, color: colors.text },
+    chipTextSelected: { color: "#fff" },
+    note: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  });

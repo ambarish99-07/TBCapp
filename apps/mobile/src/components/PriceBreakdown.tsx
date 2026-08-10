@@ -1,6 +1,8 @@
 import type { PricingResult } from "@tbc/pricing";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme";
+import { theme, type ColorPalette } from "../constants/theme";
+import { useTheme } from "../state/themeStore";
 
 const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
   none: "",
@@ -15,6 +17,8 @@ const REWARD_LABELS: Record<PricingResult["rewardReason"], string> = {
 };
 
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.row}>
       <Text style={[styles.label, muted && styles.muted]}>{label}</Text>
@@ -25,6 +29,8 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
 
 /** Renders the exact breakdown returned by @tbc/pricing — used identically in Cart and Checkout. */
 export function PriceBreakdown({ result }: { result: PricingResult }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       <Row label="Subtotal" value={`₹${result.subtotal}`} />
@@ -43,12 +49,13 @@ export function PriceBreakdown({ result }: { result: PricingResult }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-  row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  label: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
-  value: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
-  muted: { fontWeight: "400", color: theme.colors.muted },
-  divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 6 },
-  premiumNote: { marginTop: 8, fontSize: 12, color: theme.colors.primary, fontWeight: "700" },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    card: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
+    row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+    label: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    value: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    muted: { fontWeight: "400", color: colors.muted },
+    divider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
+    premiumNote: { marginTop: 8, fontSize: 12, color: colors.primary, fontWeight: "700" },
+  });

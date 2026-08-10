@@ -1,14 +1,14 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { loginRequest, requestOtpRequest, verifyOtpRequest } from "../../api/auth.api";
+import { requestOtpRequest, verifyOtpRequest } from "../../api/auth.api";
 import { OtpInput } from "../../components/OtpInput";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
+import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
-type LoginMethod = "phone" | "email";
 type PhoneStep = "enter" | "otp" | "name";
 
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -17,14 +17,10 @@ function isNetworkError(err: unknown): boolean {
   return err instanceof Error && err.message === "Network Error";
 }
 
-export function LoginScreen({ navigation }: Props) {
-  const [method, setMethod] = useState<LoginMethod>("phone");
+export function LoginScreen({}: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const setSession = useAuthStore((state) => state.setSession);
-
-  // Email + password
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [submittingEmail, setSubmittingEmail] = useState(false);
 
   // Phone + OTP
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("enter");
@@ -41,23 +37,6 @@ export function LoginScreen({ navigation }: Props) {
     const timer = setInterval(() => setResendSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(timer);
   }, [resendSecondsLeft]);
-
-  async function handleEmailLogin() {
-    setSubmittingEmail(true);
-    try {
-      const { token, user } = await loginRequest({ identifier, password });
-      await setSession(token, user);
-      // No further navigation needed — the root navigator switches to the
-      // logged-in stack (starting at Menu) as soon as the session is set.
-    } catch (err) {
-      Alert.alert(
-        "Login failed",
-        isNetworkError(err) ? "Please check your internet connection and try again." : "Check your email/phone and password and try again."
-      );
-    } finally {
-      setSubmittingEmail(false);
-    }
-  }
 
   async function handleSendOtp(isResend: boolean) {
     const cleaned = phone.replace(/\D/g, "");
@@ -129,32 +108,7 @@ export function LoginScreen({ navigation }: Props) {
           <Text style={styles.brandTagline}>Shakes, good vibes, great times.</Text>
         </View>
 
-        {method === "phone" && phoneStep !== "enter" ? null : (
-          <View style={styles.methodRow}>
-            <Pressable style={[styles.methodTab, method === "phone" && styles.methodTabActive]} onPress={() => setMethod("phone")}>
-              <Text style={[styles.methodText, method === "phone" && styles.methodTextActive]}>Mobile Number</Text>
-            </Pressable>
-            <Pressable style={[styles.methodTab, method === "email" && styles.methodTabActive]} onPress={() => setMethod("email")}>
-              <Text style={[styles.methodText, method === "email" && styles.methodTextActive]}>Email</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {method === "email" ? (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Email or phone number"
-              value={identifier}
-              onChangeText={setIdentifier}
-              autoCapitalize="none"
-            />
-            <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-            <Pressable style={styles.button} onPress={handleEmailLogin} disabled={submittingEmail}>
-              <Text style={styles.buttonText}>{submittingEmail ? "Logging in…" : "Log In"}</Text>
-            </Pressable>
-          </>
-        ) : phoneStep === "enter" ? (
+        {phoneStep === "enter" ? (
           <>
             <View style={styles.phoneRow}>
               <View style={styles.countryCode}>
@@ -207,52 +161,43 @@ export function LoginScreen({ navigation }: Props) {
             </Pressable>
           </>
         )}
-
-        {method === "email" || phoneStep === "enter" ? (
-          <Pressable onPress={() => navigation.navigate("Signup")}>
-            <Text style={styles.link}>New here? Create an account</Text>
-          </Pressable>
-        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: theme.colors.background },
-  screen: { flexGrow: 1, padding: theme.spacing(2), justifyContent: "center" },
-  brand: { alignItems: "center", marginBottom: theme.spacing(3) },
-  logo: { width: 96, height: 96, borderRadius: 48, marginBottom: theme.spacing(1.5) },
-  brandName: { fontSize: 22, fontWeight: "800", color: theme.colors.primary },
-  brandTagline: { fontSize: 13, color: theme.colors.muted, marginTop: 4 },
-  methodRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1.5) },
-  methodTab: { flex: 1, padding: theme.spacing(1), borderRadius: theme.radius, backgroundColor: theme.colors.surface, alignItems: "center" },
-  methodTabActive: { backgroundColor: theme.colors.primary },
-  methodText: { color: theme.colors.text, fontWeight: "600" },
-  methodTextActive: { color: "#fff" },
-  input: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(1) },
-  phoneRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1) },
-  countryCode: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius,
-    paddingHorizontal: theme.spacing(1.5),
-    justifyContent: "center",
-  },
-  countryCodeText: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
-  phoneInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.25),
-    fontSize: 16,
-  },
-  otpTitle: { fontSize: 20, fontWeight: "800", color: theme.colors.text, textAlign: "center", marginBottom: 4 },
-  otpHint: { fontSize: 13, color: theme.colors.muted, textAlign: "center", marginBottom: theme.spacing(2) },
-  errorText: { fontSize: 13, color: theme.colors.danger, textAlign: "center", marginTop: theme.spacing(1) },
-  resendRow: { alignItems: "center", marginTop: theme.spacing(2), marginBottom: theme.spacing(1) },
-  button: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center", marginTop: theme.spacing(1) },
-  buttonText: { color: "#fff", fontWeight: "700" },
-  link: { textAlign: "center", color: theme.colors.primary, marginTop: theme.spacing(2) },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.background },
+    screen: { flexGrow: 1, padding: theme.spacing(2), justifyContent: "center" },
+    brand: { alignItems: "center", marginBottom: theme.spacing(3) },
+    logo: { width: 96, height: 96, borderRadius: 48, marginBottom: theme.spacing(1.5) },
+    brandName: { fontSize: 22, fontWeight: "800", color: colors.primary },
+    brandTagline: { fontSize: 13, color: colors.muted, marginTop: 4 },
+    input: { borderWidth: 1, borderColor: colors.border, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(1), color: colors.text },
+    phoneRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1) },
+    countryCode: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      paddingHorizontal: theme.spacing(1.5),
+      justifyContent: "center",
+    },
+    countryCodeText: { fontSize: 16, fontWeight: "700", color: colors.text },
+    phoneInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      fontSize: 16,
+      color: colors.text,
+    },
+    otpTitle: { fontSize: 20, fontWeight: "800", color: colors.text, textAlign: "center", marginBottom: 4 },
+    otpHint: { fontSize: 13, color: colors.muted, textAlign: "center", marginBottom: theme.spacing(2) },
+    errorText: { fontSize: 13, color: colors.danger, textAlign: "center", marginTop: theme.spacing(1) },
+    resendRow: { alignItems: "center", marginTop: theme.spacing(2), marginBottom: theme.spacing(1) },
+    button: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.5), alignItems: "center", marginTop: theme.spacing(1) },
+    buttonText: { color: "#fff", fontWeight: "700" },
+    link: { textAlign: "center", color: colors.primary, marginTop: theme.spacing(2) },
+  });

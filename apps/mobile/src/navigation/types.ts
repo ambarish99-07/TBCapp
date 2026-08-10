@@ -3,6 +3,7 @@ export type RootStackParamList = {
   ItemDetail: { menuItemId: string };
   Combos: undefined;
   ChooseCombo: { comboId: string };
+  BulkOrder: undefined;
   Cart: undefined;
   Checkout: undefined;
   // accessToken, not orderId — this is a public, unauthenticated lookup so it
@@ -10,6 +11,5 @@ export type RootStackParamList = {
   OrderStatus: { accessToken: string };
   GuestLookup: undefined;
   Login: undefined;
-  Signup: undefined;
   Account: undefined;
 };

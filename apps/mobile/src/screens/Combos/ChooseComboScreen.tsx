@@ -1,16 +1,19 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useCombos, useMenuItems } from "../../api/menu.api";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
+import { useTheme } from "../../state/themeStore";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ChooseCombo">;
 
 export function ChooseComboScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: combos } = useCombos();
   const { data: menuItems } = useMenuItems();
   const addLine = useCartStore((state) => state.addLine);
@@ -86,24 +89,25 @@ export function ChooseComboScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  title: { fontSize: 20, fontWeight: "800", color: theme.colors.text },
-  subtitle: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: theme.spacing(1.5),
-    borderRadius: theme.radius,
-    backgroundColor: theme.colors.surface,
-    marginBottom: 8,
-  },
-  rowSelected: { backgroundColor: theme.colors.primary },
-  rowText: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
-  rowTextSelected: { color: "#fff" },
-  checkmark: { color: "#fff", fontWeight: "700" },
-  addButton: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },
-  addButtonDisabled: { opacity: 0.4 },
-  addButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    title: { fontSize: 20, fontWeight: "800", color: colors.text },
+    subtitle: { fontSize: 12, color: colors.muted, marginBottom: theme.spacing(2) },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: theme.spacing(1.5),
+      borderRadius: theme.radius,
+      backgroundColor: colors.surface,
+      marginBottom: 8,
+    },
+    rowSelected: { backgroundColor: colors.primary },
+    rowText: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    rowTextSelected: { color: "#fff" },
+    checkmark: { color: "#fff", fontWeight: "700" },
+    addButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },
+    addButtonDisabled: { opacity: 0.4 },
+    addButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  });

@@ -1,14 +1,18 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { fetchOrderByAccessToken } from "../../api/orders.api";
 import { StatusTimeline } from "../../components/StatusTimeline";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
+import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderStatus">;
 
 export function OrderStatusScreen({ route }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const {
     data: order,
     isLoading,
@@ -30,7 +34,7 @@ export function OrderStatusScreen({ route }: Props) {
   if (isLoading || !order) {
     return (
       <View style={styles.screen}>
-        <Text>Loading order…</Text>
+        <Text style={styles.summaryText}>Loading order…</Text>
       </View>
     );
   }
@@ -69,21 +73,22 @@ export function OrderStatusScreen({ route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  orderNumber: { fontSize: 18, fontWeight: "800", color: theme.colors.primary },
-  eta: { fontSize: 13, color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  recipientBanner: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.5),
-    marginBottom: theme.spacing(2),
-    fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: "600",
-  },
-  summary: { marginTop: theme.spacing(3), backgroundColor: theme.colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-  summaryTitle: { fontSize: 12, color: theme.colors.muted, marginTop: 8 },
-  summaryText: { fontSize: 14, color: theme.colors.text, fontWeight: "600" },
-  errorText: { color: theme.colors.danger, textAlign: "center", marginTop: theme.spacing(4) },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    orderNumber: { fontSize: 18, fontWeight: "800", color: colors.primary },
+    eta: { fontSize: 13, color: colors.muted, marginBottom: theme.spacing(2) },
+    recipientBanner: {
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      marginBottom: theme.spacing(2),
+      fontSize: 13,
+      color: colors.text,
+      fontWeight: "600",
+    },
+    summary: { marginTop: theme.spacing(3), backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
+    summaryTitle: { fontSize: 12, color: colors.muted, marginTop: 8 },
+    summaryText: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    errorText: { color: colors.danger, textAlign: "center", marginTop: theme.spacing(4) },
+  });

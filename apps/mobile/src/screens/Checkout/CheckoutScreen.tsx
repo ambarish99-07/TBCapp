@@ -1,16 +1,17 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { PaymentMethod, SavedRecipient } from "@tbc/shared-types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { createOrderRequest } from "../../api/orders.api";
 import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
 import { createSavedRecipient, deleteSavedRecipient, fetchSavedRecipients } from "../../api/recipients.api";
 import { PriceBreakdown } from "../../components/PriceBreakdown";
 import { SavedRecipientPicker } from "../../components/SavedRecipientPicker";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { useCartStore } from "../../state/cartStore";
+import { useTheme } from "../../state/themeStore";
 import { useAuthContext } from "../../state/useAuthContext";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -47,6 +48,8 @@ const emptyRecipientFields = {
 };
 
 export function CheckoutScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const lines = useCartStore((state) => state.lines);
   const computeTotals = useCartStore((state) => state.computeTotals);
   const clearCart = useCartStore((state) => state.clear);
@@ -294,32 +297,34 @@ export function CheckoutScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: theme.colors.text, marginTop: theme.spacing(2), marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.25),
-    marginBottom: theme.spacing(1),
-  },
-  helperText: { fontSize: 11, color: theme.colors.muted, marginBottom: theme.spacing(1) },
-  paymentRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
-  paymentOption: { flex: 1, padding: theme.spacing(1.5), borderRadius: theme.radius, backgroundColor: theme.colors.surface, alignItems: "center" },
-  paymentOptionActive: { backgroundColor: theme.colors.primary },
-  paymentText: { color: theme.colors.text, fontWeight: "600" },
-  paymentTextActive: { color: "#fff" },
-  saveRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius,
-    padding: theme.spacing(1.25),
-    marginBottom: theme.spacing(1),
-  },
-  saveLabel: { fontSize: 13, color: theme.colors.text, fontWeight: "600" },
-  submitButton: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginVertical: theme.spacing(3) },
-  submitButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginTop: theme.spacing(2), marginBottom: 8 },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(1),
+      color: colors.text,
+    },
+    helperText: { fontSize: 11, color: colors.muted, marginBottom: theme.spacing(1) },
+    paymentRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
+    paymentOption: { flex: 1, padding: theme.spacing(1.5), borderRadius: theme.radius, backgroundColor: colors.surface, alignItems: "center" },
+    paymentOptionActive: { backgroundColor: colors.primary },
+    paymentText: { color: colors.text, fontWeight: "600" },
+    paymentTextActive: { color: "#fff" },
+    saveRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(1),
+    },
+    saveLabel: { fontSize: 13, color: colors.text, fontWeight: "600" },
+    submitButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginVertical: theme.spacing(3) },
+    submitButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  });

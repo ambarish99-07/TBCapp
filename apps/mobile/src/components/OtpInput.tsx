@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { StyleSheet, TextInput, View, type NativeSyntheticEvent, type TextInputKeyPressEventData } from "react-native";
-import { theme } from "../constants/theme";
+import type { ColorPalette } from "../constants/theme";
+import { useTheme } from "../state/themeStore";
 
 interface Props {
   length?: number;
@@ -20,6 +21,8 @@ interface Props {
  */
 export function OtpInput({ length = 6, value, onChange, onComplete, autoFocus, hasError }: Props) {
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const { colors, radius } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, radius), [colors, radius]);
 
   function setDigit(index: number, text: string) {
     // A paste or platform autofill can deliver more than one character into
@@ -82,18 +85,19 @@ export function OtpInput({ length = 6, value, onChange, onComplete, autoFocus, h
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 8, justifyContent: "center" },
-  box: {
-    width: 44,
-    height: 52,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius,
-    textAlign: "center",
-    fontSize: 20,
-    fontWeight: "700",
-    color: theme.colors.text,
-  },
-  boxError: { borderColor: theme.colors.danger },
-});
+const makeStyles = (colors: ColorPalette, radius: number) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", gap: 8, justifyContent: "center" },
+    box: {
+      width: 44,
+      height: 52,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius,
+      textAlign: "center",
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    boxError: { borderColor: colors.danger },
+  });

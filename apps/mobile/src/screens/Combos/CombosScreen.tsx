@@ -1,16 +1,20 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
 import type { Combo } from "@tbc/shared-types";
+import { useMemo } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useCombos, useMenuItems } from "../../api/menu.api";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
+import { useTheme } from "../../state/themeStore";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Combos">;
 
 export function CombosScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: combos, isLoading } = useCombos();
   const { data: menuItems } = useMenuItems();
   const addLine = useCartStore((state) => state.addLine);
@@ -90,29 +94,30 @@ export function CombosScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  title: { fontSize: 22, fontWeight: "800", color: theme.colors.primary },
-  subtitle: { fontSize: 12, color: theme.colors.muted, marginBottom: theme.spacing(2) },
-  info: { textAlign: "center", color: theme.colors.muted, marginVertical: theme.spacing(2) },
-  card: { backgroundColor: theme.colors.surface, borderRadius: theme.radius, marginBottom: theme.spacing(2), overflow: "hidden" },
-  image: { width: "100%", height: 120 },
-  cardBody: { padding: theme.spacing(1.5) },
-  name: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
-  description: { fontSize: 12, color: theme.colors.muted, marginTop: 4 },
-  meta: { fontSize: 12, color: theme.colors.text, marginTop: 6 },
-  priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-  priceStrikethrough: { fontSize: 13, color: theme.colors.muted, textDecorationLine: "line-through" },
-  price: { fontSize: 16, fontWeight: "700", color: theme.colors.primary },
-  savingsBadge: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#fff",
-    backgroundColor: theme.colors.danger,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  button: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.25), alignItems: "center", marginTop: theme.spacing(1.5) },
-  buttonText: { color: "#fff", fontWeight: "700" },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    title: { fontSize: 22, fontWeight: "800", color: colors.primary },
+    subtitle: { fontSize: 12, color: colors.muted, marginBottom: theme.spacing(2) },
+    info: { textAlign: "center", color: colors.muted, marginVertical: theme.spacing(2) },
+    card: { backgroundColor: colors.surface, borderRadius: theme.radius, marginBottom: theme.spacing(2), overflow: "hidden" },
+    image: { width: "100%", height: 120 },
+    cardBody: { padding: theme.spacing(1.5) },
+    name: { fontSize: 16, fontWeight: "700", color: colors.text },
+    description: { fontSize: 12, color: colors.muted, marginTop: 4 },
+    meta: { fontSize: 12, color: colors.text, marginTop: 6 },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+    priceStrikethrough: { fontSize: 13, color: colors.muted, textDecorationLine: "line-through" },
+    price: { fontSize: 16, fontWeight: "700", color: colors.primary },
+    savingsBadge: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: "#fff",
+      backgroundColor: colors.danger,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    button: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.25), alignItems: "center", marginTop: theme.spacing(1.5) },
+    buttonText: { color: "#fff", fontWeight: "700" },
+  });

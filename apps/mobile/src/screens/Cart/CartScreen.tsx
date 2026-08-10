@@ -1,14 +1,18 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useMemo } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { PriceBreakdown } from "../../components/PriceBreakdown";
-import { theme } from "../../constants/theme";
+import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
+import { useTheme } from "../../state/themeStore";
 import { useAuthContext } from "../../state/useAuthContext";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
 export function CartScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const lines = useCartStore((state) => state.lines);
   const setQuantity = useCartStore((state) => state.setQuantity);
   const removeLine = useCartStore((state) => state.removeLine);
@@ -43,11 +47,11 @@ export function CartScreen({ navigation }: Props) {
               </Text>
               <View style={styles.qtyRow}>
                 <Pressable onPress={() => setQuantity(line.lineId, line.quantity - 1)} style={styles.qtyButton}>
-                  <Text>-</Text>
+                  <Text style={styles.qtyButtonText}>-</Text>
                 </Pressable>
                 <Text style={styles.qtyValue}>{line.quantity}</Text>
                 <Pressable onPress={() => setQuantity(line.lineId, line.quantity + 1)} style={styles.qtyButton}>
-                  <Text>+</Text>
+                  <Text style={styles.qtyButtonText}>+</Text>
                 </Pressable>
                 <Pressable onPress={() => removeLine(line.lineId)}>
                   <Text style={styles.remove}>Remove</Text>
@@ -68,20 +72,22 @@ export function CartScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing(2) },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16 },
-  emptyText: { color: theme.colors.muted },
-  browseButton: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, paddingHorizontal: 20, paddingVertical: 10 },
-  browseButtonText: { color: "#fff", fontWeight: "700" },
-  line: { flexDirection: "row", justifyContent: "space-between", paddingVertical: theme.spacing(1.5), borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  lineName: { fontSize: 15, fontWeight: "700", color: theme.colors.text },
-  lineMeta: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
-  qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
-  qtyButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.surface, alignItems: "center", justifyContent: "center" },
-  qtyValue: { fontWeight: "700" },
-  remove: { color: theme.colors.danger, fontSize: 12, marginLeft: 8 },
-  lineTotal: { fontWeight: "700", color: theme.colors.text },
-  checkoutButton: { backgroundColor: theme.colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },
-  checkoutButtonText: { color: "#fff", fontWeight: "700" },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, backgroundColor: colors.background },
+    emptyText: { color: colors.muted },
+    browseButton: { backgroundColor: colors.primary, borderRadius: theme.radius, paddingHorizontal: 20, paddingVertical: 10 },
+    browseButtonText: { color: "#fff", fontWeight: "700" },
+    line: { flexDirection: "row", justifyContent: "space-between", paddingVertical: theme.spacing(1.5), borderBottomWidth: 1, borderBottomColor: colors.border },
+    lineName: { fontSize: 15, fontWeight: "700", color: colors.text },
+    lineMeta: { fontSize: 11, color: colors.muted, marginTop: 2 },
+    qtyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
+    qtyButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+    qtyButtonText: { color: colors.text },
+    qtyValue: { fontWeight: "700", color: colors.text },
+    remove: { color: colors.danger, fontSize: 12, marginLeft: 8 },
+    lineTotal: { fontWeight: "700", color: colors.text },
+    checkoutButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },
+    checkoutButtonText: { color: "#fff", fontWeight: "700" },
+  });

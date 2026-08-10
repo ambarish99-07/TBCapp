@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider, useAdminAuth } from "./auth/AdminAuthContext.js";
+import { AdminNav } from "./components/AdminNav.js";
 import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
 import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
+import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
@@ -10,7 +12,12 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAdminAuth();
   if (isLoading) return <p>Loading…</p>;
   if (!user) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return (
+    <>
+      <AdminNav />
+      {children}
+    </>
+  );
 }
 
 /** Polls for new orders and shows the SOS-style alert banner for as long as an admin is logged in, on every page. */
@@ -41,6 +48,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <OrderDetailPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/bulk-orders"
+          element={
+            <RequireAdmin>
+              <BulkOrdersPage />
             </RequireAdmin>
           }
         />

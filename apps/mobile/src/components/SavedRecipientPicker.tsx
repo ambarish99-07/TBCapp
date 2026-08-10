@@ -1,6 +1,8 @@
 import type { SavedRecipient } from "@tbc/shared-types";
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { theme } from "../constants/theme";
+import { theme, type ColorPalette } from "../constants/theme";
+import { useTheme } from "../state/themeStore";
 
 interface Props {
   recipients: SavedRecipient[];
@@ -11,6 +13,9 @@ interface Props {
 }
 
 export function SavedRecipientPicker({ recipients, selectedId, onSelect, onAddNew, onDelete }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.row} contentContainerStyle={{ gap: 8 }}>
       {recipients.map((recipient) => {
@@ -33,27 +38,28 @@ export function SavedRecipientPicker({ recipients, selectedId, onSelect, onAddNe
   );
 }
 
-const styles = StyleSheet.create({
-  row: { marginBottom: theme.spacing(1) },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: theme.colors.surface,
-  },
-  chipActive: { backgroundColor: theme.colors.primary },
-  chipText: { fontSize: 12, fontWeight: "700", color: theme.colors.text },
-  chipTextActive: { color: "#fff" },
-  removeText: { fontSize: 14, fontWeight: "700", color: theme.colors.muted, marginLeft: 4 },
-  addChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: "center",
-  },
-  addChipText: { fontSize: 12, fontWeight: "700", color: theme.colors.primary },
-});
+const makeStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    row: { marginBottom: theme.spacing(1) },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    chipActive: { backgroundColor: colors.primary },
+    chipText: { fontSize: 12, fontWeight: "700", color: colors.text },
+    chipTextActive: { color: "#fff" },
+    removeText: { fontSize: 14, fontWeight: "700", color: colors.muted, marginLeft: 4 },
+    addChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: "center",
+    },
+    addChipText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+  });
