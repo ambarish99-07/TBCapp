@@ -11,6 +11,7 @@ import { securityHeaders } from "./config/security.js";
 import type { Env } from "./config/env.js";
 import { createAdminRouter } from "./modules/admin/admin.routes.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
+import { createBrandsRouter } from "./modules/brands/brands.routes.js";
 import { createBulkOrdersRouter } from "./modules/bulkOrders/bulkOrders.routes.js";
 import { createMenuRouter } from "./modules/menu/menu.routes.js";
 import { createOrdersRouter } from "./modules/orders/orders.routes.js";
@@ -42,6 +43,7 @@ export function createApp(env: Env): Express {
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.use("/auth", createAuthRouter(env));
+  app.use("/brands", createBrandsRouter(env));
   app.use("/menu", createMenuRouter(env));
   app.use("/orders", createOrdersRouter(env));
   app.use("/payments", createPaymentsRouter(env));

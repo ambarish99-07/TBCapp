@@ -33,6 +33,7 @@ async function seedShakes() {
   await MenuItemModel.create([
     {
       _id: "choco-crush",
+      brandId: "tbc",
       signatureName: "Choco Crush",
       commonName: "Rich Chocolate Shake",
       description: "desc",
@@ -43,6 +44,7 @@ async function seedShakes() {
     },
     {
       _id: "oreo-blast",
+      brandId: "tbc",
       signatureName: "Oreo Blast",
       commonName: "Cookies & Cream Shake",
       description: "desc",
@@ -53,6 +55,7 @@ async function seedShakes() {
     },
     {
       _id: "mango-tango",
+      brandId: "tbc",
       signatureName: "Mango Tango",
       commonName: "Mango Shake",
       description: "desc",
@@ -69,6 +72,7 @@ describe("curated combo pricing", () => {
     await seedShakes();
     await ComboModel.create({
       _id: "chocolate-duo",
+      brandId: "tbc",
       type: "curated",
       name: "Chocolate Duo",
       description: "desc",
@@ -87,6 +91,7 @@ describe("curated combo pricing", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -104,6 +109,7 @@ describe("choose-your-own combo pricing", () => {
     await seedShakes();
     await ComboModel.create({
       _id: "choose-your-own-2",
+      brandId: "tbc",
       type: "choose-n",
       name: "Choose Your Own Duo",
       description: "desc",
@@ -123,6 +129,7 @@ describe("choose-your-own combo pricing", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -137,6 +144,7 @@ describe("choose-your-own combo pricing", () => {
     await seedShakes();
     await ComboModel.create({
       _id: "choose-your-own-2",
+      brandId: "tbc",
       type: "choose-n",
       name: "Choose Your Own Duo",
       description: "desc",
@@ -156,6 +164,7 @@ describe("choose-your-own combo pricing", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -168,6 +177,7 @@ describe("choose-your-own combo pricing", () => {
     await seedShakes();
     await MenuItemModel.create({
       _id: "cold-brew-classic",
+      brandId: "tbc",
       signatureName: "Cold Brew Classic",
       commonName: "Classic Cold Coffee",
       description: "desc",
@@ -178,6 +188,7 @@ describe("choose-your-own combo pricing", () => {
     });
     await ComboModel.create({
       _id: "choose-your-own-2",
+      brandId: "tbc",
       type: "choose-n",
       name: "Choose Your Own Duo",
       description: "desc",
@@ -197,6 +208,7 @@ describe("choose-your-own combo pricing", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -215,6 +227,7 @@ describe("choose-your-own combo pricing", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",

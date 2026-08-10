@@ -5,6 +5,7 @@ describe("MenuItemSchema", () => {
   it("accepts a valid menu item", () => {
     const result = MenuItemSchema.safeParse({
       id: "choco-crush",
+      brandId: "tbc",
       signatureName: "Choco Crush",
       commonName: "Rich Chocolate Shake",
       description: "A rich, indulgent chocolate shake.",
@@ -38,6 +39,7 @@ describe("CreateOrderRequestSchema", () => {
           customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
         },
       ],
+      brandId: "tbc",
       delivery: {
         fullName: "Test User",
         phone: "9999999999",

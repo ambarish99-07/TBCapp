@@ -15,6 +15,7 @@ export type AddOnId = z.infer<typeof AddOnIdSchema>;
 
 export const MenuItemSchema = z.object({
   id: z.string(),
+  brandId: z.string(),
   signatureName: z.string(),
   commonName: z.string(),
   description: z.string(),
@@ -41,6 +42,7 @@ export type MenuItem = z.infer<typeof MenuItemSchema>;
 export const CuratedComboSchema = z.object({
   type: z.literal("curated"),
   id: z.string(),
+  brandId: z.string(),
   name: z.string(),
   description: z.string(),
   itemIds: z.array(z.string()).min(2),
@@ -56,6 +58,7 @@ export type CuratedCombo = z.infer<typeof CuratedComboSchema>;
 export const ChooseNComboSchema = z.object({
   type: z.literal("choose-n"),
   id: z.string(),
+  brandId: z.string(),
   name: z.string(),
   description: z.string(),
   chooseCount: z.number().int().positive(),

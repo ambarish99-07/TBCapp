@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Env } from "../../config/env.js";
 import { listBulkOrderInquiries, updateBulkOrderInquiryStatus } from "../bulkOrders/bulkOrders.controller.js";
+import { createBrand, deleteBrand, listAllBrandsAdmin, updateBrand } from "../brands/brands.controller.js";
 import { requireAdmin, requireAuth } from "../auth/auth.middleware.js";
 import { advanceOrderStatus, listOrders, recommendToCustomer } from "./admin.controller.js";
 
@@ -14,6 +15,11 @@ export function createAdminRouter(env: Env): Router {
 
   router.get("/bulk-order-inquiries", listBulkOrderInquiries);
   router.patch("/bulk-order-inquiries/:id/status", updateBulkOrderInquiryStatus);
+
+  router.get("/brands", listAllBrandsAdmin);
+  router.post("/brands", createBrand);
+  router.put("/brands/:id", updateBrand);
+  router.delete("/brands/:id", deleteBrand);
 
   return router;
 }

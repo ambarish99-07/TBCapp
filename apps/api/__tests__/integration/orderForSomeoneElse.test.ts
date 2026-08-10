@@ -22,6 +22,7 @@ afterAll(async () => {
 async function seedMenuItem() {
   return MenuItemModel.create({
     _id: "choco-crush",
+    brandId: "tbc",
     signatureName: "Choco Crush",
     commonName: "Rich Chocolate Shake",
     description: "A rich, indulgent chocolate shake.",
@@ -56,6 +57,7 @@ describe("Order for someone else", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         items,
+        brandId: "tbc",
         delivery: {
           fullName: "Priya Kumar",
           phone: "9712300002",
@@ -97,6 +99,7 @@ describe("Order for someone else", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         items,
+        brandId: "tbc",
         delivery: { fullName: "Solo Customer", phone: "9812300003", address: "1 Own St", city: "Patna", pincode: "800001" },
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -116,6 +119,7 @@ describe("Delivery zone validation", () => {
       .post("/orders")
       .send({
         items,
+        brandId: "tbc",
         delivery: { fullName: "Out Of Zone", phone: "9999999999", address: "1 Elsewhere Rd", city: "Mumbai", pincode: "400001" },
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -132,6 +136,7 @@ describe("Delivery zone validation", () => {
       .post("/orders")
       .send({
         items,
+        brandId: "tbc",
         delivery: {
           fullName: "Too Far",
           phone: "9999999999",

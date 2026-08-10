@@ -1,8 +1,11 @@
 import "dotenv/config";
 import { loadEnv } from "../config/env.js";
 import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
+import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
+
+const TBC_BRAND_ID = "tbc";
 
 /** Real menu photography, served by this API at /menu-images/<slug>.png (see app.ts). */
 function imageUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
@@ -239,11 +242,28 @@ async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
 
+  await BrandModel.deleteMany({});
   await MenuItemModel.deleteMany({});
   await ComboModel.deleteMany({});
 
-  const menuItems = buildMenuItems(env);
-  const combos = buildCombos(env, menuItems.map((item) => item._id));
+  await BrandModel.findByIdAndUpdate(
+    TBC_BRAND_ID,
+    {
+      _id: TBC_BRAND_ID,
+      name: "The Blenders Club",
+      tagline: "Crafted to Refresh. Blended to Impress.",
+      status: "live",
+      primaryColor: "#6B3F2A",
+      accentColor: "#D98E4A",
+    },
+    { upsert: true }
+  );
+
+  const menuItems = buildMenuItems(env).map((item) => ({ ...item, brandId: TBC_BRAND_ID }));
+  const combos = buildCombos(env, menuItems.map((item) => item._id)).map((combo) => ({
+    ...combo,
+    brandId: TBC_BRAND_ID,
+  }));
 
   for (const item of menuItems) {
     await MenuItemModel.findByIdAndUpdate(item._id, item, { upsert: true });
@@ -252,7 +272,7 @@ async function seed() {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
 
-  console.log(`Seeded ${menuItems.length} menu items and ${combos.length} combos.`);
+  console.log(`Seeded 1 brand, ${menuItems.length} menu items, and ${combos.length} combos.`);
   await disconnectFromDatabase();
 }
 

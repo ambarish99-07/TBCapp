@@ -22,6 +22,7 @@ afterAll(async () => {
 async function seedMenuItem(overrides: Partial<{ _id: string; price: number }> = {}) {
   return MenuItemModel.create({
     _id: "choco-crush",
+    brandId: "tbc",
     signatureName: "Choco Crush",
     commonName: "Rich Chocolate Shake",
     description: "A rich, indulgent chocolate shake.",
@@ -57,6 +58,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -82,6 +84,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -104,6 +107,7 @@ describe("POST /orders — never trusts a client-submitted price", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: ["not-a-real-addon"] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -126,6 +130,7 @@ describe("POST /orders — payload caps", () => {
       .post("/orders")
       .send({
         items: Array.from({ length: 51 }, (_, i) => ({ ...line, lineId: `l${i}` })),
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",
@@ -148,6 +153,7 @@ describe("POST /orders — payload caps", () => {
             customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
           },
         ],
+        brandId: "tbc",
         delivery: validDelivery,
         deliveryFor: "self",
         paymentMethod: "cod",

@@ -45,10 +45,10 @@ export function MenuScreen({ navigation }: Props) {
   return (
     <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top, backgroundColor: colors.background }]}>
       <View style={styles.headerRow}>
-        <View style={styles.headerText}>
+        <Pressable style={styles.headerText} onPress={() => navigation.navigate("BrandSelect")}>
           <Text style={styles.title}>The Blenders Club</Text>
-          <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress.</Text>
-        </View>
+          <Text style={styles.tagline}>Crafted to Refresh. Blended to Impress. · Switch brand</Text>
+        </Pressable>
         <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
           <Text style={styles.avatarButtonText}>{initial}</Text>
         </Pressable>

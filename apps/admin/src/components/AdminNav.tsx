@@ -3,12 +3,14 @@ import { Link, useLocation } from "react-router-dom";
 const LINKS = [
   { to: "/orders", label: "Orders" },
   { to: "/bulk-orders", label: "Bulk Orders" },
+  { to: "/brands", label: "Brands" },
 ];
 
 export function AdminNav() {
   const location = useLocation();
   return (
-    <nav style={{ display: "flex", gap: 16, marginBottom: 24, borderBottom: "1px solid #E4DCD3", paddingBottom: 8 }}>
+    <nav style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, borderBottom: "1px solid #E4DCD3", paddingBottom: 8 }}>
+      <span style={{ fontWeight: 800, color: "#E8792C", marginRight: 8 }}>Devour</span>
       {LINKS.map((link) => (
         <Link
           key={link.to}

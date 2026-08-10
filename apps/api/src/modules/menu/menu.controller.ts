@@ -8,13 +8,23 @@ function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: stri
   return { ...rest, id: String(_id) };
 }
 
-export const getMenu: RequestHandler = async (_req, res) => {
-  const items = await listMenuItems();
+export const getMenu: RequestHandler = async (req, res) => {
+  const { brandId } = req.query as { brandId?: string };
+  if (!brandId) {
+    res.status(400).json({ error: "brandId is required" });
+    return;
+  }
+  const items = await listMenuItems(brandId);
   res.json({ items: items.map(withId) });
 };
 
-export const getCombos: RequestHandler = async (_req, res) => {
-  const combos = await listCombos();
+export const getCombos: RequestHandler = async (req, res) => {
+  const { brandId } = req.query as { brandId?: string };
+  if (!brandId) {
+    res.status(400).json({ error: "brandId is required" });
+    return;
+  }
+  const combos = await listCombos(brandId);
   res.json({ combos: combos.map(withId) });
 };
 

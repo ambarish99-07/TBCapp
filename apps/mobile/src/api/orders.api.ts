@@ -1,8 +1,10 @@
 import type { CreateOrderRequest, Order } from "@tbc/shared-types";
 import { apiClient } from "./client";
+import { useBrandStore } from "../state/brandStore";
 
-export async function createOrderRequest(payload: CreateOrderRequest): Promise<Order> {
-  const { data } = await apiClient.post<{ order: Order }>("/orders", payload);
+export async function createOrderRequest(payload: Omit<CreateOrderRequest, "brandId">): Promise<Order> {
+  const brandId = useBrandStore.getState().selectedBrandId;
+  const { data } = await apiClient.post<{ order: Order }>("/orders", { ...payload, brandId });
   return data.order;
 }
 

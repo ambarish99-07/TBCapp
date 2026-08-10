@@ -5,6 +5,7 @@ export type BulkOrderInquiryStatus = z.infer<typeof BulkOrderInquiryStatusSchema
 
 /** What the customer submits from the bulk-order contact form — only name/phone are required. */
 export const CreateBulkOrderInquiryRequestSchema = z.object({
+  brandId: z.string(),
   name: z.string().min(1),
   phone: z.string().min(7),
   email: z.string().email().optional(),

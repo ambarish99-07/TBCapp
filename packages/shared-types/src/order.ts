@@ -80,6 +80,7 @@ export type StatusHistoryEntry = z.infer<typeof StatusHistoryEntrySchema>;
 /** What the client POSTs to create an order — no prices, no totals, server derives everything. */
 export const CreateOrderRequestSchema = z.object({
   items: CreateOrderCartSchema,
+  brandId: z.string(),
   delivery: DeliveryDetailsSchema,
   /** Client's explicit intent — "self" prefills from the account but is still just delivery info; never inferred server-side. */
   deliveryFor: DeliveryForSchema,
@@ -90,6 +91,7 @@ export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
 /** Full persisted/returned order shape. */
 export const OrderSchema = z.object({
   id: z.string(),
+  brandId: z.string(),
   /** Separate unguessable token for guest order lookup — never the DB primary key. */
   accessToken: z.string(),
   orderNumber: z.string(),

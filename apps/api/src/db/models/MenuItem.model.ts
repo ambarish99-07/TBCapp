@@ -5,6 +5,7 @@ const MenuItemSchema = new Schema(
     // Human-readable slug ids (e.g. "choco-crush") are used directly as _id so
     // menuItemId references elsewhere in the app don't need a lookup indirection.
     _id: { type: String },
+    brandId: { type: String, required: true },
     signatureName: { type: String, required: true },
     commonName: { type: String, required: true },
     description: { type: String, required: true },
@@ -24,6 +25,8 @@ const MenuItemSchema = new Schema(
   // via .lean(), but suppress the warning rather than deviate from the spec's field name.
   { timestamps: true, _id: false, suppressReservedKeysWarning: true }
 );
+
+MenuItemSchema.index({ brandId: 1 });
 
 export type MenuItemDocument = InferSchemaType<typeof MenuItemSchema>;
 export const MenuItemModel = model("MenuItem", MenuItemSchema);

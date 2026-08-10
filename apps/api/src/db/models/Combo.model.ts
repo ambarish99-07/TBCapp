@@ -15,6 +15,7 @@ import { Schema, model, type InferSchemaType } from "mongoose";
 const ComboSchema = new Schema(
   {
     _id: { type: String },
+    brandId: { type: String, required: true },
     type: { type: String, enum: ["curated", "choose-n"], required: true },
     name: { type: String, required: true },
     description: { type: String, required: true },
@@ -27,6 +28,8 @@ const ComboSchema = new Schema(
   },
   { timestamps: true, _id: false }
 );
+
+ComboSchema.index({ brandId: 1 });
 
 export type ComboDocument = InferSchemaType<typeof ComboSchema>;
 export const ComboModel = model("Combo", ComboSchema);

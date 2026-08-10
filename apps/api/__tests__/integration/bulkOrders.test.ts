@@ -44,7 +44,7 @@ async function customerToken(): Promise<string> {
 
 describe("Bulk order inquiries", () => {
   it("accepts a public submission with just a name and phone", async () => {
-    const response = await request(app).post("/bulk-order-inquiries").send({ name: "Priya Kumar", phone: "9712300002" });
+    const response = await request(app).post("/bulk-order-inquiries").send({ brandId: "tbc", name: "Priya Kumar", phone: "9712300002" });
 
     expect(response.status).toBe(201);
     expect(response.body.inquiry.status).toBe("new");
@@ -53,12 +53,12 @@ describe("Bulk order inquiries", () => {
   });
 
   it("rejects a submission missing a phone number", async () => {
-    const response = await request(app).post("/bulk-order-inquiries").send({ name: "No Phone" });
+    const response = await request(app).post("/bulk-order-inquiries").send({ brandId: "tbc", name: "No Phone" });
     expect(response.status).toBe(400);
   });
 
   it("is visible to admins with the full form, but not to regular customers", async () => {
-    await request(app).post("/bulk-order-inquiries").send({
+    await request(app).post("/bulk-order-inquiries").send({ brandId: "tbc",
       name: "Office Party",
       phone: "9712399999",
       email: "office@example.com",
@@ -84,7 +84,7 @@ describe("Bulk order inquiries", () => {
   });
 
   it("lets an admin advance an inquiry's status", async () => {
-    const created = await request(app).post("/bulk-order-inquiries").send({ name: "Status Test", phone: "9712311111" });
+    const created = await request(app).post("/bulk-order-inquiries").send({ brandId: "tbc", name: "Status Test", phone: "9712311111" });
     const admin = await adminToken();
 
     const updated = await request(app)

@@ -3,6 +3,7 @@ import { AdminAuthProvider, useAdminAuth } from "./auth/AdminAuthContext.js";
 import { AdminNav } from "./components/AdminNav.js";
 import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
 import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
+import { BrandsPage } from "./routes/BrandsPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
@@ -56,6 +57,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <BulkOrdersPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/brands"
+          element={
+            <RequireAdmin>
+              <BrandsPage />
             </RequireAdmin>
           }
         />

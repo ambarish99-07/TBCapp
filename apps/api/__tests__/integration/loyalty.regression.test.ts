@@ -32,6 +32,7 @@ async function placeCodOrder(token: string) {
     .post("/orders")
     .set("Authorization", `Bearer ${token}`)
     .send({
+      brandId: "tbc",
       items: [
         {
           lineId: "l1",
@@ -64,6 +65,7 @@ describe("milestone rewards and premium membership advance across a logged-in us
     await MenuItemModel.create([
       {
         _id: "choco-crush",
+        brandId: "tbc",
         signatureName: "Choco Crush",
         commonName: "Rich Chocolate Shake",
         description: "A rich, indulgent chocolate shake.",
@@ -74,6 +76,7 @@ describe("milestone rewards and premium membership advance across a logged-in us
       },
       {
         _id: "cold-brew-classic",
+        brandId: "tbc",
         signatureName: "Cold Brew Classic",
         commonName: "Classic Cold Coffee",
         description: "A classic, smooth cold coffee.",

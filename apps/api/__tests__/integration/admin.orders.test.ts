@@ -46,6 +46,7 @@ describe("GET /admin/orders — response shape", () => {
     await OrderModel.create({
       accessToken: "test-access-token-1234567890",
       orderNumber: "TBC-TEST0000-0000",
+      brandId: "tbc",
       items: [
         {
           lineId: "l1",

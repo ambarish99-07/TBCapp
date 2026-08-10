@@ -8,8 +8,10 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendProductRecommendation } from "../../integrations/whatsapp/sendRecommendation.js";
 
 export const listOrders: RequestHandler = async (req, res) => {
-  const { status } = req.query as { status?: string };
-  const filter = status ? { status } : {};
+  const { status, brandId } = req.query as { status?: string; brandId?: string };
+  const filter: Record<string, string> = {};
+  if (status) filter.status = status;
+  if (brandId) filter.brandId = brandId;
   const orders = await OrderModel.find(filter).sort({ createdAt: -1 });
   res.json({ orders });
 };

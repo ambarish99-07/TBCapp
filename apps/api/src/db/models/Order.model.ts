@@ -101,6 +101,7 @@ const OrderSchema = new Schema(
     // deliberately NOT the Mongo _id, which is sequential/guessable enough to enumerate.
     accessToken: { type: String, required: true, unique: true },
     orderNumber: { type: String, required: true, unique: true },
+    brandId: { type: String, required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     customer: { type: OrderCustomerSchema },
     deliveryFor: { type: String, enum: ["self", "recipient"], required: true, default: "self" },
@@ -133,6 +134,7 @@ const OrderSchema = new Schema(
 
 // accessToken and orderNumber already get unique indexes from `unique: true` above.
 OrderSchema.index({ userId: 1, createdAt: -1 });
+OrderSchema.index({ brandId: 1, createdAt: -1 });
 
 export type OrderDocument = InferSchemaType<typeof OrderSchema>;
 export const OrderModel = model("Order", OrderSchema);

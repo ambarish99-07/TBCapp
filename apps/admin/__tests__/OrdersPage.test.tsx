@@ -36,7 +36,10 @@ const mockOrder = {
 
 describe("OrdersPage", () => {
   it("renders the order list returned by the admin API", async () => {
-    vi.mocked(adminClient.get).mockResolvedValue({ data: { orders: [mockOrder] } });
+    vi.mocked(adminClient.get).mockImplementation((url: string) => {
+      if (url === "/admin/brands") return Promise.resolve({ data: { brands: [] } });
+      return Promise.resolve({ data: { orders: [mockOrder] } });
+    });
 
     render(
       <MemoryRouter>
@@ -50,7 +53,10 @@ describe("OrdersPage", () => {
   });
 
   it("shows an empty state when there are no orders for the filter", async () => {
-    vi.mocked(adminClient.get).mockResolvedValue({ data: { orders: [] } });
+    vi.mocked(adminClient.get).mockImplementation((url: string) => {
+      if (url === "/admin/brands") return Promise.resolve({ data: { brands: [] } });
+      return Promise.resolve({ data: { orders: [] } });
+    });
 
     render(
       <MemoryRouter>

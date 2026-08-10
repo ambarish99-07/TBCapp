@@ -14,7 +14,7 @@ import { OrderValidationError } from "./orders.errors.js";
 export { OrderValidationError };
 
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
-  const { resolvedLines, pricingLines } = await resolveCartLines(request.items);
+  const { resolvedLines, pricingLines } = await resolveCartLines(request.items, request.brandId);
   assertWithinDeliveryZone(request.delivery);
 
   const loyalty = { completedOrderCount: 0, isPremiumMemberOverride: false };
@@ -40,6 +40,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   const order = await OrderModel.create({
     accessToken: generateAccessToken(),
     orderNumber: generateOrderNumber(),
+    brandId: request.brandId,
     userId,
     customer,
     deliveryFor: request.deliveryFor,

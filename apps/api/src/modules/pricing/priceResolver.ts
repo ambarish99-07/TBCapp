@@ -64,14 +64,14 @@ function resolveUnitPrice(menuItem: { price: number; salePercent?: number | null
  * tampering structurally impossible. Throws PriceResolutionError on any unknown
  * menu item, unknown combo, unknown add-on, or add-ons attached to a combo line.
  */
-export async function resolveCartLines(lines: CartLineRequest[]): Promise<ResolvedCart> {
+export async function resolveCartLines(lines: CartLineRequest[], brandId: string): Promise<ResolvedCart> {
   const resolvedLines: ResolvedCartLine[] = [];
   const pricingLines: CartLineInput[] = [];
 
   for (const line of lines) {
     if (isComboLineId(line.menuItemId)) {
       const { comboId, payload } = parseComboLineId(line.menuItemId);
-      const combo = await ComboModel.findById(comboId).lean();
+      const combo = await ComboModel.findOne({ _id: comboId, brandId }).lean();
       if (!combo) {
         throw new PriceResolutionError(`Unknown combo: ${comboId}`);
       }
@@ -80,7 +80,7 @@ export async function resolveCartLines(lines: CartLineRequest[]): Promise<Resolv
       }
 
       const constituentIds = resolveComboConstituentIds(combo, payload);
-      const constituentItems = await MenuItemModel.find({ _id: { $in: constituentIds } }).lean();
+      const constituentItems = await MenuItemModel.find({ _id: { $in: constituentIds }, brandId }).lean();
       if (constituentItems.length !== constituentIds.length) {
         throw new PriceResolutionError("One or more combo items no longer exist");
       }
@@ -112,7 +112,7 @@ export async function resolveCartLines(lines: CartLineRequest[]): Promise<Resolv
       continue;
     }
 
-    const menuItem = await MenuItemModel.findById(line.menuItemId).lean();
+    const menuItem = await MenuItemModel.findOne({ _id: line.menuItemId, brandId }).lean();
     if (!menuItem) {
       throw new PriceResolutionError(`Unknown menu item: ${line.menuItemId}`);
     }

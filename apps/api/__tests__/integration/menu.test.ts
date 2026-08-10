@@ -34,6 +34,7 @@ describe("GET /menu — response shape", () => {
   it("returns each menu item's real id as `id`, not `_id`", async () => {
     await MenuItemModel.create({
       _id: "choco-crush",
+      brandId: "tbc",
       signatureName: "Choco Crush",
       commonName: "Rich Chocolate Shake",
       description: "desc",
@@ -43,7 +44,7 @@ describe("GET /menu — response shape", () => {
       flavorBadges: [],
     });
 
-    const response = await request(app).get("/menu");
+    const response = await request(app).get("/menu").query({ brandId: "tbc" });
 
     expect(response.status).toBe(200);
     expect(response.body.items[0].id).toBe("choco-crush");
@@ -55,13 +56,14 @@ describe("GET /menu/combos — response shape", () => {
   it("returns each combo's real id as `id`, not `_id`", async () => {
     await ComboModel.create({
       _id: "chocolate-duo",
+      brandId: "tbc",
       type: "curated",
       name: "Chocolate Duo",
       description: "desc",
       itemIds: ["choco-crush", "oreo-blast"],
     });
 
-    const response = await request(app).get("/menu/combos");
+    const response = await request(app).get("/menu/combos").query({ brandId: "tbc" });
 
     expect(response.status).toBe(200);
     expect(response.body.combos[0].id).toBe("chocolate-duo");

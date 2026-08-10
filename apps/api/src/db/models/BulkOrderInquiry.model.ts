@@ -3,6 +3,7 @@ import { Schema, model, type InferSchemaType } from "mongoose";
 /** A customer's request to be contacted about a large/event order — public submissions, admin-managed follow-up. */
 const BulkOrderInquirySchema = new Schema(
   {
+    brandId: { type: String, required: true },
     name: { type: String, required: true },
     phone: { type: String, required: true },
     email: { type: String },
@@ -27,6 +28,7 @@ const BulkOrderInquirySchema = new Schema(
 );
 
 BulkOrderInquirySchema.index({ createdAt: -1 });
+BulkOrderInquirySchema.index({ brandId: 1, createdAt: -1 });
 
 export type BulkOrderInquiryDocument = InferSchemaType<typeof BulkOrderInquirySchema>;
 export const BulkOrderInquiryModel = model("BulkOrderInquiry", BulkOrderInquirySchema);
