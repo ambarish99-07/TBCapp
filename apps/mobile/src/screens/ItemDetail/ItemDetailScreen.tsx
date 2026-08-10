@@ -39,8 +39,6 @@ export function ItemDetailScreen({ route, navigation }: Props) {
   }
 
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
-  const addOnTotal = addOnIds.reduce((sum, id) => sum + ADD_ON_PRICES[id], 0);
-  const lineTotal = (effectivePrice + addOnTotal) * quantity;
 
   function handleAddToCart() {
     addLine({
@@ -114,18 +112,20 @@ export function ItemDetailScreen({ route, navigation }: Props) {
 
       <Text style={styles.sectionTitle}>Quantity</Text>
       <View style={styles.qtyRow}>
-        <Pressable style={styles.qtyButton} onPress={() => setQuantity((q) => Math.max(1, q - 1))}>
-          <Text style={styles.qtyButtonText}>-</Text>
-        </Pressable>
-        <Text style={styles.qtyValue}>{quantity}</Text>
-        <Pressable style={styles.qtyButton} onPress={() => setQuantity((q) => Math.min(20, q + 1))}>
-          <Text style={styles.qtyButtonText}>+</Text>
+        <View style={styles.qtyStepper}>
+          <Pressable style={styles.qtyButton} onPress={() => setQuantity((q) => Math.max(1, q - 1))}>
+            <Text style={styles.qtyButtonText}>-</Text>
+          </Pressable>
+          <Text style={styles.qtyValue}>{quantity}</Text>
+          <Pressable style={styles.qtyButton} onPress={() => setQuantity((q) => Math.min(20, q + 1))}>
+            <Text style={styles.qtyButtonText}>+</Text>
+          </Pressable>
+        </View>
+
+        <Pressable style={styles.addButton} onPress={handleAddToCart}>
+          <Text style={styles.addButtonText}>Add</Text>
         </Pressable>
       </View>
-
-      <Pressable style={styles.addButton} onPress={handleAddToCart}>
-        <Text style={styles.addButtonText}>Add to Cart · ₹{lineTotal}</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -157,10 +157,17 @@ const makeStyles = (colors: ColorPalette) =>
     levelChipActive: { backgroundColor: colors.primary },
     levelText: { fontSize: 12, color: colors.text },
     levelTextActive: { color: "#fff", fontWeight: "700" },
-    qtyRow: { flexDirection: "row", alignItems: "center", gap: 16 },
+    qtyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginVertical: theme.spacing(3) },
+    qtyStepper: { flexDirection: "row", alignItems: "center", gap: 16 },
     qtyButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
     qtyButtonText: { fontSize: 18, fontWeight: "700", color: colors.text },
     qtyValue: { fontSize: 16, fontWeight: "700", color: colors.text },
-    addButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginVertical: theme.spacing(3) },
+    addButton: {
+      backgroundColor: colors.primary,
+      borderRadius: theme.radius,
+      paddingVertical: theme.spacing(1.25),
+      paddingHorizontal: theme.spacing(3),
+      alignItems: "center",
+    },
     addButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   });

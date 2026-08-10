@@ -21,6 +21,14 @@ const UserSchema = new Schema(
     fullName: { type: String, required: true },
     role: { type: String, enum: ["customer", "admin"], required: true, default: "customer" },
     loyalty: { type: LoyaltyStateSchema, required: true, default: () => ({}) },
+    // The account's own address — separate from the multi-address "saved recipients" system
+    // (SavedRecipient) used at checkout; this is the one place a customer's own locality lives.
+    houseNumber: { type: String },
+    area: { type: String },
+    address: { type: String },
+    landmark: { type: String },
+    city: { type: String },
+    pincode: { type: String },
   },
   { timestamps: true }
 );

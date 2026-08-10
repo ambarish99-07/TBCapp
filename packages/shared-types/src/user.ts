@@ -15,11 +15,25 @@ export const LoyaltyStateSchema = z.object({
 export type LoyaltyState = z.infer<typeof LoyaltyStateSchema>;
 
 /**
+ * The account's own address — separate from the multi-address "saved recipients"
+ * system used at checkout (SavedRecipient); this is the one address that's part
+ * of the customer's own profile, e.g. to update in one go after moving house.
+ */
+export const UserAddressFieldsSchema = z.object({
+  houseNumber: z.string().optional(),
+  area: z.string().optional(),
+  address: z.string().optional(),
+  landmark: z.string().optional(),
+  city: z.string().optional(),
+  pincode: z.string().optional(),
+});
+
+/**
  * Public-facing user shape — never includes passwordHash. email/phone are each
  * optional since an account can be created with just one of them (see
  * SignupRequestSchema) — but never both missing.
  */
-export const UserSchema = z.object({
+export const UserSchema = UserAddressFieldsSchema.extend({
   id: z.string(),
   email: z.string().email().optional(),
   fullName: z.string(),
@@ -42,6 +56,14 @@ export const SignupRequestSchema = z
     path: ["email"],
   });
 export type SignupRequest = z.infer<typeof SignupRequestSchema>;
+
+/** Editing an existing account — fullName is always required, same as signup; everything else stays optional. */
+export const UpdateProfileRequestSchema = UserAddressFieldsSchema.extend({
+  fullName: z.string().min(1),
+  email: z.string().email().optional(),
+  phone: z.string().min(7).optional(),
+});
+export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;
 
 /** identifier is whatever the customer typed — either their email or their phone number. */
 export const LoginRequestSchema = z.object({

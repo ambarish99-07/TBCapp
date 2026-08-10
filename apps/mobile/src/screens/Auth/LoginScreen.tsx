@@ -105,7 +105,7 @@ export function LoginScreen({}: Props) {
         <View style={styles.brand}>
           <Image source={require("../../../assets/splash-logo.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.brandName}>Devour</Text>
-          <Text style={styles.brandTagline}>Food, drinks & more — delivered.</Text>
+          <Text style={styles.brandTagline}>One Place, Endless Cravings</Text>
         </View>
 
         {phoneStep === "enter" ? (

@@ -1,6 +1,6 @@
 import type { Brand } from "@tbc/shared-types";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useBrandStore } from "../state/brandStore";
@@ -61,11 +61,26 @@ export function BrandCarousel({ colors, onSelect }: Props) {
   return (
     <View style={styles.wrap}>
       <Pressable onPress={() => handleSelect(activeBrand, activeIndex)}>
-        <Animated.View style={[styles.hero, { opacity: fadeAnim }]}>
-          {activeBrand.logoUrl && <Image source={{ uri: activeBrand.logoUrl }} style={styles.heroLogo} resizeMode="contain" />}
-          <Text style={styles.heroName}>{activeBrand.name}</Text>
-          {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}
-          <Text style={styles.heroCta}>Tap to explore →</Text>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <ImageBackground
+            source={{ uri: activeBrand.heroImageUrl ?? activeBrand.logoUrl }}
+            style={styles.hero}
+            imageStyle={styles.heroImageStyle}
+            resizeMode="cover"
+          >
+            <View style={styles.heroScrim} />
+            <View style={styles.heroTextBlock}>
+              {/* The dedicated hero photos already carry the brand name/tagline baked in — only show
+                  app-rendered text as a fallback for a brand that doesn't have one yet. */}
+              {!activeBrand.heroImageUrl && (
+                <>
+                  <Text style={styles.heroName}>{activeBrand.name}</Text>
+                  {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}
+                </>
+              )}
+              <Text style={styles.heroCta}>Tap to explore →</Text>
+            </View>
+          </ImageBackground>
         </Animated.View>
       </Pressable>
 
@@ -73,7 +88,9 @@ export function BrandCarousel({ colors, onSelect }: Props) {
         {brands.map((brand, index) => (
           <Pressable
             key={brand.id}
-            style={[styles.thumb, index === activeIndex && styles.thumbActive]}
+            // Highlights the customer's actual chosen brand (drives the menu below) — deliberately NOT
+            // tied to the auto-rotating hero photo, which cycles on its own as a preview/showcase.
+            style={[styles.thumb, brand.id === selectedBrandId && styles.thumbActive]}
             onPress={() => handleSelect(brand, index)}
           >
             {brand.logoUrl && <Image source={{ uri: brand.logoUrl }} style={styles.thumbLogo} resizeMode="contain" />}
@@ -92,17 +109,26 @@ const makeStyles = (colors: ColorPalette) =>
     wrap: { marginBottom: theme.spacing(2) },
     info: { textAlign: "center", color: colors.muted },
     hero: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
+      height: 300,
       borderRadius: theme.radius,
-      padding: theme.spacing(2.5),
-      alignItems: "center",
+      overflow: "hidden",
+      justifyContent: "flex-end",
     },
-    heroLogo: { width: 120, height: 120, marginBottom: theme.spacing(1) },
-    heroName: { fontSize: 20, fontWeight: "800", color: colors.text, textAlign: "center" },
-    heroTagline: { fontSize: 13, color: colors.muted, marginTop: theme.spacing(0.5), textAlign: "center" },
-    heroCta: { fontSize: 12, fontWeight: "700", color: colors.primary, marginTop: theme.spacing(1) },
+    heroImageStyle: { borderRadius: theme.radius },
+    // Flat semi-transparent band (no gradient dependency) — keeps the overlaid text legible
+    // no matter what's behind it in the logo artwork.
+    heroScrim: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: "30%",
+      backgroundColor: "rgba(0,0,0,0.45)",
+    },
+    heroTextBlock: { padding: theme.spacing(2) },
+    heroName: { fontSize: 22, fontWeight: "800", color: "#fff" },
+    heroTagline: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: theme.spacing(0.5) },
+    heroCta: { fontSize: 12, fontWeight: "700", color: "#fff", marginTop: theme.spacing(1) },
     thumbRow: { gap: 10, paddingTop: theme.spacing(1.5) },
     thumb: {
       width: 84,

@@ -7,6 +7,7 @@ const BrandSchema = new Schema(
     name: { type: String, required: true },
     tagline: { type: String },
     logoUrl: { type: String },
+    heroImageUrl: { type: String },
     primaryColor: { type: String },
     accentColor: { type: String },
     status: { type: String, enum: ["live", "coming-soon"], required: true, default: "live" },

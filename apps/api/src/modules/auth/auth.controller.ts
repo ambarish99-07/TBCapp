@@ -1,4 +1,4 @@
-import { SignupRequestSchema, LoginRequestSchema, RequestOtpSchema, VerifyOtpSchema, type User } from "@tbc/shared-types";
+import { SignupRequestSchema, LoginRequestSchema, RequestOtpSchema, UpdateProfileRequestSchema, VerifyOtpSchema, type User } from "@tbc/shared-types";
 import { randomBytes } from "node:crypto";
 import type { RequestHandler } from "express";
 import { OtpCodeModel } from "../../db/models/OtpCode.model.js";
@@ -26,6 +26,12 @@ function toPublicUser(doc: {
   phone?: string | null;
   role: "customer" | "admin";
   loyalty: { completedOrderCount: number; isPremiumMemberOverride: boolean };
+  houseNumber?: string | null;
+  area?: string | null;
+  address?: string | null;
+  landmark?: string | null;
+  city?: string | null;
+  pincode?: string | null;
 }): User {
   return {
     id: String(doc._id),
@@ -34,6 +40,12 @@ function toPublicUser(doc: {
     phone: doc.phone ?? undefined,
     role: doc.role,
     loyalty: doc.loyalty,
+    houseNumber: doc.houseNumber ?? undefined,
+    area: doc.area ?? undefined,
+    address: doc.address ?? undefined,
+    landmark: doc.landmark ?? undefined,
+    city: doc.city ?? undefined,
+    pincode: doc.pincode ?? undefined,
   };
 }
 
@@ -184,4 +196,34 @@ export const me: RequestHandler = async (req, res) => {
     return;
   }
   res.json({ user: toPublicUser(user) });
+};
+
+export const updateProfile: RequestHandler = async (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const parsed = UpdateProfileRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid profile payload", details: parsed.error.flatten() });
+    return;
+  }
+
+  try {
+    const user = await UserModel.findByIdAndUpdate(req.user.userId, parsed.data, { new: true, runValidators: true });
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({ user: toPublicUser(user) });
+  } catch (err: unknown) {
+    // Same race-condition guard as signup — the unique index on email/phone is the real check.
+    if (typeof err === "object" && err !== null && "code" in err && (err as { code?: number }).code === 11000) {
+      const keyPattern = (err as { keyPattern?: Record<string, unknown> }).keyPattern ?? {};
+      const field = "email" in keyPattern ? "email" : "phone" in keyPattern ? "phone number" : "email or phone number";
+      res.status(409).json({ error: `An account with this ${field} already exists` });
+      return;
+    }
+    throw err;
+  }
 };

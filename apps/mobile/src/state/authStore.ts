@@ -12,6 +12,7 @@ interface AuthState {
   isHydrating: boolean;
   hydrate: () => Promise<void>;
   setSession: (token: string, user: User) => Promise<void>;
+  updateUser: (user: User) => void;
   logout: () => Promise<void>;
 }
 
@@ -43,6 +44,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     set({ token, user, isHydrating: false });
   },
+
+  updateUser: (user) => set({ user }),
 
   logout: async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);

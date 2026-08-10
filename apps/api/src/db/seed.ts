@@ -17,6 +17,16 @@ function brandLogoUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
   return `http://localhost:${env.PORT}/brand-images/${slug}.png`;
 }
 
+// Bumped whenever the hero photo files themselves change on disk — the filename
+// stays the same, so without this the mobile Image cache would keep showing a
+// stale version after a reload even though the file on disk is now different.
+const HERO_IMAGE_VERSION = 2;
+
+/** Wide lifestyle/product photo for the carousel hero, served at /brand-images/<slug>-hero.png. */
+function brandHeroUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
+  return `http://localhost:${env.PORT}/brand-images/${slug}-hero.png?v=${HERO_IMAGE_VERSION}`;
+}
+
 function buildBrands(env: ReturnType<typeof loadEnv>) {
   return [
     {
@@ -25,6 +35,7 @@ function buildBrands(env: ReturnType<typeof loadEnv>) {
       tagline: "Shakes, good vibes, great times.",
       status: "live" as const,
       logoUrl: brandLogoUrl(env, "tbc"),
+      heroImageUrl: brandHeroUrl(env, "tbc"),
       primaryColor: "#6B3F2A",
       accentColor: "#D98E4A",
     },
@@ -34,6 +45,7 @@ function buildBrands(env: ReturnType<typeof loadEnv>) {
       tagline: "Crafted Mixes. Magical Experiences.",
       status: "live" as const,
       logoUrl: brandLogoUrl(env, "alchemy-tails"),
+      heroImageUrl: brandHeroUrl(env, "alchemy-tails"),
       primaryColor: "#8A6D1F",
       accentColor: "#C9A227",
     },
@@ -43,6 +55,7 @@ function buildBrands(env: ReturnType<typeof loadEnv>) {
       tagline: "Ghar jaise swad, roz ki yaad.",
       status: "live" as const,
       logoUrl: brandLogoUrl(env, "gg-tiffin"),
+      heroImageUrl: brandHeroUrl(env, "gg-tiffin"),
       primaryColor: "#7A5A22",
       accentColor: "#B8860B",
     },

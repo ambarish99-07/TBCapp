@@ -1,15 +1,19 @@
-import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AccountScreen } from "../screens/Account/AccountScreen";
+import { EditProfileScreen } from "../screens/Account/EditProfileScreen";
+import { OrderHistoryScreen } from "../screens/Account/OrderHistoryScreen";
+import { AddAddressScreen } from "../screens/Address/AddAddressScreen";
+import { AddressScreen } from "../screens/Address/AddressScreen";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
 import { BulkOrderScreen } from "../screens/BulkOrder/BulkOrderScreen";
 import { CartScreen } from "../screens/Cart/CartScreen";
 import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
 import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
-import { OrderNowButton } from "../components/OrderNowButton";
+import { CartHeaderButton } from "../components/CartHeaderButton";
 import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
 import { ItemDetailScreen } from "../screens/ItemDetail/ItemDetailScreen";
 import { MenuScreen } from "../screens/Menu/MenuScreen";
@@ -21,8 +25,6 @@ import type { RootStackParamList } from "./types";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const navigationRef = useNavigationContainerRef<RootStackParamList>();
-  const [currentRouteName, setCurrentRouteName] = useState<string | undefined>();
   const user = useAuthStore((state) => state.user);
   const isHydrating = useAuthStore((state) => state.isHydrating);
   const { colors, resolvedScheme } = useTheme();
@@ -47,17 +49,18 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      theme={navigationTheme}
-      onReady={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name)}
-      onStateChange={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name)}
-    >
+    <NavigationContainer theme={navigationTheme}>
       <View style={{ flex: 1 }}>
         {user ? (
           <Stack.Navigator initialRouteName="Menu">
             <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="ItemDetail" component={ItemDetailScreen} options={{ title: "Customize" }} />
+            <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
+            <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
+            <Stack.Screen
+              name="ItemDetail"
+              component={ItemDetailScreen}
+              options={{ title: "Customize", headerRight: () => <CartHeaderButton /> }}
+            />
             <Stack.Screen name="Combos" component={CombosScreen} options={{ title: "Combos" }} />
             <Stack.Screen name="ChooseCombo" component={ChooseComboScreen} options={{ title: "Build Your Combo" }} />
             <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Orders" }} />
@@ -66,6 +69,8 @@ export function RootNavigator() {
             <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />
             <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
             <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
+            <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: "Order History" }} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
           </Stack.Navigator>
         ) : (
           // Logging in/out swaps this whole group for the one above (and back) —
@@ -74,8 +79,6 @@ export function RootNavigator() {
             <Stack.Screen name="Login" component={LoginScreen} options={{ title: "Log In" }} />
           </Stack.Navigator>
         )}
-        {/* Persistent shortcut back to ordering — hidden on Menu (already the ordering entry point) and on Cart/Checkout (already mid-order there). */}
-        {user && !["Menu", "Cart", "Checkout"].includes(currentRouteName ?? "") && <OrderNowButton />}
       </View>
     </NavigationContainer>
   );

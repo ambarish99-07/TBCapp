@@ -1,14 +1,14 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { MenuCategory } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
-import { useMenuItems } from "../../api/menu.api";
+import { useCombos, useMenuItems } from "../../api/menu.api";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
+import { useAddressStore } from "../../state/addressStore";
 import { useAuthStore } from "../../state/authStore";
 import { useBrandStore } from "../../state/brandStore";
 import { useCartStore } from "../../state/cartStore";
@@ -17,11 +17,13 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
 
-const CATEGORIES: { key: MenuCategory | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "signature-shakes", label: "Signature Shakes" },
-  { key: "cold-coffee", label: "Cold Coffee" },
-];
+/** "signature-shakes" -> "Signature Shakes" — no brand-specific category list hardcoded here, since every brand has its own menu directory. */
+function formatCategoryLabel(category: string): string {
+  return category
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 export function MenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
@@ -31,14 +33,24 @@ export function MenuScreen({ navigation }: Props) {
   const selectedBrand = useBrandStore((state) => state.selectedBrand);
   const selectBrand = useBrandStore((state) => state.selectBrand);
   const { data: items, isLoading, error } = useMenuItems();
-  const [category, setCategory] = useState<MenuCategory | "all">("all");
+  const { data: combos } = useCombos();
+  const [category, setCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const cartLineCount = useCartStore((state) => state.lines.length);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
-  // Combos are only seeded for TBC today — hide the banner rather than link into an empty screen for other brands.
-  const showCombosBanner = selectedBrand?.id === "tbc";
+  const selectedAddress = useAddressStore((state) => state.selectedAddress);
+  // Data-driven, not hardcoded to TBC's combos — a brand without any combos just doesn't get the banner.
+  const showCombosBanner = !!combos && combos.length > 0;
+
+  // Every brand has its own category taxonomy (a cocktail bar's categories are nothing
+  // like a shake shop's) — derive tabs from whatever categories this brand's own items
+  // actually use, instead of a hardcoded TBC-specific list.
+  const categories = useMemo(() => {
+    if (!items || items.length === 0) return [];
+    return Array.from(new Set(items.map((item) => item.category)));
+  }, [items]);
 
   // Land here with no brand chosen yet (fresh login) — default to the first live brand
   // rather than showing a blank menu; the carousel below lets the customer switch.
@@ -47,6 +59,13 @@ export function MenuScreen({ navigation }: Props) {
       selectBrand(brands[0]);
     }
   }, [selectedBrandId, brands, selectBrand]);
+
+  // A category filter chosen for one brand (e.g. "cold-coffee") won't exist on another —
+  // reset to "All" whenever the active brand changes so switching brands never silently
+  // hides every item behind a stale, brand-specific filter.
+  useEffect(() => {
+    setCategory("all");
+  }, [selectedBrandId]);
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -63,10 +82,23 @@ export function MenuScreen({ navigation }: Props) {
   const listHeader = (
     <View>
       <View style={styles.headerRow}>
-        <View style={styles.addressBar}>
+        <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
           <Text style={styles.addressLabel}>📍 Delivering to</Text>
-          <Text style={styles.addressValue}>{SUPPORTED_CITY}</Text>
-        </View>
+          <View style={styles.addressValueRow}>
+            <Text style={styles.addressValue} numberOfLines={1}>
+              {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
+            </Text>
+            <Text style={styles.addressChevron}>▾</Text>
+          </View>
+        </Pressable>
+        <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
+          <Text style={styles.cartButtonText}>🛒</Text>
+          {cartLineCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartLineCount > 9 ? "9+" : cartLineCount}</Text>
+            </View>
+          )}
+        </Pressable>
         <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
           <Text style={styles.avatarButtonText}>{initial}</Text>
         </Pressable>
@@ -84,13 +116,18 @@ export function MenuScreen({ navigation }: Props) {
         placeholderTextColor={colors.muted}
       />
 
-      <View style={styles.tabs}>
-        {CATEGORIES.map((tab) => (
-          <Pressable key={tab.key} onPress={() => setCategory(tab.key)} style={[styles.tab, category === tab.key && styles.tabActive]}>
-            <Text style={[styles.tabText, category === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+      {categories.length > 1 && (
+        <View style={styles.tabs}>
+          <Pressable onPress={() => setCategory("all")} style={[styles.tab, category === "all" && styles.tabActive]}>
+            <Text style={[styles.tabText, category === "all" && styles.tabTextActive]}>All</Text>
           </Pressable>
-        ))}
-      </View>
+          {categories.map((cat) => (
+            <Pressable key={cat} onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
+              <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {showCombosBanner && (
         <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
@@ -120,15 +157,11 @@ export function MenuScreen({ navigation }: Props) {
         data={filtered}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
         renderItem={({ item }) => (
           <MenuItemCard item={item} onPress={() => navigation.navigate("ItemDetail", { menuItemId: item.id })} />
         )}
       />
-
-      <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
-        <Text style={styles.cartButtonText}>View Cart {cartLineCount > 0 ? `(${cartLineCount})` : ""}</Text>
-      </Pressable>
     </View>
   );
 }
@@ -139,7 +172,9 @@ const makeStyles = (colors: ColorPalette) =>
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing(2) },
     addressBar: { flex: 1 },
     addressLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
-    addressValue: { fontSize: 18, fontWeight: "800", color: colors.primary, marginTop: 2 },
+    addressValueRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+    addressValue: { fontSize: 18, fontWeight: "800", color: colors.primary, flexShrink: 1 },
+    addressChevron: { fontSize: 14, fontWeight: "800", color: colors.primary, marginLeft: 4 },
     avatarButton: {
       width: 40,
       height: 40,
@@ -150,6 +185,31 @@ const makeStyles = (colors: ColorPalette) =>
       marginLeft: theme.spacing(1),
     },
     avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    cartButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: theme.spacing(1),
+    },
+    cartButtonText: { fontSize: 18 },
+    cartBadge: {
+      position: "absolute",
+      top: -4,
+      right: -4,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      backgroundColor: colors.danger,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cartBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
     brandSectionLabel: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     search: {
       borderWidth: 1,
@@ -176,15 +236,4 @@ const makeStyles = (colors: ColorPalette) =>
     },
     bulkOrderBannerText: { color: colors.primary, fontWeight: "700", fontSize: 12, textAlign: "center" },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
-    cartButton: {
-      position: "absolute",
-      bottom: theme.spacing(2),
-      left: theme.spacing(2),
-      right: theme.spacing(2),
-      backgroundColor: colors.primary,
-      borderRadius: theme.radius,
-      padding: theme.spacing(1.5),
-      alignItems: "center",
-    },
-    cartButtonText: { color: "#fff", fontWeight: "700" },
   });

@@ -1,4 +1,12 @@
-import type { LoginRequest, RequestOtpRequest, SignupRequest, User, VerifyOtpRequest, VerifyOtpResponse } from "@tbc/shared-types";
+import type {
+  LoginRequest,
+  RequestOtpRequest,
+  SignupRequest,
+  UpdateProfileRequest,
+  User,
+  VerifyOtpRequest,
+  VerifyOtpResponse,
+} from "@tbc/shared-types";
 import { apiClient } from "./client";
 
 interface AuthResponse {
@@ -29,5 +37,10 @@ export async function verifyOtpRequest(payload: VerifyOtpRequest): Promise<Verif
 
 export async function fetchMe(): Promise<User> {
   const { data } = await apiClient.get<{ user: User }>("/auth/me");
+  return data.user;
+}
+
+export async function updateProfileRequest(payload: UpdateProfileRequest): Promise<User> {
+  const { data } = await apiClient.patch<{ user: User }>("/auth/me", payload);
   return data.user;
 }

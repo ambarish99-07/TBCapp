@@ -27,6 +27,14 @@
     "web": {
       "favicon": "./assets/icon.png"
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Devour uses your location to find your delivery address faster."
+        }
+      ]
+    ],
     "extra": {
       "apiBaseUrl": "http://localhost:4000"
     }

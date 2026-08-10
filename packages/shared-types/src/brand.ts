@@ -10,6 +10,8 @@ export const BrandSchema = z.object({
   name: z.string().min(1),
   tagline: z.string().optional(),
   logoUrl: z.string().optional(),
+  /** Wide lifestyle/product photo for the big carousel hero — falls back to logoUrl if unset. */
+  heroImageUrl: z.string().optional(),
   primaryColor: z.string().optional(),
   accentColor: z.string().optional(),
   status: BrandStatusSchema,
