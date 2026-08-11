@@ -35,6 +35,7 @@ export function CartScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <FlatList
+        style={styles.list}
         data={lines}
         keyExtractor={(line) => line.lineId}
         renderItem={({ item: line }) => (
@@ -63,11 +64,13 @@ export function CartScreen({ navigation }: Props) {
         )}
       />
 
-      <PriceBreakdown result={result} />
-
       <Pressable style={styles.addMoreButton} onPress={() => navigation.navigate("Menu")}>
         <Text style={styles.addMoreButtonText}>+ Add More Items</Text>
       </Pressable>
+
+      <View style={styles.spacer} />
+
+      <PriceBreakdown result={result} />
 
       <Pressable style={styles.checkoutButton} onPress={() => navigation.navigate("Checkout")}>
         <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
@@ -79,6 +82,8 @@ export function CartScreen({ navigation }: Props) {
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    list: { flexGrow: 0 },
+    spacer: { flex: 1 },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, backgroundColor: colors.background },
     emptyText: { color: colors.muted },
     browseButton: { backgroundColor: colors.primary, borderRadius: theme.radius, paddingHorizontal: 20, paddingVertical: 10 },
@@ -99,6 +104,7 @@ const makeStyles = (colors: ColorPalette) =>
       padding: theme.spacing(1.5),
       alignItems: "center",
       marginTop: theme.spacing(2),
+      marginBottom: theme.spacing(2),
     },
     addMoreButtonText: { color: colors.primary, fontWeight: "700" },
     checkoutButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(1) },

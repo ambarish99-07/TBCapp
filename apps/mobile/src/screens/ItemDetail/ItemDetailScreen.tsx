@@ -57,10 +57,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       isCombo: false,
       category: item!.category,
     });
-    // Back to the menu, not into the cart — lets the customer keep adding more items
-    // without having to navigate away from Cart/Checkout each time. The cart icon in
-    // the header (with its item-count badge) is always right there when they're ready.
-    navigation.goBack();
+    navigation.navigate("Cart");
   }
 
   return (
