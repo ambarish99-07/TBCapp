@@ -28,6 +28,8 @@ export function CombosScreen({ navigation }: Props) {
   }
 
   function handleAddCurated(combo: Extract<Combo, { type: "curated" }>) {
+    // Stay on this list rather than jumping to Cart — lets the customer add another
+    // combo (or several) in one go; the cart icon's badge count confirms it landed.
     addLine(
       makeComboCartLine({
         comboId: combo.id,
@@ -38,7 +40,6 @@ export function CombosScreen({ navigation }: Props) {
         payload: "fixed",
       })
     );
-    navigation.navigate("Cart");
   }
 
   return (

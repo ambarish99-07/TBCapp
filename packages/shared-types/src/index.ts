@@ -5,3 +5,4 @@ export * from "./order.js";
 export * from "./recipient.js";
 export * from "./bulkOrder.js";
 export * from "./brand.js";
+export * from "./browseCategory.js";

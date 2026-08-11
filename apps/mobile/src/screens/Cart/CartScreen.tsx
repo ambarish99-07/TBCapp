@@ -65,6 +65,10 @@ export function CartScreen({ navigation }: Props) {
 
       <PriceBreakdown result={result} />
 
+      <Pressable style={styles.addMoreButton} onPress={() => navigation.navigate("Menu")}>
+        <Text style={styles.addMoreButtonText}>+ Add More Items</Text>
+      </Pressable>
+
       <Pressable style={styles.checkoutButton} onPress={() => navigation.navigate("Checkout")}>
         <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
       </Pressable>
@@ -88,6 +92,15 @@ const makeStyles = (colors: ColorPalette) =>
     qtyValue: { fontWeight: "700", color: colors.text },
     remove: { color: colors.danger, fontSize: 12, marginLeft: 8 },
     lineTotal: { fontWeight: "700", color: colors.text },
-    checkoutButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },
+    addMoreButton: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      alignItems: "center",
+      marginTop: theme.spacing(2),
+    },
+    addMoreButtonText: { color: colors.primary, fontWeight: "700" },
+    checkoutButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(1) },
     checkoutButtonText: { color: "#fff", fontWeight: "700" },
   });

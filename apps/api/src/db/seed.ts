@@ -20,7 +20,7 @@ function brandLogoUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
 // Bumped whenever the hero photo files themselves change on disk — the filename
 // stays the same, so without this the mobile Image cache would keep showing a
 // stale version after a reload even though the file on disk is now different.
-const HERO_IMAGE_VERSION = 2;
+const HERO_IMAGE_VERSION = 3;
 
 /** Wide lifestyle/product photo for the carousel hero, served at /brand-images/<slug>-hero.png. */
 function brandHeroUrl(env: ReturnType<typeof loadEnv>, slug: string): string {

@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
-import { listCombos, listMenuItems } from "./menu.service.js";
+import { browseCategorySummaries, listCombos, listMenuItems, searchMenuItemsAcrossBrands } from "./menu.service.js";
 
 /** Mongoose documents carry `_id`, but the shared MenuItem/Combo schemas the client relies on expect `id`. */
 function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: string } {
@@ -26,6 +26,17 @@ export const getCombos: RequestHandler = async (req, res) => {
   }
   const combos = await listCombos(brandId);
   res.json({ combos: combos.map(withId) });
+};
+
+export const getBrowseCategories: RequestHandler = async (_req, res) => {
+  const categories = await browseCategorySummaries();
+  res.json({ categories });
+};
+
+export const searchMenu: RequestHandler = async (req, res) => {
+  const { q, category } = req.query as { q?: string; category?: string };
+  const items = await searchMenuItemsAcrossBrands({ q, category });
+  res.json({ items: items.map(withId) });
 };
 
 /** Minimal admin CRUD — menu content is small/static, so no bulk-edit UI is provided here. */

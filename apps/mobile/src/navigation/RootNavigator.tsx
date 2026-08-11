@@ -18,6 +18,8 @@ import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
 import { ItemDetailScreen } from "../screens/ItemDetail/ItemDetailScreen";
 import { MenuScreen } from "../screens/Menu/MenuScreen";
 import { OrderStatusScreen } from "../screens/OrderStatus/OrderStatusScreen";
+import { CategoryResultsScreen } from "../screens/Search/CategoryResultsScreen";
+import { SearchScreen } from "../screens/Search/SearchScreen";
 import { useAuthStore } from "../state/authStore";
 import { useTheme } from "../state/themeStore";
 import type { RootStackParamList } from "./types";
@@ -56,13 +58,27 @@ export function RootNavigator() {
             <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
             <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
+            <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
+            <Stack.Screen
+              name="CategoryResults"
+              component={CategoryResultsScreen}
+              options={{ title: "Search Results", headerRight: () => <CartHeaderButton /> }}
+            />
             <Stack.Screen
               name="ItemDetail"
               component={ItemDetailScreen}
               options={{ title: "Customize", headerRight: () => <CartHeaderButton /> }}
             />
-            <Stack.Screen name="Combos" component={CombosScreen} options={{ title: "Combos" }} />
-            <Stack.Screen name="ChooseCombo" component={ChooseComboScreen} options={{ title: "Build Your Combo" }} />
+            <Stack.Screen
+              name="Combos"
+              component={CombosScreen}
+              options={{ title: "Combos", headerRight: () => <CartHeaderButton /> }}
+            />
+            <Stack.Screen
+              name="ChooseCombo"
+              component={ChooseComboScreen}
+              options={{ title: "Build Your Combo", headerRight: () => <CartHeaderButton /> }}
+            />
             <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Orders" }} />
             <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Checkout" }} />

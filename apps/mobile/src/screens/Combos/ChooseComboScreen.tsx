@@ -52,7 +52,8 @@ export function ChooseComboScreen({ route, navigation }: Props) {
         payload: selectedIds.join("+"),
       })
     );
-    navigation.navigate("Cart");
+    // Back to the combo list, not into the cart — same reasoning as ItemDetailScreen.
+    navigation.goBack();
   }
 
   const isComplete = selectedIds.length === combo.chooseCount;

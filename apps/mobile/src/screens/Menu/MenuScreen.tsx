@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
 import { useCombos, useMenuItems } from "../../api/menu.api";
@@ -35,7 +35,6 @@ export function MenuScreen({ navigation }: Props) {
   const { data: items, isLoading, error } = useMenuItems();
   const { data: combos } = useCombos();
   const [category, setCategory] = useState<string>("all");
-  const [search, setSearch] = useState("");
   const cartLineCount = useCartStore((state) => state.lines.length);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -69,15 +68,9 @@ export function MenuScreen({ navigation }: Props) {
 
   const filtered = useMemo(() => {
     if (!items) return [];
-    return items.filter((item) => {
-      const matchesCategory = category === "all" || item.category === category;
-      const matchesSearch =
-        search.trim().length === 0 ||
-        item.signatureName.toLowerCase().includes(search.toLowerCase()) ||
-        item.commonName.toLowerCase().includes(search.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [items, category, search]);
+    if (category === "all") return items;
+    return items.filter((item) => item.category === category);
+  }, [items, category]);
 
   const listHeader = (
     <View>
@@ -106,15 +99,13 @@ export function MenuScreen({ navigation }: Props) {
 
       <BrandCarousel colors={colors} />
 
-      {selectedBrand && <Text style={styles.brandSectionLabel}>{selectedBrand.name} Menu</Text>}
+      <Text style={styles.brandSectionLabel}>Menu</Text>
 
-      <TextInput
-        style={styles.search}
-        placeholder="Search the menu..."
-        value={search}
-        onChangeText={setSearch}
-        placeholderTextColor={colors.muted}
-      />
+      {/* Not a live filter — opens the dedicated cross-brand Search page instead, since
+          this bar searches every Devour brand, not just the one currently open. */}
+      <Pressable style={styles.search} onPress={() => navigation.navigate("Search")}>
+        <Text style={styles.searchPlaceholder}>🔍 Search shakes, mocktails, paneer, and more...</Text>
+      </Pressable>
 
       {categories.length > 1 && (
         <View style={styles.tabs}>
@@ -142,11 +133,7 @@ export function MenuScreen({ navigation }: Props) {
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}
       {error && <Text style={styles.info}>Couldn't load the menu. Pull to retry.</Text>}
       {!isLoading && !error && filtered.length === 0 && (
-        <Text style={styles.info}>
-          {items && items.length > 0
-            ? "No items match your search."
-            : `${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}
-        </Text>
+        <Text style={styles.info}>{`${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}</Text>
       )}
     </View>
   );
@@ -217,8 +204,8 @@ const makeStyles = (colors: ColorPalette) =>
       borderRadius: theme.radius,
       padding: theme.spacing(1.25),
       marginBottom: theme.spacing(1.5),
-      color: colors.text,
     },
+    searchPlaceholder: { color: colors.muted },
     tabs: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
     tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: colors.surface },
     tabActive: { backgroundColor: colors.primary },

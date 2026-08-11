@@ -17,4 +17,8 @@ export type RootStackParamList = {
   Account: undefined;
   OrderHistory: undefined;
   EditProfile: undefined;
+  Search: undefined;
+  // Either a fixed browse category (categoryId) or a free-text query — CategoryResultsScreen
+  // handles both through the same cross-brand search endpoint.
+  CategoryResults: { label: string; categoryId?: string; query?: string };
 };
