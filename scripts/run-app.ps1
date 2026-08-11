@@ -42,6 +42,23 @@ if (-not (Test-PortListening 8081)) {
     Write-Host "Metro already running." -ForegroundColor Green
 }
 
+# 3.5. dev-mongo is in-memory and loses all data on every restart - if the API is up but
+# the DB is empty (e.g. dev-mongo got restarted earlier in this terminal session), the app
+# would otherwise load to a blank "coming soon" screen with no explanation. Reseed automatically.
+try {
+    $brandCheck = Invoke-RestMethod -Uri "http://localhost:4000/brands" -TimeoutSec 5
+    if ($brandCheck.brands.Count -eq 0) {
+        Write-Host "Dev database is empty - reseeding..." -ForegroundColor Yellow
+        Push-Location "$RepoRoot\apps\api"
+        pnpm run seed
+        Pop-Location
+    } else {
+        Write-Host "Dev database already seeded." -ForegroundColor Green
+    }
+} catch {
+    Write-Host "Could not check dev database state - continuing anyway." -ForegroundColor Yellow
+}
+
 # 4. Emulator
 $devices = & $Adb devices
 if ($devices -notmatch 'device\s*$') {

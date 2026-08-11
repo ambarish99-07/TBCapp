@@ -74,29 +74,6 @@ export function MenuScreen({ navigation }: Props) {
 
   const listHeader = (
     <View>
-      <View style={styles.headerRow}>
-        <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
-          <Text style={styles.addressLabel}>📍 Delivering to</Text>
-          <View style={styles.addressValueRow}>
-            <Text style={styles.addressValue} numberOfLines={1}>
-              {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
-            </Text>
-            <Text style={styles.addressChevron}>▾</Text>
-          </View>
-        </Pressable>
-        <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
-          <Text style={styles.cartButtonText}>🛒</Text>
-          {cartLineCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{cartLineCount > 9 ? "9+" : cartLineCount}</Text>
-            </View>
-          )}
-        </Pressable>
-        <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
-          <Text style={styles.avatarButtonText}>{initial}</Text>
-        </Pressable>
-      </View>
-
       <BrandCarousel colors={colors} />
 
       <Text style={styles.brandSectionLabel}>Menu</Text>
@@ -120,16 +97,6 @@ export function MenuScreen({ navigation }: Props) {
         </View>
       )}
 
-      {showCombosBanner && (
-        <Pressable style={styles.combosBanner} onPress={() => navigation.navigate("Combos")}>
-          <Text style={styles.combosBannerText}>🎁 View Combo Deals — save with two-item bundles</Text>
-        </Pressable>
-      )}
-
-      <Pressable style={styles.bulkOrderBanner} onPress={() => navigation.navigate("BulkOrder")}>
-        <Text style={styles.bulkOrderBannerText}>🎉 Planning an event? Ask about Bulk Orders</Text>
-      </Pressable>
-
       {isLoading && <Text style={styles.info}>Loading menu…</Text>}
       {error && <Text style={styles.info}>Couldn't load the menu. Pull to retry.</Text>}
       {!isLoading && !error && filtered.length === 0 && (
@@ -140,7 +107,33 @@ export function MenuScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.screen, { paddingTop: theme.spacing(2) + insets.top, backgroundColor: colors.background }]}>
+      {/* Fixed above the list, not part of ListHeaderComponent — stays put while browsing
+          instead of scrolling away, all the way through to checkout. */}
+      <View style={styles.headerRow}>
+        <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
+          <Text style={styles.addressLabel}>📍 Delivering to</Text>
+          <View style={styles.addressValueRow}>
+            <Text style={styles.addressValue} numberOfLines={1}>
+              {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
+            </Text>
+            <Text style={styles.addressChevron}>▾</Text>
+          </View>
+        </Pressable>
+        <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
+          <Text style={styles.cartButtonText}>🛒</Text>
+          {cartLineCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartLineCount > 9 ? "9+" : cartLineCount}</Text>
+            </View>
+          )}
+        </Pressable>
+        <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
+          <Text style={styles.avatarButtonText}>{initial}</Text>
+        </Pressable>
+      </View>
+
       <FlatList
+        style={styles.list}
         data={filtered}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
@@ -149,13 +142,33 @@ export function MenuScreen({ navigation }: Props) {
           <MenuItemCard item={item} onPress={() => navigation.navigate("ItemDetail", { menuItemId: item.id })} />
         )}
       />
+
+      {/* Fixed strip, not part of the scrolling list — icons pack from the left rather than
+          spreading across the width, matching how the address/cart/avatar row above reads. */}
+      <View style={[styles.bottomBar, { paddingBottom: theme.spacing(1) + insets.bottom }]}>
+        {showCombosBanner && (
+          <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
+            <View style={styles.bottomIconCircle}>
+              <Text style={styles.bottomIconEmoji}>🎁</Text>
+            </View>
+            <Text style={styles.bottomIconLabel}>Combos</Text>
+          </Pressable>
+        )}
+        <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
+          <View style={styles.bottomIconCircle}>
+            <Text style={styles.bottomIconEmoji}>🎉</Text>
+          </View>
+          <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
+    screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: theme.spacing(2) },
+    list: { flex: 1 },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing(2) },
     addressBar: { flex: 1 },
     addressLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
@@ -211,16 +224,26 @@ const makeStyles = (colors: ColorPalette) =>
     tabActive: { backgroundColor: colors.primary },
     tabText: { fontSize: 12, color: colors.text },
     tabTextActive: { color: "#fff", fontWeight: "700" },
-    combosBanner: { backgroundColor: colors.accent, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(2) },
-    combosBannerText: { color: "#fff", fontWeight: "700", fontSize: 12, textAlign: "center" },
-    bulkOrderBanner: {
+    bottomBar: {
+      flexDirection: "row",
+      justifyContent: "flex-start",
+      gap: theme.spacing(3),
+      paddingTop: theme.spacing(1.25),
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    bottomIcon: { alignItems: "center" },
+    bottomIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.primary,
-      borderRadius: theme.radius,
-      padding: theme.spacing(1.25),
-      marginBottom: theme.spacing(2),
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    bulkOrderBannerText: { color: colors.primary, fontWeight: "700", fontSize: 12, textAlign: "center" },
+    bottomIconEmoji: { fontSize: 20 },
+    bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
   });

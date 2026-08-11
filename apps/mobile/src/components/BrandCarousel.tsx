@@ -94,7 +94,7 @@ export function BrandCarousel({ colors, onSelect }: Props) {
             onPress={() => handleSelect(brand, index)}
           >
             {brand.logoUrl && <Image source={{ uri: brand.logoUrl }} style={styles.thumbLogo} resizeMode="contain" />}
-            <Text style={styles.thumbName} numberOfLines={1}>
+            <Text style={styles.thumbName} numberOfLines={2}>
               {brand.name}
             </Text>
           </Pressable>
@@ -131,7 +131,7 @@ const makeStyles = (colors: ColorPalette) =>
     heroCta: { fontSize: 12, fontWeight: "700", color: "#fff", marginTop: theme.spacing(1) },
     thumbRow: { gap: 10, paddingTop: theme.spacing(1.5) },
     thumb: {
-      width: 84,
+      width: 96,
       alignItems: "center",
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -141,5 +141,5 @@ const makeStyles = (colors: ColorPalette) =>
     },
     thumbActive: { borderColor: colors.primary },
     thumbLogo: { width: 44, height: 44, marginBottom: theme.spacing(0.5) },
-    thumbName: { fontSize: 10, color: colors.text, textAlign: "center" },
+    thumbName: { fontSize: 10, color: colors.text, textAlign: "center", lineHeight: 13 },
   });
