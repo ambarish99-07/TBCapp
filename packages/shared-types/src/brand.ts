@@ -4,7 +4,7 @@ import { z } from "zod";
 export const BrandStatusSchema = z.enum(["live", "coming-soon"]);
 export type BrandStatus = z.infer<typeof BrandStatusSchema>;
 
-/** A storefront under the Devour umbrella (e.g. "The Blenders Club"). `id` is the slug itself, e.g. "tbc". */
+/** A storefront under the Lickyeat umbrella (e.g. "The Blenders Club"). `id` is the slug itself, e.g. "tbc". */
 export const BrandSchema = z.object({
   id: z.string(),
   name: z.string().min(1),

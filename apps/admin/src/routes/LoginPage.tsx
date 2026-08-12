@@ -22,7 +22,7 @@ export function LoginPage() {
 
   return (
     <div style={{ maxWidth: 360, margin: "80px auto" }}>
-      <h1>Devour Admin</h1>
+      <h1>Lickyeat Admin</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />

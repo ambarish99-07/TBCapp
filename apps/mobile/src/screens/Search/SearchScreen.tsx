@@ -34,7 +34,7 @@ export function SearchScreen({ navigation }: Props) {
       />
 
       <Text style={styles.sectionTitle}>Browse by category</Text>
-      <Text style={styles.sectionSubtitle}>Across every Devour brand, not just the one you're in.</Text>
+      <Text style={styles.sectionSubtitle}>Across every Lickyeat brand, not just the one you're in.</Text>
 
       {isLoading && <Text style={styles.info}>Loading categories…</Text>}
 

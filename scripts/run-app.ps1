@@ -1,4 +1,4 @@
-# Starts the full Devour dev stack (dev-mongo, API, Metro, Android emulator) if any
+# Starts the full Lickyeat dev stack (dev-mongo, API, Metro, Android emulator) if any
 # part of it isn't already running, then launches/reloads the app on the emulator.
 # Double-click run-app.bat in this same folder to run this without opening a terminal.
 
@@ -12,7 +12,7 @@ function Test-PortListening($port) {
     return $null -ne (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
 }
 
-Write-Host "=== Devour dev stack launcher ===" -ForegroundColor Cyan
+Write-Host "=== Lickyeat dev stack launcher ===" -ForegroundColor Cyan
 
 # 1. dev-mongo
 if (-not (Test-PortListening 27117)) {
@@ -91,4 +91,4 @@ if ($devices -notmatch 'device\s*$') {
 Start-Sleep -Seconds 1
 & $Adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" | Out-Null
 
-Write-Host "Devour app launched on the emulator." -ForegroundColor Cyan
+Write-Host "Lickyeat app launched on the emulator." -ForegroundColor Cyan

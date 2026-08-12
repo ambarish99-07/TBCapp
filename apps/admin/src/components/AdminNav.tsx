@@ -10,7 +10,7 @@ export function AdminNav() {
   const location = useLocation();
   return (
     <nav style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, borderBottom: "1px solid #E4DCD3", paddingBottom: 8 }}>
-      <span style={{ fontWeight: 800, color: "#E8792C", marginRight: 8 }}>Devour</span>
+      <span style={{ fontWeight: 800, color: "#E8792C", marginRight: 8 }}>Lickyeat</span>
       {LINKS.map((link) => (
         <Link
           key={link.to}

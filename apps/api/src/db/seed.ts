@@ -521,7 +521,7 @@ function buildCrossBrandCombos(allItemIds: string[]) {
       _id: "mix-and-match-duo",
       type: "choose-n",
       name: "Mix & Match Duo",
-      description: "Pick any 2 items from across every Devour brand — a shake with a mocktail, whatever you like — at 15% off their combined price.",
+      description: "Pick any 2 items from across every Lickyeat brand — a shake with a mocktail, whatever you like — at 15% off their combined price.",
       chooseCount: 2,
       eligibleItemIds: allItemIds,
     },

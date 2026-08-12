@@ -1,6 +1,6 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
 
-/** A storefront under the Devour umbrella — human-readable slug used directly as _id, same pattern as MenuItem/Combo. */
+/** A storefront under the Lickyeat umbrella — human-readable slug used directly as _id, same pattern as MenuItem/Combo. */
 const BrandSchema = new Schema(
   {
     _id: { type: String },

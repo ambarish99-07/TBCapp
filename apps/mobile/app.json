@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Devour",
-    "slug": "devour-app",
-    "scheme": "devour",
+    "name": "Lickyeat",
+    "slug": "lickyeat-app",
+    "scheme": "lickyeat",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -13,17 +13,17 @@
     "splash": {
       "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0E0B09"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.devour.app"
+      "bundleIdentifier": "com.lickyeat.app"
     },
     "android": {
-      "package": "com.devour.app",
+      "package": "com.lickyeat.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
-        "backgroundColor": "#0E0B09"
+        "backgroundColor": "#FFFFFF"
       }
     },
     "web": {
@@ -33,7 +33,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Devour uses your location to find your delivery address faster."
+          "locationWhenInUsePermission": "Lickyeat uses your location to find your delivery address faster."
         }
       ]
     ],

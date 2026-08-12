@@ -104,7 +104,6 @@ export function LoginScreen({}: Props) {
       <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <Image source={require("../../../assets/splash-logo.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.brandName}>Devour</Text>
           <Text style={styles.brandTagline}>One Place, Endless Cravings</Text>
         </View>
 
@@ -171,8 +170,9 @@ const makeStyles = (colors: ColorPalette) =>
     flex: { flex: 1, backgroundColor: colors.background },
     screen: { flexGrow: 1, padding: theme.spacing(2), justifyContent: "center" },
     brand: { alignItems: "center", marginBottom: theme.spacing(3) },
-    logo: { width: 96, height: 96, borderRadius: 48, marginBottom: theme.spacing(1.5) },
-    brandName: { fontSize: 22, fontWeight: "800", color: colors.primary },
+    // The lockup image already carries the wordmark — sized as a wide rectangle to fit its
+    // actual aspect ratio, not the small square/circle frame a standalone icon mark would use.
+    logo: { width: 220, height: 119, marginBottom: theme.spacing(1) },
     brandTagline: { fontSize: 13, color: colors.muted, marginTop: 4 },
     input: { borderWidth: 1, borderColor: colors.border, borderRadius: theme.radius, padding: theme.spacing(1.25), marginBottom: theme.spacing(1), color: colors.text },
     phoneRow: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(1) },
