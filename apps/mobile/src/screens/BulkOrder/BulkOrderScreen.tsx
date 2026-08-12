@@ -60,7 +60,7 @@ export function BulkOrderScreen({ navigation }: Props) {
       <View style={styles.successScreen}>
         <Text style={styles.successTitle}>Thanks, {name.split(" ")[0]}! 🎉</Text>
         <Text style={styles.successText}>
-          We've got your bulk order request. Our team will reach out to {phone} within 24 hours to work out the details.
+          We've got your bulk deal request. Our team will reach out to {phone} within 24 hours to work out the details.
         </Text>
         <Pressable style={styles.button} onPress={() => navigation.navigate("Menu")}>
           <Text style={styles.buttonText}>Back to Menu</Text>
@@ -71,7 +71,7 @@ export function BulkOrderScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={styles.screen}>
-      <Text style={styles.title}>Bulk Orders</Text>
+      <Text style={styles.title}>Bulk Deals</Text>
       <Text style={styles.subtitle}>Planning a party, office event, or celebration? We've got you covered.</Text>
 
       <View style={styles.featureCard}>

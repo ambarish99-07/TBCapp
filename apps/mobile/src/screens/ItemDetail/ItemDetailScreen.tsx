@@ -55,7 +55,9 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       iceLevel,
       addOnIds,
       isCombo: false,
-      category: item!.category,
+      // The 6th/10th-order milestone rewards are TBC-specific (see @tbc/pricing's DrinkCategory) —
+      // other brands' items simply don't participate, rather than widening that type to match.
+      category: item!.category === "signature-shakes" || item!.category === "cold-coffee" ? item!.category : undefined,
     });
     navigation.navigate("Cart");
   }
@@ -108,7 +110,7 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       </View>
 
       <Text style={styles.sectionTitle}>Add-Ons</Text>
-      <AddOnSelector selected={addOnIds} onChange={setAddOnIds} />
+      <AddOnSelector category={item.category} selected={addOnIds} onChange={setAddOnIds} />
 
       <Text style={styles.sectionTitle}>Quantity</Text>
       <View style={styles.qtyRow}>

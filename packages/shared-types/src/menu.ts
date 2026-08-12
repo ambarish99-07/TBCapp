@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MenuCategorySchema = z.enum(["signature-shakes", "cold-coffee"]);
+export const MenuCategorySchema = z.enum(["signature-shakes", "cold-coffee", "mocktails"]);
 export type MenuCategory = z.infer<typeof MenuCategorySchema>;
 
 /** Keys must match packages/pricing's ADD_ON_PRICES exactly — that's the source of truth for price. */
@@ -10,8 +10,20 @@ export const AddOnIdSchema = z.enum([
   "oreo-crumbs",
   "kitkat-crumbs",
   "dry-fruits",
+  "extra-mint",
+  "lemon-wedge",
+  "chilli-salt-rim",
+  "extra-fizz",
+  "fruit-garnish",
 ]);
 export type AddOnId = z.infer<typeof AddOnIdSchema>;
+
+/** Which add-ons a customer can attach to an item of this category — a shake topping makes no sense on a mocktail, and vice versa. */
+export const ADD_ONS_BY_CATEGORY: Record<MenuCategory, AddOnId[]> = {
+  "signature-shakes": ["whipped-cream", "extra-chocolate-syrup", "oreo-crumbs", "kitkat-crumbs", "dry-fruits"],
+  "cold-coffee": ["whipped-cream", "extra-chocolate-syrup", "oreo-crumbs", "kitkat-crumbs", "dry-fruits"],
+  mocktails: ["extra-mint", "lemon-wedge", "chilli-salt-rim", "extra-fizz", "fruit-garnish"],
+};
 
 export const MenuItemSchema = z.object({
   id: z.string(),

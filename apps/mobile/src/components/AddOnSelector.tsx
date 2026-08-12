@@ -1,5 +1,5 @@
 import { ADD_ON_PRICES } from "@tbc/pricing";
-import type { AddOnId } from "@tbc/shared-types";
+import { ADD_ONS_BY_CATEGORY, type AddOnId, type MenuCategory } from "@tbc/shared-types";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ColorPalette } from "../constants/theme";
@@ -11,18 +11,24 @@ const ADD_ON_LABELS: Record<AddOnId, string> = {
   "oreo-crumbs": "Oreo Crumbs",
   "kitkat-crumbs": "KitKat Crumbs",
   "dry-fruits": "Dry Fruits",
+  "extra-mint": "Extra Mint",
+  "lemon-wedge": "Lemon Wedge",
+  "chilli-salt-rim": "Chilli Salt Rim",
+  "extra-fizz": "Extra Fizz Top-Up",
+  "fruit-garnish": "Fruit Garnish",
 };
 
 interface Props {
+  category: MenuCategory;
   selected: AddOnId[];
   onChange: (next: AddOnId[]) => void;
   disabled?: boolean;
 }
 
-export function AddOnSelector({ selected, onChange, disabled }: Props) {
+export function AddOnSelector({ category, selected, onChange, disabled }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const addOnIds = Object.keys(ADD_ON_PRICES) as AddOnId[];
+  const addOnIds = ADD_ONS_BY_CATEGORY[category];
 
   function toggle(id: AddOnId) {
     if (disabled) return;

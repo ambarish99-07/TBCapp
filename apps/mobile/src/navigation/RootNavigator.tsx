@@ -79,7 +79,7 @@ export function RootNavigator() {
               component={ChooseComboScreen}
               options={{ title: "Build Your Combo", headerRight: () => <CartHeaderButton /> }}
             />
-            <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Orders" }} />
+            <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Deals" }} />
             <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Checkout" }} />
             <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />

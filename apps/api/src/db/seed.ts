@@ -6,6 +6,10 @@ import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
 
 const TBC_BRAND_ID = "tbc";
+const ALCHEMY_TAILS_BRAND_ID = "alchemy-tails";
+
+/** Real prices haven't been provided yet — every Alchemy Tails item uses this same placeholder so it's obviously not final. */
+const PLACEHOLDER_PRICE = 100;
 
 /** Real menu photography, served by this API at /menu-images/<slug>.png (see app.ts). */
 function imageUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
@@ -62,7 +66,7 @@ function buildBrands(env: ReturnType<typeof loadEnv>) {
   ];
 }
 
-function buildMenuItems(env: ReturnType<typeof loadEnv>) {
+function buildTbcMenuItems(env: ReturnType<typeof loadEnv>) {
   return [
     {
       _id: "choco-crush",
@@ -235,7 +239,7 @@ function buildMenuItems(env: ReturnType<typeof loadEnv>) {
 }
 
 /** All curated combos are exactly two items — price is always computed live as 15% off the pair's base prices, never stored here. */
-function buildCombos(env: ReturnType<typeof loadEnv>, allItemIds: string[]) {
+function buildTbcCombos(env: ReturnType<typeof loadEnv>, allItemIds: string[]) {
   return [
     {
       _id: "choco-hazelnut-duo",
@@ -288,6 +292,230 @@ function buildCombos(env: ReturnType<typeof loadEnv>, allItemIds: string[]) {
   ];
 }
 
+function buildAlchemyTailsMenuItems(env: ReturnType<typeof loadEnv>) {
+  return [
+    {
+      _id: "berry-blast",
+      signatureName: "Berry Blast",
+      commonName: "Mixed Berry Mocktail",
+      description: "A vibrant burst of mixed berries shaken with soda and a hint of mint.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "berry-blast"),
+      flavorBadges: ["Fruity", "Berry"],
+    },
+    {
+      _id: "blue-lagoon",
+      signatureName: "Blue Lagoon",
+      commonName: "Blue Curacao Mocktail",
+      description: "A dreamy blue mocktail with citrus and a splash of lemonade, served over ice.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "blue-lagoon"),
+      flavorBadges: ["Citrus", "Signature"],
+      isStaffPick: true,
+    },
+    {
+      _id: "green-apple-fizz",
+      signatureName: "Green Apple Fizz",
+      commonName: "Green Apple Soda",
+      description: "Crisp green apple syrup topped with soda for a tangy, refreshing sip.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "green-apple-fizz"),
+      flavorBadges: ["Fruity", "Classic"],
+    },
+    {
+      _id: "guava-chilli-fizz",
+      signatureName: "Guava Chilli Fizz",
+      commonName: "Spiced Guava Fizz",
+      description: "Sweet guava with a fiery chilli kick, balanced with lime and soda.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "guava-chilli-fizz"),
+      flavorBadges: ["Spicy", "Tangy"],
+      isNew: true,
+    },
+    {
+      _id: "kala-khatta-fizz",
+      signatureName: "Kala Khatta Fizz",
+      commonName: "Black Salt Plum Fizz",
+      description: "The classic Indian kala khatta flavor with a tangy black salt finish.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "kala-khatta-fizz"),
+      flavorBadges: ["Tangy", "Desi"],
+    },
+    {
+      _id: "litchi-lemon-fizz",
+      signatureName: "Litchi Lemon Fizz",
+      commonName: "Lychee Lemon Fizz",
+      description: "Sweet lychee balanced with zesty lemon and a fizzy finish.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "litchi-lemon-fizz"),
+      flavorBadges: ["Fruity", "Citrus"],
+      pairsWith: ["rose-lemonade"],
+    },
+    {
+      _id: "mango-mojito",
+      signatureName: "Mango Mojito",
+      commonName: "Mango Mint Mojito",
+      description: "Fresh mango pulp muddled with mint and lime over crushed ice.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "mango-mojito"),
+      flavorBadges: ["Fruity", "Minty"],
+      isPopular: true,
+      pairsWith: ["watermelon-mojito"],
+    },
+    {
+      _id: "pina-colada",
+      signatureName: "Pina Colada",
+      commonName: "Pineapple Coconut Mocktail",
+      description: "A creamy blend of pineapple and coconut — a tropical classic.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "pina-colada"),
+      flavorBadges: ["Tropical", "Creamy"],
+      isStaffPick: true,
+    },
+    {
+      _id: "pineapple-punch",
+      signatureName: "Pineapple Punch",
+      commonName: "Pineapple Ginger Punch",
+      description: "Sweet pineapple juice with a subtle ginger kick and soda.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "pineapple-punch"),
+      flavorBadges: ["Tropical", "Tangy"],
+      pairsWith: ["pina-colada"],
+    },
+    {
+      _id: "rainbow-fizz",
+      signatureName: "Rainbow Fizz",
+      commonName: "Layered Fruit Fizz",
+      description: "A layered, colorful mix of fruit syrups topped with soda.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "rainbow-fizz"),
+      flavorBadges: ["Fruity", "Signature"],
+      isNew: true,
+    },
+    {
+      _id: "rose-lemonade",
+      signatureName: "Rose Lemonade",
+      commonName: "Rose Petal Lemonade",
+      description: "Fragrant rose syrup with fresh lemonade, light and floral.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "rose-lemonade"),
+      flavorBadges: ["Floral", "Citrus"],
+      pairsWith: ["litchi-lemon-fizz"],
+    },
+    {
+      _id: "shirley-temple",
+      signatureName: "Shirley Temple",
+      commonName: "Grenadine Ginger Ale",
+      description: "A classic grenadine and ginger ale mocktail with a maraschino cherry.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "shirley-temple"),
+      flavorBadges: ["Classic", "Sweet"],
+    },
+    {
+      _id: "strawberry-mojito",
+      signatureName: "Strawberry Mojito",
+      commonName: "Strawberry Mint Mojito",
+      description: "Muddled strawberries with fresh mint and lime over crushed ice.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "strawberry-mojito"),
+      flavorBadges: ["Fruity", "Minty"],
+      isPopular: true,
+      pairsWith: ["virgin-mojito"],
+    },
+    {
+      _id: "virgin-mojito",
+      signatureName: "Virgin Mojito",
+      commonName: "Classic Virgin Mojito",
+      description: "The classic mojito — mint, lime, and soda, alcohol-free.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "virgin-mojito"),
+      flavorBadges: ["Classic", "Minty"],
+      isStaffPick: true,
+      pairsWith: ["strawberry-mojito"],
+    },
+    {
+      _id: "watermelon-mojito",
+      signatureName: "Watermelon Mojito",
+      commonName: "Watermelon Mint Mojito",
+      description: "Fresh watermelon juice muddled with mint and lime.",
+      price: PLACEHOLDER_PRICE,
+      category: "mocktails",
+      image: imageUrl(env, "watermelon-mojito"),
+      flavorBadges: ["Fruity", "Minty"],
+      isNew: true,
+      pairsWith: ["mango-mojito"],
+    },
+  ];
+}
+
+/** Same shape as buildTbcCombos — curated duos plus one choose-your-own. */
+function buildAlchemyTailsCombos(env: ReturnType<typeof loadEnv>, allItemIds: string[]) {
+  return [
+    {
+      _id: "tropical-duo",
+      type: "curated",
+      name: "Tropical Duo",
+      description: "Pina Colada + Watermelon Mojito together.",
+      itemIds: ["pina-colada", "watermelon-mojito"],
+      image: imageUrl(env, "pina-colada"),
+    },
+    {
+      _id: "citrus-duo",
+      type: "curated",
+      name: "Citrus Duo",
+      description: "Rose Lemonade + Litchi Lemon Fizz together.",
+      itemIds: ["rose-lemonade", "litchi-lemon-fizz"],
+      image: imageUrl(env, "rose-lemonade"),
+    },
+    {
+      _id: "mojito-duo",
+      type: "curated",
+      name: "Mojito Duo",
+      description: "Strawberry Mojito + Mango Mojito together.",
+      itemIds: ["strawberry-mojito", "mango-mojito"],
+      image: imageUrl(env, "strawberry-mojito"),
+    },
+    {
+      _id: "spicy-fizz-duo",
+      type: "curated",
+      name: "Spicy Fizz Duo",
+      description: "Guava Chilli Fizz + Kala Khatta Fizz together.",
+      itemIds: ["guava-chilli-fizz", "kala-khatta-fizz"],
+      image: imageUrl(env, "guava-chilli-fizz"),
+    },
+    {
+      _id: "berry-rainbow-duo",
+      type: "curated",
+      name: "Berry Rainbow Duo",
+      description: "Berry Blast + Rainbow Fizz together.",
+      itemIds: ["berry-blast", "rainbow-fizz"],
+      image: imageUrl(env, "berry-blast"),
+    },
+    {
+      _id: "alchemy-choose-your-own-2",
+      type: "choose-n",
+      name: "Build Your Own Duo",
+      description: "Pick any 2 mocktails from the full menu — priced at 15% off their combined price.",
+      chooseCount: 2,
+      eligibleItemIds: allItemIds,
+    },
+  ];
+}
+
 async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
@@ -301,11 +529,20 @@ async function seed() {
     await BrandModel.findByIdAndUpdate(brand._id, brand, { upsert: true });
   }
 
-  const menuItems = buildMenuItems(env).map((item) => ({ ...item, brandId: TBC_BRAND_ID }));
-  const combos = buildCombos(env, menuItems.map((item) => item._id)).map((combo) => ({
+  const tbcMenuItems = buildTbcMenuItems(env).map((item) => ({ ...item, brandId: TBC_BRAND_ID }));
+  const tbcCombos = buildTbcCombos(env, tbcMenuItems.map((item) => item._id)).map((combo) => ({
     ...combo,
     brandId: TBC_BRAND_ID,
   }));
+
+  const alchemyMenuItems = buildAlchemyTailsMenuItems(env).map((item) => ({ ...item, brandId: ALCHEMY_TAILS_BRAND_ID }));
+  const alchemyCombos = buildAlchemyTailsCombos(env, alchemyMenuItems.map((item) => item._id)).map((combo) => ({
+    ...combo,
+    brandId: ALCHEMY_TAILS_BRAND_ID,
+  }));
+
+  const menuItems = [...tbcMenuItems, ...alchemyMenuItems];
+  const combos = [...tbcCombos, ...alchemyCombos];
 
   for (const item of menuItems) {
     await MenuItemModel.findByIdAndUpdate(item._id, item, { upsert: true });
