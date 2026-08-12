@@ -1,6 +1,6 @@
 import type { Brand } from "@tbc/shared-types";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useBrandStore } from "../state/brandStore";
@@ -84,7 +84,9 @@ export function BrandCarousel({ colors, onSelect }: Props) {
         </Animated.View>
       </Pressable>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
+      {/* Fixed row, not a horizontal scroller — all tiles share the screen width equally
+          instead of overflowing off the edge. */}
+      <View style={styles.thumbRow}>
         {brands.map((brand, index) => (
           <Pressable
             key={brand.id}
@@ -99,7 +101,14 @@ export function BrandCarousel({ colors, onSelect }: Props) {
             </Text>
           </Pressable>
         ))}
-      </ScrollView>
+        {/* Not a real brand — no backend data, not tappable — just a preview of what's next. */}
+        <View style={styles.thumbComingSoon}>
+          <Text style={styles.thumbComingSoonIcon}>✨</Text>
+          <Text style={styles.thumbName} numberOfLines={2}>
+            Coming Soon
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -129,17 +138,34 @@ const makeStyles = (colors: ColorPalette) =>
     heroName: { fontSize: 22, fontWeight: "800", color: "#fff" },
     heroTagline: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: theme.spacing(0.5) },
     heroCta: { fontSize: 12, fontWeight: "700", color: "#fff", marginTop: theme.spacing(1) },
-    thumbRow: { gap: 10, paddingTop: theme.spacing(1.5) },
+    // flex: 1 on every tile (real brands + the Coming Soon placeholder) — four equal shares
+    // of the row's width instead of a fixed px width, so all four always fit on screen.
+    thumbRow: { flexDirection: "row", gap: 8, paddingTop: theme.spacing(1.5) },
     thumb: {
-      width: 96,
+      flex: 1,
       alignItems: "center",
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: theme.radius,
-      padding: theme.spacing(1),
+      paddingVertical: theme.spacing(1),
+      paddingHorizontal: theme.spacing(0.5),
     },
     thumbActive: { borderColor: colors.primary },
-    thumbLogo: { width: 44, height: 44, marginBottom: theme.spacing(0.5) },
-    thumbName: { fontSize: 10, color: colors.text, textAlign: "center", lineHeight: 13 },
+    thumbLogo: { width: 36, height: 36, marginBottom: theme.spacing(0.5) },
+    thumbName: { fontSize: 9.5, color: colors.text, textAlign: "center", lineHeight: 12 },
+    thumbComingSoon: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      paddingVertical: theme.spacing(1),
+      paddingHorizontal: theme.spacing(0.5),
+      opacity: 0.6,
+    },
+    thumbComingSoonIcon: { fontSize: 20, marginBottom: theme.spacing(0.5) },
   });

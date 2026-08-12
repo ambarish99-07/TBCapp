@@ -18,6 +18,7 @@ export function makeComboCartLine(params: {
   image?: string;
   constituentBasePrices: number[];
   payload: string;
+  quantity?: number;
 }): CartLine {
   // menuItemId must stay exactly `combo:<comboId>:<payload>` — the server parses
   // payload to recover which items were chosen. lineId only needs to be unique
@@ -38,7 +39,7 @@ export function makeComboCartLine(params: {
     unitPrice: price,
     originalUnitPrice: fullPriceSum,
     addOnPrices: [],
-    quantity: 1,
+    quantity: params.quantity ?? 1,
     sugarLevel: "regular",
     iceLevel: "regular",
     addOnIds: [],

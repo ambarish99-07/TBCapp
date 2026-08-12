@@ -14,6 +14,8 @@ export const CustomizationSchema = z.object({
   sugarLevel: SugarLevelSchema,
   iceLevel: IceLevelSchema,
   addOnIds: z.array(AddOnIdSchema),
+  /** Free-text notes from the customer (e.g. "extra hot", "no straw") — shown to the kitchen as-is, never parsed. */
+  comment: z.string().max(200).optional(),
 });
 export type Customization = z.infer<typeof CustomizationSchema>;
 

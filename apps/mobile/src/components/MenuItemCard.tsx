@@ -7,16 +7,19 @@ import { useTheme } from "../state/themeStore";
 
 interface Props {
   item: MenuItem;
-  onPress: () => void;
+  /** Opens the Add popup (quantity + customize) for this item — see AddItemModal.
+   * Tapping anywhere on the card (not just the Add button) triggers this; there's no
+   * separate read-only detail page to navigate to anymore. */
+  onAddPress: () => void;
 }
 
-export function MenuItemCard({ item, onPress }: Props) {
+export function MenuItemCard({ item, onAddPress }: Props) {
   const { colors, spacing, radius } = useTheme();
   const styles = useMemo(() => makeStyles(colors, spacing, radius), [colors, spacing, radius]);
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable style={styles.card} onPress={onAddPress}>
       <View style={styles.imageWrap}>
         <Image source={{ uri: item.image }} style={styles.image} />
         {item.salePercent && (
@@ -33,14 +36,19 @@ export function MenuItemCard({ item, onPress }: Props) {
           {item.isPopular && <Text style={styles.badge}>Trending</Text>}
           {item.isNew && <Text style={styles.badge}>New</Text>}
         </View>
-        {item.salePercent ? (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
-            <Text style={styles.price}>₹{effectivePrice}</Text>
-          </View>
-        ) : (
-          <Text style={styles.price}>₹{item.price}</Text>
-        )}
+        <View style={styles.bottomRow}>
+          {item.salePercent ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+              <Text style={styles.price}>₹{effectivePrice}</Text>
+            </View>
+          ) : (
+            <Text style={styles.price}>₹{item.price}</Text>
+          )}
+          <Pressable style={styles.addButton} onPress={onAddPress}>
+            <Text style={styles.addButtonText}>Add</Text>
+          </Pressable>
+        </View>
       </View>
     </Pressable>
   );
@@ -71,8 +79,9 @@ const makeStyles = (colors: ColorPalette, spacing: (n: number) => number, radius
       borderRadius: 6,
       overflow: "hidden",
     },
-    price: { marginTop: 6, fontSize: 14, fontWeight: "700", color: colors.primary },
-    priceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+    bottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
+    price: { fontSize: 14, fontWeight: "700", color: colors.primary },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     priceStrikethrough: { fontSize: 12, color: colors.muted, textDecorationLine: "line-through" },
     saleCorner: {
       position: "absolute",
@@ -84,4 +93,6 @@ const makeStyles = (colors: ColorPalette, spacing: (n: number) => number, radius
       paddingVertical: 2,
     },
     saleCornerText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+    addButton: { backgroundColor: colors.primary, borderRadius: radius, paddingVertical: 6, paddingHorizontal: 18 },
+    addButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   });

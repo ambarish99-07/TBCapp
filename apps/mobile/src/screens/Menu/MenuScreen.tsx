@@ -5,7 +5,9 @@ import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
 import { useAllCombos, useMenuItems } from "../../api/menu.api";
+import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
+import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
@@ -48,6 +50,7 @@ export function MenuScreen({ navigation }: Props) {
   const showCombosBanner = !!combos && combos.length > 0;
   const listRef = useRef<FlatList>(null);
   const [isBrandPickerOpen, setIsBrandPickerOpen] = useState(false);
+  const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   function handlePickBrand(brand: Brand) {
     selectBrand(brand);
@@ -168,7 +171,7 @@ export function MenuScreen({ navigation }: Props) {
           </View>
         );
       case "item":
-        return <MenuItemCard item={row.item} onPress={() => navigation.navigate("ItemDetail", { menuItemId: row.item.id })} />;
+        return <MenuItemCard item={row.item} onAddPress={() => setAddingItem(row.item)} />;
     }
   }
 
@@ -184,27 +187,28 @@ export function MenuScreen({ navigation }: Props) {
         renderItem={renderRow}
       />
 
-      {/* Fixed strip, not part of the scrolling list — icons pack from the left rather than
-          spreading across the width, matching how the address/cart/avatar row above reads. */}
+      <CartSummaryBar navigation={navigation} />
+
+      {/* Fixed strip, not part of the scrolling list — a single top border spans the whole
+          row, and thin vertical dividers separate each icon+label instead of a box/circle
+          around every individual emoji. */}
       <View style={[styles.bottomBar, { paddingBottom: theme.spacing(1) + insets.bottom }]}>
         <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
-          <View style={styles.bottomIconCircle}>
-            <Text style={styles.bottomIconEmoji}>📋</Text>
-          </View>
+          <Text style={styles.bottomIconEmoji}>📋</Text>
           <Text style={styles.bottomIconLabel}>Menu</Text>
         </Pressable>
+        <View style={styles.bottomDivider} />
         {showCombosBanner && (
-          <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
-            <View style={styles.bottomIconCircle}>
+          <>
+            <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
               <Text style={styles.bottomIconEmoji}>🎁</Text>
-            </View>
-            <Text style={styles.bottomIconLabel}>Combos</Text>
-          </Pressable>
+              <Text style={styles.bottomIconLabel}>Combos</Text>
+            </Pressable>
+            <View style={styles.bottomDivider} />
+          </>
         )}
         <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
-          <View style={styles.bottomIconCircle}>
-            <Text style={styles.bottomIconEmoji}>🎉</Text>
-          </View>
+          <Text style={styles.bottomIconEmoji}>🎉</Text>
           <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
         </Pressable>
       </View>
@@ -227,6 +231,8 @@ export function MenuScreen({ navigation }: Props) {
           </View>
         </Pressable>
       </Modal>
+
+      <AddItemModal item={addingItem} onClose={() => setAddingItem(null)} />
     </View>
   );
 }
@@ -294,23 +300,15 @@ const makeStyles = (colors: ColorPalette) =>
     bottomBar: {
       flexDirection: "row",
       justifyContent: "flex-start",
-      gap: theme.spacing(3),
       paddingTop: theme.spacing(1.25),
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    bottomIcon: { alignItems: "center" },
-    bottomIconCircle: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    bottomIconEmoji: { fontSize: 20 },
+    bottomIcon: { alignItems: "center", paddingHorizontal: theme.spacing(2.5) },
+    // Thin vertical rule between icons — stretches to match the tallest sibling's height
+    // (default cross-axis alignItems: "stretch") instead of a fixed px guess.
+    bottomDivider: { width: 1, backgroundColor: colors.border },
+    bottomIconEmoji: { fontSize: 26 },
     bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },

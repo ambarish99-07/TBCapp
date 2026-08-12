@@ -1,10 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { round } from "@tbc/pricing";
 import type { MenuItem } from "@tbc/shared-types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useMenuSearch } from "../../api/menu.api";
+import { AddItemModal } from "../../components/AddItemModal";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useBrandStore } from "../../state/brandStore";
 import { useTheme } from "../../state/themeStore";
@@ -12,7 +13,7 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CategoryResults">;
 
-export function CategoryResultsScreen({ route, navigation }: Props) {
+export function CategoryResultsScreen({ route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { label, categoryId, query } = route.params;
@@ -20,6 +21,7 @@ export function CategoryResultsScreen({ route, navigation }: Props) {
   const { data: brands } = useBrands();
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const selectBrand = useBrandStore((state) => state.selectBrand);
+  const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   function brandName(brandId: string): string {
     return brands?.find((brand) => brand.id === brandId)?.name ?? brandId;
@@ -32,7 +34,7 @@ export function CategoryResultsScreen({ route, navigation }: Props) {
       const brand = brands?.find((b) => b.id === item.brandId);
       if (brand) selectBrand(brand);
     }
-    navigation.navigate("ItemDetail", { menuItemId: item.id });
+    setAddingItem(item);
   }
 
   return (
@@ -63,6 +65,8 @@ export function CategoryResultsScreen({ route, navigation }: Props) {
           );
         }}
       />
+
+      <AddItemModal item={addingItem} onClose={() => setAddingItem(null)} />
     </View>
   );
 }

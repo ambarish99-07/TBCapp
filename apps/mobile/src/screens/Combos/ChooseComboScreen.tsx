@@ -63,7 +63,7 @@ export function ChooseComboScreen({ route, navigation }: Props) {
         payload: selectedIds.join("+"),
       })
     );
-    // Back to the combo list, not into the cart — same reasoning as ItemDetailScreen.
+    // Back to the combo list, not into the cart — the floating summary bar confirms it landed.
     navigation.goBack();
   }
 

@@ -1,4 +1,4 @@
-import { computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
+import { ADD_ON_PRICES, computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
 import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { create } from "zustand";
 
@@ -17,6 +17,8 @@ export interface CartLine {
   sugarLevel: SugarLevel;
   iceLevel: IceLevel;
   addOnIds: AddOnId[];
+  /** Free-text notes from the customer, sent through as-is to the kitchen. */
+  comment?: string;
   isCombo: boolean;
   /** Absent for combo lines — drives the 6th/10th-order milestone rewards. */
   category?: DrinkCategory;
@@ -33,6 +35,11 @@ interface CartState {
   addLine: (line: CartLine) => void;
   removeLine: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
+  /** Not for combo lines — those have no sugar/ice/add-ons to edit. Re-derives addOnPrices from addOnIds. */
+  updateLineCustomization: (
+    lineId: string,
+    updates: { sugarLevel: SugarLevel; iceLevel: IceLevel; addOnIds: AddOnId[]; comment: string }
+  ) => void;
   clear: () => void;
   /**
    * Computes the exact same PricingResult shape the server will compute at order
@@ -52,6 +59,22 @@ export const useCartStore = create<CartState>((set, get) => ({
   setQuantity: (lineId, quantity) =>
     set((state) => ({
       lines: state.lines.map((l) => (l.lineId === lineId ? { ...l, quantity: Math.max(1, Math.min(20, quantity)) } : l)),
+    })),
+
+  updateLineCustomization: (lineId, updates) =>
+    set((state) => ({
+      lines: state.lines.map((l) =>
+        l.lineId === lineId
+          ? {
+              ...l,
+              sugarLevel: updates.sugarLevel,
+              iceLevel: updates.iceLevel,
+              addOnIds: updates.addOnIds,
+              addOnPrices: updates.addOnIds.map((id) => ADD_ON_PRICES[id]),
+              comment: updates.comment || undefined,
+            }
+          : l
+      ),
     })),
 
   clear: () => set({ lines: [] }),

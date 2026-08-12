@@ -15,7 +15,6 @@ import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
 import { CartHeaderButton } from "../components/CartHeaderButton";
 import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
-import { ItemDetailScreen } from "../screens/ItemDetail/ItemDetailScreen";
 import { MenuScreen } from "../screens/Menu/MenuScreen";
 import { OrderStatusScreen } from "../screens/OrderStatus/OrderStatusScreen";
 import { CategoryResultsScreen } from "../screens/Search/CategoryResultsScreen";
@@ -63,11 +62,6 @@ export function RootNavigator() {
               name="CategoryResults"
               component={CategoryResultsScreen}
               options={{ title: "Search Results", headerRight: () => <CartHeaderButton /> }}
-            />
-            <Stack.Screen
-              name="ItemDetail"
-              component={ItemDetailScreen}
-              options={{ title: "Customize", headerRight: () => <CartHeaderButton /> }}
             />
             <Stack.Screen
               name="Combos"

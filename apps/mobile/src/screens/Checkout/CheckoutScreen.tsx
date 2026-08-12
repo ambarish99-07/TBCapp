@@ -150,7 +150,7 @@ export function CheckoutScreen({ navigation }: Props) {
           lineId: line.lineId,
           menuItemId: line.menuItemId,
           quantity: line.quantity,
-          customization: { sugarLevel: line.sugarLevel, iceLevel: line.iceLevel, addOnIds: line.addOnIds },
+          customization: { sugarLevel: line.sugarLevel, iceLevel: line.iceLevel, addOnIds: line.addOnIds, comment: line.comment },
         })),
         delivery,
         deliveryFor,
