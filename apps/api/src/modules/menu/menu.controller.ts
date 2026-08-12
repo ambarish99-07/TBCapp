@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
-import { browseCategorySummaries, listCombos, listMenuItems, searchMenuItemsAcrossBrands } from "./menu.service.js";
+import { browseCategorySummaries, listAllCombos, listCombos, listMenuItems, searchMenuItemsAcrossBrands } from "./menu.service.js";
 
 /** Mongoose documents carry `_id`, but the shared MenuItem/Combo schemas the client relies on expect `id`. */
 function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: string } {
@@ -25,6 +25,11 @@ export const getCombos: RequestHandler = async (req, res) => {
     return;
   }
   const combos = await listCombos(brandId);
+  res.json({ combos: combos.map(withId) });
+};
+
+export const getAllCombos: RequestHandler = async (_req, res) => {
+  const combos = await listAllCombos();
   res.json({ combos: combos.map(withId) });
 };
 

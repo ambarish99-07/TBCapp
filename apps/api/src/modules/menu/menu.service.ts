@@ -1,4 +1,4 @@
-import { BROWSE_CATEGORIES } from "@tbc/shared-types";
+import { BROWSE_CATEGORIES, CROSS_BRAND_ID } from "@tbc/shared-types";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { BrandModel } from "../../db/models/Brand.model.js";
@@ -15,11 +15,17 @@ export function listCombos(brandId: string) {
   return ComboModel.find({ brandId }).lean();
 }
 
+/** Cross-brand — every live brand's combos plus the cross-brand build-your-own combo, for the "Combos" page's brand tabs. */
+export async function listAllCombos() {
+  const brandIds = await liveBrandIds();
+  return ComboModel.find({ $or: [{ brandId: { $in: brandIds } }, { brandId: CROSS_BRAND_ID }] }).lean();
+}
+
 export function findComboById(id: string) {
   return ComboModel.findById(id).lean();
 }
 
-async function liveBrandIds(): Promise<string[]> {
+export async function liveBrandIds(): Promise<string[]> {
   const brands = await BrandModel.find({ status: "live" }, "_id").lean();
   return brands.map((brand) => String(brand._id));
 }

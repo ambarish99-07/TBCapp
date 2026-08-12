@@ -28,6 +28,28 @@ export function useCombos() {
   });
 }
 
+/** Every live brand's menu items in one list — used to resolve names/prices for cross-brand combo listings. */
+export function useAllMenuItems() {
+  return useQuery({
+    queryKey: ["menu-search-all"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ items: MenuItem[] }>("/menu/search");
+      return data.items;
+    },
+  });
+}
+
+/** Every live brand's combos in one list — unlike useCombos, NOT scoped to the currently selected brand. */
+export function useAllCombos() {
+  return useQuery({
+    queryKey: ["combos-all"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ combos: Combo[] }>("/menu/combos/all");
+      return data.combos;
+    },
+  });
+}
+
 /** The fixed circular-tile taxonomy for the "search all brands" page — one row per category, real photo included. */
 export function useBrowseCategories() {
   return useQuery({

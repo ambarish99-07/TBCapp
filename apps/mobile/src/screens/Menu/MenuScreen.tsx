@@ -1,10 +1,10 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { BROWSE_CATEGORIES, type MenuItem } from "@tbc/shared-types";
+import { BROWSE_CATEGORIES, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
-import { useCombos, useMenuItems } from "../../api/menu.api";
+import { useAllCombos, useMenuItems } from "../../api/menu.api";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
@@ -36,16 +36,24 @@ export function MenuScreen({ navigation }: Props) {
   const selectedBrand = useBrandStore((state) => state.selectedBrand);
   const selectBrand = useBrandStore((state) => state.selectBrand);
   const { data: items, isLoading, error } = useMenuItems();
-  const { data: combos } = useCombos();
+  // Cross-brand, not scoped to the selected brand — the Combos icon should stay visible as
+  // long as *any* live brand has combos, since tapping it now opens a cross-brand page.
+  const { data: combos } = useAllCombos();
   const [category, setCategory] = useState<string>("all");
   const cartLineCount = useCartStore((state) => state.lines.length);
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
   const selectedAddress = useAddressStore((state) => state.selectedAddress);
-  // Data-driven, not hardcoded to TBC's combos — a brand without any combos just doesn't get the banner.
   const showCombosBanner = !!combos && combos.length > 0;
   const listRef = useRef<FlatList>(null);
+  const [isBrandPickerOpen, setIsBrandPickerOpen] = useState(false);
+
+  function handlePickBrand(brand: Brand) {
+    selectBrand(brand);
+    setIsBrandPickerOpen(false);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }
 
   // Cycles the locked search bar's placeholder through every cross-brand browse category
   // ("Search shakes...", "Search cold coffee...", "Search mocktails...", ...) instead of a
@@ -179,7 +187,7 @@ export function MenuScreen({ navigation }: Props) {
       {/* Fixed strip, not part of the scrolling list — icons pack from the left rather than
           spreading across the width, matching how the address/cart/avatar row above reads. */}
       <View style={[styles.bottomBar, { paddingBottom: theme.spacing(1) + insets.bottom }]}>
-        <Pressable style={styles.bottomIcon} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}>
+        <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
           <View style={styles.bottomIconCircle}>
             <Text style={styles.bottomIconEmoji}>📋</Text>
           </View>
@@ -200,6 +208,25 @@ export function MenuScreen({ navigation }: Props) {
           <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
         </Pressable>
       </View>
+
+      {/* Brand picker popup — tapping a brand switches the whole menu below to that brand's. */}
+      <Modal visible={isBrandPickerOpen} animationType="fade" transparent onRequestClose={() => setIsBrandPickerOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setIsBrandPickerOpen(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose a Brand</Text>
+            {(brands ?? []).map((brand) => (
+              <Pressable
+                key={brand.id}
+                style={[styles.brandOption, brand.id === selectedBrandId && styles.brandOptionActive]}
+                onPress={() => handlePickBrand(brand)}
+              >
+                {brand.logoUrl && <Image source={{ uri: brand.logoUrl }} style={styles.brandOptionLogo} resizeMode="contain" />}
+                <Text style={[styles.brandOptionText, brand.id === selectedBrandId && styles.brandOptionTextActive]}>{brand.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -286,4 +313,20 @@ const makeStyles = (colors: ColorPalette) =>
     bottomIconEmoji: { fontSize: 20 },
     bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
+    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
+    modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2) },
+    modalTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1.5) },
+    brandOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(1.5),
+      borderRadius: theme.radius,
+      backgroundColor: colors.surface,
+      marginBottom: theme.spacing(1),
+    },
+    brandOptionActive: { borderWidth: 1, borderColor: colors.primary },
+    brandOptionLogo: { width: 36, height: 36, borderRadius: 18 },
+    brandOptionText: { fontSize: 15, fontWeight: "700", color: colors.text },
+    brandOptionTextActive: { color: colors.primary },
   });

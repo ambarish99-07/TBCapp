@@ -2,7 +2,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { useCombos, useMenuItems } from "../../api/menu.api";
+import { useBrands } from "../../api/brands.api";
+import { useAllCombos, useAllMenuItems } from "../../api/menu.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
@@ -14,8 +15,12 @@ type Props = NativeStackScreenProps<RootStackParamList, "ChooseCombo">;
 export function ChooseComboScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { data: combos } = useCombos();
-  const { data: menuItems } = useMenuItems();
+  // Cross-brand, not scoped to the selected brand — this same screen serves both a normal
+  // brand's own choose-n combo and the cross-brand "Mix & Match Duo", so its eligible items
+  // may span every live brand's menu, not just whichever one happens to be selected.
+  const { data: combos } = useAllCombos();
+  const { data: menuItems } = useAllMenuItems();
+  const { data: brands } = useBrands();
   const addLine = useCartStore((state) => state.addLine);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -31,6 +36,12 @@ export function ChooseComboScreen({ route, navigation }: Props) {
 
   function itemPrice(id: string): number {
     return menuItems?.find((item) => item.id === id)?.price ?? 0;
+  }
+
+  function brandName(id: string): string {
+    const item = menuItems?.find((candidate) => candidate.id === id);
+    if (!item) return "";
+    return brands?.find((brand) => brand.id === item.brandId)?.name ?? item.brandId;
   }
 
   function toggle(itemId: string) {
@@ -74,9 +85,12 @@ export function ChooseComboScreen({ route, navigation }: Props) {
           const isSelected = selectedIds.includes(itemId);
           return (
             <Pressable style={[styles.row, isSelected && styles.rowSelected]} onPress={() => toggle(itemId)}>
-              <Text style={[styles.rowText, isSelected && styles.rowTextSelected]}>
-                {item?.signatureName ?? itemId} {item ? `· ₹${item.price}` : ""}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowBrand, isSelected && styles.rowTextSelected]}>{brandName(itemId)}</Text>
+                <Text style={[styles.rowText, isSelected && styles.rowTextSelected]}>
+                  {item?.signatureName ?? itemId} {item ? `· ₹${item.price}` : ""}
+                </Text>
+              </View>
               {isSelected && <Text style={styles.checkmark}>✓</Text>}
             </Pressable>
           );
@@ -105,7 +119,8 @@ const makeStyles = (colors: ColorPalette) =>
       marginBottom: 8,
     },
     rowSelected: { backgroundColor: colors.primary },
-    rowText: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    rowBrand: { fontSize: 10, fontWeight: "700", color: colors.primary, textTransform: "uppercase" },
+    rowText: { fontSize: 14, color: colors.text, fontWeight: "600", marginTop: 2 },
     rowTextSelected: { color: "#fff" },
     checkmark: { color: "#fff", fontWeight: "700" },
     addButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },

@@ -1,7 +1,8 @@
 import { ADD_ON_PRICES, computeComboPrice, round, type CartLineInput } from "@tbc/pricing";
-import { isComboLineId, type AddOnId, type CartLineRequest, type ResolvedCartLine } from "@tbc/shared-types";
+import { CROSS_BRAND_ID, isComboLineId, type AddOnId, type CartLineRequest, type ResolvedCartLine } from "@tbc/shared-types";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
+import { liveBrandIds } from "../menu/menu.service.js";
 
 export class PriceResolutionError extends Error {}
 
@@ -71,8 +72,10 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
   for (const line of lines) {
     if (isComboLineId(line.menuItemId)) {
       const { comboId, payload } = parseComboLineId(line.menuItemId);
-      const combo = await ComboModel.findOne({ _id: comboId, brandId }).lean();
-      if (!combo) {
+      // Looked up by id alone, not yet brand-scoped — the one cross-brand combo isn't owned
+      // by the order's brand at all, so it would never match a `{_id, brandId}` filter.
+      const combo = await ComboModel.findOne({ _id: comboId }).lean();
+      if (!combo || (combo.brandId !== brandId && combo.brandId !== CROSS_BRAND_ID)) {
         throw new PriceResolutionError(`Unknown combo: ${comboId}`);
       }
       if (line.customization.addOnIds.length > 0) {
@@ -80,7 +83,13 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       }
 
       const constituentIds = resolveComboConstituentIds(combo, payload);
-      const constituentItems = await MenuItemModel.find({ _id: { $in: constituentIds }, brandId }).lean();
+      // A normal combo's items are scoped to its own brand (the existing tamper guard);
+      // the cross-brand combo's items may come from any live brand instead.
+      const constituentFilter =
+        combo.brandId === CROSS_BRAND_ID
+          ? { _id: { $in: constituentIds }, brandId: { $in: await liveBrandIds() } }
+          : { _id: { $in: constituentIds }, brandId };
+      const constituentItems = await MenuItemModel.find(constituentFilter).lean();
       if (constituentItems.length !== constituentIds.length) {
         throw new PriceResolutionError("One or more combo items no longer exist");
       }

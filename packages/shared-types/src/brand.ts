@@ -24,3 +24,6 @@ export type CreateBrandRequest = z.infer<typeof CreateBrandRequestSchema>;
 
 export const UpdateBrandRequestSchema = CreateBrandRequestSchema.omit({ id: true }).partial();
 export type UpdateBrandRequest = z.infer<typeof UpdateBrandRequestSchema>;
+
+/** Sentinel combo brandId for the one combo not owned by any single brand — its eligible items span every live brand. Never a real Brand doc. */
+export const CROSS_BRAND_ID = "cross-brand";
