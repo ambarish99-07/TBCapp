@@ -1,11 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { BROWSE_CATEGORIES, isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
+import { isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
-import { useAllCombos, useAllMenuItems, useMenuItems } from "../../api/menu.api";
+import { useAllCombos, useAllMenuItems, useBrowseCategories, useMenuItems } from "../../api/menu.api";
 import { fetchMyOrders } from "../../api/orders.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
@@ -61,17 +61,26 @@ export function MenuScreen({ navigation }: Props) {
     handleOpenRestaurant(brand);
   }
 
-  // Cycles the locked search bar's placeholder through every cross-brand browse category
-  // ("Search shakes...", "Search cold coffee...", "Search mocktails...", ...) instead of a
+  // Cycles the locked search bar's placeholder through every cross-brand browse category that
+  // actually has items today ("Search shakes...", "Search cold coffee...", ...) instead of a
   // single static hint — a lightweight advertisement for the Search page's full category list.
+  // Empty categories (e.g. GG Tiffin's veg/non-veg/breads before its menu goes live) stay out
+  // of the rotation and start appearing on their own as soon as their itemCount goes above 0,
+  // same as the Search page's own tile grid.
+  const { data: browseCategories } = useBrowseCategories();
+  const availablePlaceholderCategories = useMemo(() => (browseCategories ?? []).filter((cat) => cat.itemCount > 0), [browseCategories]);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   useEffect(() => {
+    if (availablePlaceholderCategories.length === 0) return;
     const timer = setInterval(() => {
-      setPlaceholderIndex((i) => (i + 1) % BROWSE_CATEGORIES.length);
+      setPlaceholderIndex((i) => (i + 1) % availablePlaceholderCategories.length);
     }, SEARCH_PLACEHOLDER_ROTATE_MS);
     return () => clearInterval(timer);
-  }, []);
-  const searchPlaceholder = `🔍 Search ${BROWSE_CATEGORIES[placeholderIndex].label.toLowerCase()}...`;
+  }, [availablePlaceholderCategories.length]);
+  const searchPlaceholder =
+    availablePlaceholderCategories.length > 0
+      ? `🔍 Search ${availablePlaceholderCategories[placeholderIndex % availablePlaceholderCategories.length].label.toLowerCase()}...`
+      : "🔍 Search menu...";
 
   // Land here with no brand chosen yet (fresh login) — default to the first live brand
   // rather than showing a blank menu; the carousel below lets the customer switch. A

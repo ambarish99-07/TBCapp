@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
 import type { Combo, MenuItem } from "@tbc/shared-types";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useCombos, useMenuItems } from "../../api/menu.api";
 import { AddItemModal } from "../../components/AddItemModal";
@@ -17,9 +17,14 @@ import type { RootStackParamList } from "../../navigation/types";
 type Props = NativeStackScreenProps<RootStackParamList, "RestaurantMenu">;
 
 const COMBOS_TAB = "combos";
+const PREMIUM_TAB = "premium";
+
+/** A friendlier storefront name than the raw category value for tabs that need one. */
+const CATEGORY_LABEL_OVERRIDES: Record<string, string> = { mocktails: "Signature" };
 
 /** "signature-shakes" -> "Signature Shakes" — no brand-specific category list hardcoded here, since every brand has its own menu directory. */
 function formatCategoryLabel(category: string): string {
+  if (CATEGORY_LABEL_OVERRIDES[category]) return CATEGORY_LABEL_OVERRIDES[category];
   return category
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -96,11 +101,22 @@ export function RestaurantMenuScreen({ navigation }: Props) {
     return Array.from(new Set(items.map((item) => item.category)));
   }, [items]);
 
+  const premiumItems = useMemo(() => (items ?? []).filter((item) => item.isStaffPick), [items]);
+  // Wherever the premium items actually live (e.g. "mocktails" for Alchemy Tails, "cold-coffee"
+  // for TBC) — not hardcoded to one brand's category, so the tab still appears (and the items
+  // aren't silently dropped from their old tab) for any brand's staff picks.
+  const premiumTabCategory = premiumItems[0]?.category;
+
   const filtered = useMemo(() => {
     if (!items) return [];
     if (category === "all") return items;
+    if (category === PREMIUM_TAB) return premiumItems;
+    // Only the (relabeled) "Signature" tab de-dupes against Premium — every other category
+    // tab (Cold Coffee, Signature Shakes, ...) keeps showing its premium items too, so e.g.
+    // Caramel Brew appears under both Premium and Cold Coffee.
+    if (category === "mocktails") return items.filter((item) => item.category === category && !item.isStaffPick);
     return items.filter((item) => item.category === category);
-  }, [items, category]);
+  }, [items, category, premiumItems]);
 
   const showingCombos = category === COMBOS_TAB;
 
@@ -112,9 +128,17 @@ export function RestaurantMenuScreen({ navigation }: Props) {
             <Text style={[styles.tabText, category === "all" && styles.tabTextActive]}>All</Text>
           </Pressable>
           {categories.map((cat) => (
-            <Pressable key={cat} onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
-              <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
-            </Pressable>
+            <Fragment key={cat}>
+              <Pressable onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
+                <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
+              </Pressable>
+              {/* "Premium" sits right beside whichever category its items actually belong to, rather than at the row's end. */}
+              {cat === premiumTabCategory && (
+                <Pressable onPress={() => setCategory(PREMIUM_TAB)} style={[styles.tab, category === PREMIUM_TAB && styles.tabActive]}>
+                  <Text style={[styles.tabText, category === PREMIUM_TAB && styles.tabTextActive]}>Premium</Text>
+                </Pressable>
+              )}
+            </Fragment>
           ))}
           {combos && combos.length > 0 && (
             <Pressable onPress={() => setCategory(COMBOS_TAB)} style={[styles.tab, showingCombos && styles.tabActive]}>

@@ -122,6 +122,7 @@ function buildTbcMenuItems(env: ReturnType<typeof loadEnv>) {
       image: imageUrl(env, "hazelnut-heaven"),
       flavorBadges: ["Chocolate Lover", "Nutty"],
       pairsWith: ["choco-crush"],
+      isStaffPick: true,
     },
     {
       _id: "choco-crunch-blast",
@@ -133,6 +134,7 @@ function buildTbcMenuItems(env: ReturnType<typeof loadEnv>) {
       image: imageUrl(env, "choco-crunch-blast"),
       flavorBadges: ["Chocolate Lover"],
       isPopular: true,
+      isStaffPick: true,
     },
     {
       _id: "caramel-bliss",
@@ -388,6 +390,7 @@ function buildAlchemyTailsMenuItems(env: ReturnType<typeof loadEnv>) {
       image: imageUrl(env, "pineapple-punch"),
       flavorBadges: ["Tropical", "Tangy"],
       pairsWith: ["pina-colada"],
+      isStaffPick: true,
     },
     {
       _id: "rainbow-fizz",
@@ -400,6 +403,7 @@ function buildAlchemyTailsMenuItems(env: ReturnType<typeof loadEnv>) {
       flavorBadges: ["Fruity", "Signature"],
       isNew: true,
       isPopular: true,
+      isStaffPick: true,
     },
     {
       _id: "rose-lemonade",
