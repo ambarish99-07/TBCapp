@@ -4,6 +4,8 @@ const LINKS = [
   { to: "/orders", label: "Orders" },
   { to: "/bulk-orders", label: "Bulk Orders" },
   { to: "/brands", label: "Brands" },
+  { to: "/tiffin-plans", label: "Tiffin Plans" },
+  { to: "/tiffin-deliveries", label: "Tiffin Deliveries" },
 ];
 
 export function AdminNav() {

@@ -1,4 +1,4 @@
-import { ADD_ON_PRICES, computeComboPrice, round, type CartLineInput } from "@tbc/pricing";
+import { ADD_ON_PRICES, computeComboPrice, round, type CartLineInput, type DrinkCategory } from "@tbc/pricing";
 import { CROSS_BRAND_ID, isComboLineId, type AddOnId, type CartLineRequest, type ResolvedCartLine } from "@tbc/shared-types";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
@@ -55,6 +55,15 @@ function resolveComboConstituentIds(
 function resolveUnitPrice(menuItem: { price: number; salePercent?: number | null }): number {
   if (!menuItem.salePercent) return menuItem.price;
   return round(menuItem.price * (1 - menuItem.salePercent / 100));
+}
+
+const DRINK_CATEGORIES = new Set<string>(["signature-shakes", "cold-coffee"] satisfies DrinkCategory[]);
+
+/** Milestone rewards only ever check for "cold-coffee" specifically (see @tbc/pricing/milestoneReward) —
+ * every other category (mocktails, GG Tiffin's veg/non-veg/mixed, ...) is functionally identical to
+ * "not a drink" here, same as before those categories existed. */
+function toDrinkCategory(category: string): DrinkCategory | undefined {
+  return DRINK_CATEGORIES.has(category) ? (category as DrinkCategory) : undefined;
 }
 
 /**
@@ -154,7 +163,7 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       addOnPrices,
       quantity: line.quantity,
       isCombo: false,
-      category: menuItem.category,
+      category: toDrinkCategory(menuItem.category),
     });
   }
 

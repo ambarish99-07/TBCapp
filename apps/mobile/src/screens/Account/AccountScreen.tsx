@@ -129,6 +129,13 @@ export function AccountScreen({ navigation }: Props) {
             <Text style={styles.chevron}>›</Text>
           </View>
         </Pressable>
+
+        <Pressable style={styles.sectionCard} onPress={() => navigation.navigate("MyTiffin")}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>My Tiffin</Text>
+            <Text style={styles.chevron}>›</Text>
+          </View>
+        </Pressable>
       </ScrollView>
 
       <View style={styles.footer}>

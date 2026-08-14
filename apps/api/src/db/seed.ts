@@ -1,10 +1,13 @@
 import "dotenv/config";
-import { CROSS_BRAND_ID } from "@tbc/shared-types";
+import { CROSS_BRAND_ID, TIFFIN_PLAN_DURATIONS } from "@tbc/shared-types";
 import { loadEnv } from "../config/env.js";
 import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
 import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
+import { TiffinPlanModel } from "./models/TiffinPlan.model.js";
+import { TiffinScheduledMealModel } from "./models/TiffinScheduledMeal.model.js";
+import { TiffinSubscriptionModel } from "./models/TiffinSubscription.model.js";
 
 const TBC_BRAND_ID = "tbc";
 const ALCHEMY_TAILS_BRAND_ID = "alchemy-tails";
@@ -533,6 +536,17 @@ function buildCrossBrandCombos(allItemIds: string[]) {
   ];
 }
 
+/** GG Tiffin's starter plan catalog — placeholder prices, fully editable afterward via the
+ * admin Tiffin Plans page (never hardcoded anywhere else in the application). */
+function buildTiffinPlans() {
+  return [
+    { name: "Weekly Veg Plan", dietType: "veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
+    { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
+    { name: "Monthly Veg Plan", dietType: "veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, active: true },
+    { name: "Monthly Non-Veg Plan", dietType: "non-veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 5499, active: true },
+  ];
+}
+
 async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
@@ -540,6 +554,9 @@ async function seed() {
   await BrandModel.deleteMany({});
   await MenuItemModel.deleteMany({});
   await ComboModel.deleteMany({});
+  await TiffinSubscriptionModel.deleteMany({});
+  await TiffinScheduledMealModel.deleteMany({});
+  await TiffinPlanModel.deleteMany({});
 
   const brands = buildBrands(env);
   for (const brand of brands) {
@@ -558,6 +575,9 @@ async function seed() {
     brandId: ALCHEMY_TAILS_BRAND_ID,
   }));
 
+  // GG Tiffin is a subscription plan service, not a MenuItem-based menu — it deliberately has
+  // no MenuItem rows at all (see modules/tiffin instead) and stays "coming soon" on the
+  // shake-style menu screen, which is correct: it never shows GG Tiffin's real experience.
   const menuItems = [...tbcMenuItems, ...alchemyMenuItems];
 
   const crossBrandCombos = buildCrossBrandCombos(menuItems.map((item) => item._id)).map((combo) => ({
@@ -574,7 +594,11 @@ async function seed() {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
 
-  console.log(`Seeded ${brands.length} brands, ${menuItems.length} menu items, and ${combos.length} combos.`);
+  const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans());
+
+  console.log(
+    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, and ${tiffinPlans.length} tiffin plans.`
+  );
   await disconnectFromDatabase();
 }
 

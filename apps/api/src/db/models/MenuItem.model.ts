@@ -10,7 +10,7 @@ const MenuItemSchema = new Schema(
     commonName: { type: String, required: true },
     description: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
-    category: { type: String, enum: ["signature-shakes", "cold-coffee"], required: true },
+    category: { type: String, enum: ["signature-shakes", "cold-coffee", "mocktails"], required: true },
     image: { type: String, required: true },
     flavorBadges: { type: [String], default: [] },
     isPopular: { type: Boolean, default: false },

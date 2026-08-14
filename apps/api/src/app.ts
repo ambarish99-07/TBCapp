@@ -17,6 +17,7 @@ import { createMenuRouter } from "./modules/menu/menu.routes.js";
 import { createOrdersRouter } from "./modules/orders/orders.routes.js";
 import { createPaymentsRouter } from "./modules/payments/payments.routes.js";
 import { createRecipientsRouter } from "./modules/recipients/recipients.routes.js";
+import { createTiffinRouter } from "./modules/tiffin/tiffin.routes.js";
 import { createErrorHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
@@ -51,6 +52,7 @@ export function createApp(env: Env): Express {
   app.use("/admin", createAdminRouter(env));
   app.use("/me/recipients", createRecipientsRouter(env));
   app.use("/bulk-order-inquiries", createBulkOrdersRouter(env));
+  app.use("/tiffin", createTiffinRouter(env));
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

@@ -9,6 +9,11 @@ export type RootStackParamList = {
   Combos: undefined;
   ChooseCombo: { comboId: string };
   BulkOrder: undefined;
+  // GG Tiffin's own flow — reached from the GG Tiffin brand tile instead of RestaurantMenu.
+  TiffinLanding: undefined;
+  TiffinPlanSelect: { planId: string };
+  TiffinCheckout: { planId: string; sundayVegChoice?: "paneer" | "chole" };
+  MyTiffin: undefined;
   Cart: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.

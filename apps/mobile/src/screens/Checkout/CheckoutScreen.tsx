@@ -56,8 +56,9 @@ export function CheckoutScreen({ navigation }: Props) {
         pincode: fields.pincode.trim(),
       });
       updateUser(updated);
-      // Back to Cart — that's what lets the customer proceed straight to payment now.
-      navigation.navigate("Cart");
+      // Back to wherever this was opened from (Cart, or GG Tiffin's checkout) — that's what
+      // lets the customer proceed straight to payment/subscribing now.
+      navigation.goBack();
     } catch (err) {
       const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Please try again.";
       Alert.alert("Couldn't save address", message);

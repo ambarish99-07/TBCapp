@@ -1,4 +1,4 @@
-import type { AddOnId, IceLevel, MenuCategory, SugarLevel } from "@tbc/shared-types";
+import { ADD_ONS_BY_CATEGORY, type AddOnId, type IceLevel, type MenuCategory, type SugarLevel } from "@tbc/shared-types";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
@@ -68,8 +68,12 @@ export function CustomizationFields({
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Add-Ons</Text>
-      <AddOnSelector category={category} selected={addOnIds} onChange={onAddOnIdsChange} />
+      {ADD_ONS_BY_CATEGORY[category].length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Add-Ons</Text>
+          <AddOnSelector category={category} selected={addOnIds} onChange={onAddOnIdsChange} />
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Comments</Text>
       <TextInput

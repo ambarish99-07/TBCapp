@@ -50,6 +50,12 @@ export function MenuScreen({ navigation }: Props) {
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   function handleOpenRestaurant(brand: Brand) {
+    // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
+    // own dedicated flow instead of the shake/mocktail RestaurantMenu tab+list UI.
+    if (brand.id === "gg-tiffin") {
+      navigation.navigate("TiffinLanding");
+      return;
+    }
     selectBrand(brand);
     navigation.navigate("RestaurantMenu");
   }

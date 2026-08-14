@@ -8,6 +8,8 @@ import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
+import { TiffinDeliveriesPage } from "./routes/TiffinDeliveriesPage.js";
+import { TiffinPlansPage } from "./routes/TiffinPlansPage.js";
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAdminAuth();
@@ -65,6 +67,22 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <BrandsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-plans"
+          element={
+            <RequireAdmin>
+              <TiffinPlansPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-deliveries"
+          element={
+            <RequireAdmin>
+              <TiffinDeliveriesPage />
             </RequireAdmin>
           }
         />
