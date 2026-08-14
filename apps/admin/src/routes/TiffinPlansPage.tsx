@@ -1,13 +1,15 @@
-import { TIFFIN_MEAL_TYPES, type TiffinDietType, type TiffinMealType, type TiffinPlan } from "@tbc/shared-types";
+import { TIFFIN_PLAN_STYLES, type TiffinDietType, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
 
 const DIET_OPTIONS: TiffinDietType[] = ["veg", "non-veg"];
 
+const STYLE_LABELS: Record<TiffinPlanStyle, string> = { single: "Single (Lunch or Dinner)", "twice-daily": "Twice Daily (Lunch & Dinner)" };
+
 const emptyForm = {
   name: "",
   dietType: "veg" as TiffinDietType,
-  mealType: TIFFIN_MEAL_TYPES[0] as TiffinMealType,
+  style: TIFFIN_PLAN_STYLES[0] as TiffinPlanStyle,
   durationDays: "7",
   price: "",
 };
@@ -38,7 +40,7 @@ export function TiffinPlansPage() {
       await adminClient.post("/admin/tiffin/plans", {
         name: form.name,
         dietType: form.dietType,
-        mealType: form.mealType,
+        style: form.style,
         durationDays: Number(form.durationDays),
         price: Number(form.price),
         active: true,
@@ -77,10 +79,10 @@ export function TiffinPlansPage() {
             </option>
           ))}
         </select>
-        <select value={form.mealType} onChange={(e) => setForm({ ...form, mealType: e.target.value as TiffinMealType })}>
-          {TIFFIN_MEAL_TYPES.map((meal) => (
-            <option key={meal} value={meal}>
-              {meal}
+        <select value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value as TiffinPlanStyle })}>
+          {TIFFIN_PLAN_STYLES.map((style) => (
+            <option key={style} value={style}>
+              {STYLE_LABELS[style]}
             </option>
           ))}
         </select>
@@ -116,7 +118,7 @@ export function TiffinPlansPage() {
             <tr>
               <th align="left">Name</th>
               <th align="left">Diet</th>
-              <th align="left">Meal</th>
+              <th align="left">Style</th>
               <th align="left">Duration</th>
               <th align="left">Price</th>
               <th align="left">Active</th>
@@ -127,7 +129,7 @@ export function TiffinPlansPage() {
               <tr key={plan.id} style={{ borderTop: "1px solid #E4DCD3" }}>
                 <td>{plan.name}</td>
                 <td>{plan.dietType}</td>
-                <td>{plan.mealType}</td>
+                <td>{STYLE_LABELS[plan.style]}</td>
                 <td>{plan.durationDays} days</td>
                 <td>
                   <input

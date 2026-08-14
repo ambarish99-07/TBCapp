@@ -5,6 +5,7 @@ import {
   TIFFIN_NONVEG_SUNDAY_DISH,
   TIFFIN_WEEKLY_VEG_ROTATION,
   type SundayVegChoice,
+  type TiffinMealType,
 } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -18,6 +19,9 @@ type Props = NativeStackScreenProps<RootStackParamList, "TiffinPlanSelect">;
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const SUNDAY_VEG_LABELS: Record<SundayVegChoice, string> = { paneer: "Paneer Sabzi", chole: "Chole" };
+
+const MEAL_TYPE_CHOICES: TiffinMealType[] = ["lunch", "dinner"];
+const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { lunch: "Lunch", dinner: "Dinner" };
 
 function dishForPreview(dietType: "veg" | "non-veg", day: string, sundayVegChoice: SundayVegChoice): string {
   if (day === "Sunday") {
@@ -34,6 +38,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
   const { data: plans, isLoading } = useTiffinPlans();
   const plan = plans?.find((p) => p.id === route.params.planId);
   const [sundayVegChoice, setSundayVegChoice] = useState<SundayVegChoice>("paneer");
+  const [mealType, setMealType] = useState<TiffinMealType>("lunch");
 
   if (isLoading) {
     return (
@@ -54,6 +59,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
   function handleContinue() {
     navigation.navigate("TiffinCheckout", {
       planId: route.params.planId,
+      mealType: plan!.style === "single" ? mealType : undefined,
       sundayVegChoice: plan!.dietType === "veg" ? sundayVegChoice : undefined,
     });
   }
@@ -62,9 +68,29 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{plan.name}</Text>
       <Text style={styles.meta}>
-        {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · Lunch
+        {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days ·{" "}
+        {plan.style === "twice-daily" ? "Lunch & Dinner" : "Lunch or Dinner"}
       </Text>
       <Text style={styles.price}>₹{plan.price}</Text>
+
+      {plan.style === "single" && (
+        <>
+          <Text style={styles.sectionTitle}>Choose Lunch or Dinner</Text>
+          <View style={styles.choiceRow}>
+            {MEAL_TYPE_CHOICES.map((choice) => (
+              <Pressable
+                key={choice}
+                onPress={() => setMealType(choice)}
+                style={[styles.choiceChip, mealType === choice && styles.choiceChipActive]}
+              >
+                <Text style={[styles.choiceChipText, mealType === choice && styles.choiceChipTextActive]}>
+                  {MEAL_TYPE_LABELS[choice]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
 
       {plan.dietType === "veg" && (
         <>

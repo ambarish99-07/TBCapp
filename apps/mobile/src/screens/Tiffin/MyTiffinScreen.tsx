@@ -1,12 +1,14 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { TiffinScheduledMeal } from "@tbc/shared-types";
+import { CANCELLATION_FULL_REFUND_WINDOW_DAYS, CANCELLATION_REFUND_PERCENT, TIFFIN_PLAN_DURATIONS, type TiffinScheduledMeal } from "@tbc/shared-types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
+  cancelTiffinSubscriptionRequest,
   pauseTiffinSubscriptionRequest,
   resumeTiffinSubscriptionRequest,
   skipTiffinMealRequest,
+  unskipTiffinMealRequest,
   useMyTiffinSubscriptions,
   useTiffinUpcomingMeals,
 } from "../../api/tiffin.api";
@@ -15,6 +17,8 @@ import { useTheme } from "../../state/themeStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "MyTiffin">;
+
+const MEAL_TYPE_LABELS: Record<string, string> = { lunch: "Lunch", dinner: "Dinner" };
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Active",
@@ -65,6 +69,19 @@ export function MyTiffinScreen({ navigation }: Props) {
     }
   }
 
+  async function handleUnskip(meal: TiffinScheduledMeal) {
+    if (!subscription) return;
+    setBusy(true);
+    try {
+      await unskipTiffinMealRequest(subscription.id, meal.id);
+      refresh();
+    } catch (err) {
+      Alert.alert("Couldn't restore", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePause(days: number) {
     if (!subscription) return;
     setBusy(true);
@@ -93,6 +110,39 @@ export function MyTiffinScreen({ navigation }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function runCancel() {
+    if (!subscription) return;
+    setBusy(true);
+    try {
+      const cancelled = await cancelTiffinSubscriptionRequest(subscription.id);
+      refresh();
+      const refundAmount = cancelled.payment.refundAmount;
+      Alert.alert(
+        "Subscription cancelled",
+        refundAmount ? `₹${refundAmount} will be refunded to you.` : "No refund applies to this cancellation."
+      );
+    } catch (err) {
+      Alert.alert("Couldn't cancel", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleCancel() {
+    if (!subscription) return;
+    const isMonthly = subscription.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
+    const daysElapsed = Math.floor((Date.now() - new Date(`${subscription.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24));
+    const withinRefundWindow = isMonthly && daysElapsed < CANCELLATION_FULL_REFUND_WINDOW_DAYS;
+    const message = withinRefundWindow
+      ? `You'll get ${CANCELLATION_REFUND_PERCENT * 100}% of what you paid refunded since it's within the first ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days.`
+      : `It's been ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days or more since your subscription started, so no refund applies.`;
+
+    Alert.alert("Cancel subscription?", message, [
+      { text: "Keep Subscription", style: "cancel" },
+      { text: "Cancel Subscription", style: "destructive", onPress: runCancel },
+    ]);
   }
 
   if (isLoading) {
@@ -132,7 +182,9 @@ export function MyTiffinScreen({ navigation }: Props) {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Next Meal</Text>
           <Text style={styles.nextMealDish}>{nextMeal.dishName}</Text>
-          <Text style={styles.meta}>{nextMeal.date}</Text>
+          <Text style={styles.meta}>
+            {nextMeal.date} · {MEAL_TYPE_LABELS[nextMeal.mealType] ?? nextMeal.mealType}
+          </Text>
         </View>
       )}
 
@@ -148,20 +200,37 @@ export function MyTiffinScreen({ navigation }: Props) {
             <Text style={[styles.actionButtonText, styles.resumeButtonText]}>Resume Subscription</Text>
           </Pressable>
         )}
+        {(subscription.status === "active" || subscription.status === "paused") &&
+          subscription.durationDays !== TIFFIN_PLAN_DURATIONS.weekly && (
+            <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleCancel} disabled={busy}>
+              <Text style={[styles.actionButtonText, styles.cancelButtonText]}>Cancel Subscription</Text>
+            </Pressable>
+          )}
       </View>
 
       <Text style={styles.sectionTitle}>Upcoming Meals</Text>
       {(meals ?? []).map((meal) => (
         <View key={meal.id} style={styles.mealRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.mealDate}>{meal.date}</Text>
+            <Text style={styles.mealDate}>
+              {meal.date} · {MEAL_TYPE_LABELS[meal.mealType] ?? meal.mealType}
+            </Text>
             <Text style={styles.mealDish}>{meal.dishName}</Text>
           </View>
-          {meal.status === "scheduled" ? (
+          {meal.status === "scheduled" && (
             <Pressable style={styles.skipButton} onPress={() => handleSkip(meal)} disabled={busy}>
               <Text style={styles.skipButtonText}>Skip</Text>
             </Pressable>
-          ) : (
+          )}
+          {meal.status === "skipped" && (
+            <View style={styles.skippedGroup}>
+              <Text style={styles.mealStatus}>{STATUS_LABELS[meal.status]}</Text>
+              <Pressable style={styles.unskipButton} onPress={() => handleUnskip(meal)} disabled={busy}>
+                <Text style={styles.unskipButtonText}>Undo</Text>
+              </Pressable>
+            </View>
+          )}
+          {meal.status !== "scheduled" && meal.status !== "skipped" && (
             <Text style={styles.mealStatus}>{STATUS_LABELS[meal.status] ?? meal.status}</Text>
           )}
         </View>
@@ -188,6 +257,8 @@ const makeStyles = (colors: ColorPalette) =>
     actionButtonText: { fontSize: 13, fontWeight: "700", color: colors.text },
     resumeButton: { backgroundColor: colors.primary, borderColor: colors.primary },
     resumeButtonText: { color: "#fff" },
+    cancelButton: { borderColor: colors.danger },
+    cancelButtonText: { color: colors.danger },
     mealRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -200,4 +271,7 @@ const makeStyles = (colors: ColorPalette) =>
     mealStatus: { fontSize: 12, color: colors.muted, fontWeight: "700" },
     skipButton: { borderWidth: 1, borderColor: colors.danger, borderRadius: theme.radius, paddingVertical: 6, paddingHorizontal: 12 },
     skipButtonText: { fontSize: 12, fontWeight: "700", color: colors.danger },
+    skippedGroup: { alignItems: "flex-end", gap: 4 },
+    unskipButton: { borderWidth: 1, borderColor: colors.primary, borderRadius: theme.radius, paddingVertical: 4, paddingHorizontal: 10 },
+    unskipButtonText: { fontSize: 11, fontWeight: "700", color: colors.primary },
   });

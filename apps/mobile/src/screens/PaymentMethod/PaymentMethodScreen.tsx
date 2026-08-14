@@ -9,13 +9,21 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "PaymentMethod">;
 
-/** Opened from the Cart's "Pay using" row — picking an option here saves it to
- * paymentMethodStore and returns straight to Cart. */
-export function PaymentMethodScreen({ navigation }: Props) {
+/** Opened from the Cart's "Pay using" row (and GG Tiffin's "Pay via" row) — picking an option
+ * here saves it to paymentMethodStore and returns to the caller. `hideCod` drops the Cash on
+ * Delivery option (and its now-empty group) — used by monthly tiffin subscriptions, which can't
+ * be paid COD; Cart's call passes no params, so it still shows every option. */
+export function PaymentMethodScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const selected = usePaymentMethodStore((state) => state.selected);
   const select = usePaymentMethodStore((state) => state.select);
+  const hideCod = route.params?.hideCod ?? false;
+  const groups = hideCod
+    ? PAYMENT_OPTION_GROUPS.map((group) => ({ ...group, options: group.options.filter((option) => option.apiMethod !== "cod") })).filter(
+        (group) => group.options.length > 0
+      )
+    : PAYMENT_OPTION_GROUPS;
 
   function handleSelect(option: PaymentOption) {
     select(option);
@@ -26,7 +34,7 @@ export function PaymentMethodScreen({ navigation }: Props) {
     <FlatList
       style={styles.screen}
       contentContainerStyle={{ padding: theme.spacing(2) }}
-      data={PAYMENT_OPTION_GROUPS}
+      data={groups}
       keyExtractor={(group) => group.title}
       renderItem={({ item: group }) => (
         <View style={styles.group}>

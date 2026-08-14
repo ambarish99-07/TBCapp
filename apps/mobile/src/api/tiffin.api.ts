@@ -50,6 +50,11 @@ export async function skipTiffinMealRequest(subscriptionId: string, mealId: stri
   return data.meal;
 }
 
+export async function unskipTiffinMealRequest(subscriptionId: string, mealId: string): Promise<TiffinScheduledMeal> {
+  const { data } = await apiClient.post<{ meal: TiffinScheduledMeal }>(`/tiffin/subscriptions/${subscriptionId}/meals/${mealId}/unskip`);
+  return data.meal;
+}
+
 export async function pauseTiffinSubscriptionRequest(subscriptionId: string, payload: PauseTiffinSubscriptionRequest): Promise<TiffinSubscription> {
   const { data } = await apiClient.post<{ subscription: TiffinSubscription }>(`/tiffin/subscriptions/${subscriptionId}/pause`, payload);
   return data.subscription;
@@ -58,4 +63,28 @@ export async function pauseTiffinSubscriptionRequest(subscriptionId: string, pay
 export async function resumeTiffinSubscriptionRequest(subscriptionId: string): Promise<TiffinSubscription> {
   const { data } = await apiClient.post<{ subscription: TiffinSubscription }>(`/tiffin/subscriptions/${subscriptionId}/resume`);
   return data.subscription;
+}
+
+export async function cancelTiffinSubscriptionRequest(subscriptionId: string): Promise<TiffinSubscription> {
+  const { data } = await apiClient.post<{ subscription: TiffinSubscription }>(`/tiffin/subscriptions/${subscriptionId}/cancel`);
+  return data.subscription;
+}
+
+interface CreateTiffinRazorpayOrderResponse {
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId?: string;
+}
+
+export async function createTiffinRazorpayOrderRequest(subscriptionId: string): Promise<CreateTiffinRazorpayOrderResponse> {
+  const { data } = await apiClient.post<CreateTiffinRazorpayOrderResponse>(`/tiffin/subscriptions/${subscriptionId}/razorpay-order`);
+  return data;
+}
+
+export async function verifyTiffinRazorpayPaymentRequest(
+  subscriptionId: string,
+  params: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+): Promise<void> {
+  await apiClient.post(`/tiffin/subscriptions/${subscriptionId}/razorpay-verify`, params);
 }

@@ -5,7 +5,7 @@ import { TiffinPlanModel } from "../../src/db/models/TiffinPlan.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 // Split into its own file (separate from tiffin.test.ts) so each file gets its own signup
-// rate-limit budget (5 per 15min) — this file alone needs 4 fresh signups.
+// rate-limit budget (5 per 15min) — this file alone needs 5 fresh signups.
 const env = testEnv();
 const app = createApp(env);
 
@@ -37,11 +37,11 @@ const validDelivery = {
 };
 
 async function subscribeToWeeklyVeg(token: string) {
-  const plan = await TiffinPlanModel.create({ name: "Weekly Veg Plan", dietType: "veg", mealType: "lunch", durationDays: 7, price: 899, active: true });
+  const plan = await TiffinPlanModel.create({ name: "Weekly Veg Plan", dietType: "veg", style: "single", durationDays: 7, price: 899, active: true });
   const response = await request(app)
     .post("/tiffin/subscriptions")
     .set("Authorization", `Bearer ${token}`)
-    .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: validDelivery });
+    .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
   const meals = await request(app)
     .get(`/tiffin/subscriptions/${response.body.subscription.id}/meals`)
     .set("Authorization", `Bearer ${token}`);
@@ -61,6 +61,22 @@ describe("skip / pause / resume", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.meal.status).toBe("skipped");
+  });
+
+  it("restores a skipped meal back to scheduled — a change of mind before the deadline", async () => {
+    const token = await signup("unskip-ok@example.com", "9812400014");
+    const { subscription, meals } = await subscribeToWeeklyVeg(token);
+    const target = meals[3];
+    await request(app)
+      .post(`/tiffin/subscriptions/${subscription.id}/meals/${target.id}/skip`)
+      .set("Authorization", `Bearer ${token}`);
+
+    const response = await request(app)
+      .post(`/tiffin/subscriptions/${subscription.id}/meals/${target.id}/unskip`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.meal.status).toBe("scheduled");
   });
 
   it("rejects skipping today's meal — inside the skip deadline", async () => {

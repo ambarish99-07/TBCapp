@@ -44,13 +44,15 @@ export function dishForDay(dietType: TiffinDietType, dayName: string, sundayVegC
 
 /**
  * Generates every scheduled meal for `durationDays` calendar days starting from `startDate`
- * (inclusive). Called once, eagerly, at subscribe time (and again when extending a subscription
- * after a pause) — there's no scheduler process to generate these day-by-day, so the full set
- * has to exist up front.
+ * (inclusive) — one row per (day, mealType) pair, so a "twice-daily" plan's two `mealTypes`
+ * (`["lunch", "dinner"]`) produce two rows per day sharing that day's dish, while a "single"
+ * plan's one-element array produces one. Called once, eagerly, at subscribe time (and again
+ * when extending a subscription after a pause) — there's no scheduler process to generate
+ * these day-by-day, so the full set has to exist up front.
  */
 export function computeMealsForRange(
   dietType: TiffinDietType,
-  mealType: TiffinMealType,
+  mealTypes: TiffinMealType[],
   startDate: Date,
   durationDays: number,
   sundayVegChoice?: SundayVegChoice
@@ -60,7 +62,10 @@ export function computeMealsForRange(
     const date = new Date(startDate);
     date.setUTCDate(date.getUTCDate() + i);
     const dayName = DAY_NAMES[date.getUTCDay()];
-    meals.push({ date: toIsoDate(date), mealType, dishName: dishForDay(dietType, dayName, sundayVegChoice) });
+    const dishName = dishForDay(dietType, dayName, sundayVegChoice);
+    for (const mealType of mealTypes) {
+      meals.push({ date: toIsoDate(date), mealType, dishName });
+    }
   }
   return meals;
 }

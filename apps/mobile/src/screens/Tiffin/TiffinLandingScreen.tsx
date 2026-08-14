@@ -46,7 +46,8 @@ function PlanCard({ plan, styles, onPress }: { plan: TiffinPlan; styles: ReturnT
       <View style={{ flex: 1 }}>
         <Text style={styles.planName}>{plan.name}</Text>
         <Text style={styles.planMeta}>
-          {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {plan.mealType === "lunch" ? "Lunch" : plan.mealType}
+          {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days ·{" "}
+          {plan.style === "twice-daily" ? "Lunch & Dinner" : "Lunch or Dinner"}
         </Text>
       </View>
       <Text style={styles.planPrice}>₹{plan.price}</Text>

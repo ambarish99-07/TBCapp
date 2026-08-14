@@ -12,13 +12,15 @@ export type RootStackParamList = {
   // GG Tiffin's own flow — reached from the GG Tiffin brand tile instead of RestaurantMenu.
   TiffinLanding: undefined;
   TiffinPlanSelect: { planId: string };
-  TiffinCheckout: { planId: string; sundayVegChoice?: "paneer" | "chole" };
+  TiffinCheckout: { planId: string; mealType?: "lunch" | "dinner"; sundayVegChoice?: "paneer" | "chole" };
   MyTiffin: undefined;
   Cart: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.
   Checkout: undefined;
-  PaymentMethod: undefined;
+  // hideCod: monthly tiffin plans can't be paid Cash on Delivery — Cart's call (no params) still
+  // shows every option as before.
+  PaymentMethod: { hideCod?: boolean } | undefined;
   // accessToken, not orderId — this is a public, unauthenticated lookup so it
   // works right after checkout for guests, not just logged-in owners.
   OrderStatus: { accessToken: string };

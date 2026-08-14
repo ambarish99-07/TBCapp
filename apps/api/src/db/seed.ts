@@ -536,14 +536,22 @@ function buildCrossBrandCombos(allItemIds: string[]) {
   ];
 }
 
-/** GG Tiffin's starter plan catalog — placeholder prices, fully editable afterward via the
- * admin Tiffin Plans page (never hardcoded anywhere else in the application). */
+/** GG Tiffin's starter plan catalog — two styles (single meal a day, the customer's choice of
+ * lunch or dinner; or twice-daily, both lunch and dinner) × two diets × two durations.
+ * Placeholder prices, fully editable afterward via the admin Tiffin Plans page (never
+ * hardcoded anywhere else in the application). */
 function buildTiffinPlans() {
   return [
-    { name: "Weekly Veg Plan", dietType: "veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
-    { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
-    { name: "Monthly Veg Plan", dietType: "veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, active: true },
-    { name: "Monthly Non-Veg Plan", dietType: "non-veg" as const, mealType: "lunch" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 5499, active: true },
+    // Single — one meal a day, lunch or dinner chosen at subscribe time.
+    { name: "Weekly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
+    { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
+    { name: "Monthly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, active: true },
+    { name: "Monthly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 5499, active: true },
+    // Twice-daily — both lunch and dinner, every day.
+    { name: "Weekly Veg Plan — Twice Daily", dietType: "veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1699, active: true },
+    { name: "Weekly Non-Veg Plan — Twice Daily", dietType: "non-veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 2599, active: true },
+    { name: "Monthly Veg Plan — Twice Daily", dietType: "veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 6499, active: true },
+    { name: "Monthly Non-Veg Plan — Twice Daily", dietType: "non-veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 9999, active: true },
   ];
 }
 

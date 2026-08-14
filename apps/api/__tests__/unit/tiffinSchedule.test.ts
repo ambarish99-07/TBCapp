@@ -42,8 +42,8 @@ describe("dishForDay", () => {
 });
 
 describe("computeMealsForRange", () => {
-  it("generates a full Monday-Sunday week for a veg plan", () => {
-    const meals = computeMealsForRange("veg", "lunch", MONDAY, 7, "chole");
+  it("generates a full Monday-Sunday week for a single-meal (lunch) veg plan", () => {
+    const meals = computeMealsForRange("veg", ["lunch"], MONDAY, 7, "chole");
     expect(meals).toHaveLength(7);
     expect(meals.map((meal) => meal.dishName)).toEqual([
       "Aloo Gobhi",
@@ -59,8 +59,8 @@ describe("computeMealsForRange", () => {
     expect(meals.every((meal) => meal.mealType === "lunch")).toBe(true);
   });
 
-  it("generates a full Monday-Sunday week for a non-veg plan", () => {
-    const meals = computeMealsForRange("non-veg", "lunch", MONDAY, 7);
+  it("generates a full Monday-Sunday week for a single-meal (dinner) non-veg plan", () => {
+    const meals = computeMealsForRange("non-veg", ["dinner"], MONDAY, 7);
     expect(meals.map((meal) => meal.dishName)).toEqual([
       "Chicken Curry",
       "Aloo Matar",
@@ -70,12 +70,24 @@ describe("computeMealsForRange", () => {
       "Lauki",
       "Mutton Curry",
     ]);
+    expect(meals.every((meal) => meal.mealType === "dinner")).toBe(true);
   });
 
   it("supports a 30-day monthly range starting mid-week", () => {
-    const meals = computeMealsForRange("veg", "lunch", new Date("2026-08-20T00:00:00Z"), 30, "paneer");
+    const meals = computeMealsForRange("veg", ["lunch"], new Date("2026-08-20T00:00:00Z"), 30, "paneer");
     expect(meals).toHaveLength(30);
     expect(meals[0].date).toBe("2026-08-20");
     expect(meals[29].date).toBe("2026-09-18");
+  });
+
+  it("generates two rows per day (lunch + dinner, same dish) for a twice-daily plan", () => {
+    const meals = computeMealsForRange("veg", ["lunch", "dinner"], MONDAY, 7, "paneer");
+    expect(meals).toHaveLength(14);
+    // Monday's pair.
+    expect(meals[0]).toMatchObject({ date: "2026-08-17", mealType: "lunch", dishName: "Aloo Gobhi" });
+    expect(meals[1]).toMatchObject({ date: "2026-08-17", mealType: "dinner", dishName: "Aloo Gobhi" });
+    // Sunday's pair, at the end.
+    expect(meals[12]).toMatchObject({ date: "2026-08-23", mealType: "lunch", dishName: "Paneer Sabzi (Sunday Special)" });
+    expect(meals[13]).toMatchObject({ date: "2026-08-23", mealType: "dinner", dishName: "Paneer Sabzi (Sunday Special)" });
   });
 });

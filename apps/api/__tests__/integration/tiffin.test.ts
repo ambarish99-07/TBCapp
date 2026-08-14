@@ -27,11 +27,11 @@ async function signup(email: string, phone: string): Promise<string> {
 }
 
 function seedWeeklyVegPlan() {
-  return TiffinPlanModel.create({ name: "Weekly Veg Plan", dietType: "veg", mealType: "lunch", durationDays: 7, price: 899, active: true });
+  return TiffinPlanModel.create({ name: "Weekly Veg Plan", dietType: "veg", style: "single", durationDays: 7, price: 899, active: true });
 }
 
 function seedWeeklyNonVegPlan() {
-  return TiffinPlanModel.create({ name: "Weekly Non-Veg Plan", dietType: "non-veg", mealType: "lunch", durationDays: 7, price: 1399, active: true });
+  return TiffinPlanModel.create({ name: "Weekly Non-Veg Plan", dietType: "non-veg", style: "single", durationDays: 7, price: 1399, active: true });
 }
 
 const validDelivery = {
@@ -50,7 +50,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, sundayVegChoice: "chole", delivery: validDelivery });
+      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "chole", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.planName).toBe("Weekly Veg Plan");
@@ -72,7 +72,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, delivery: validDelivery });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -84,10 +84,11 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, delivery: validDelivery });
+      .send({ planId: plan.id, mealType: "dinner", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.dietType).toBe("non-veg");
+    expect(response.body.subscription.mealTypes).toEqual(["dinner"]);
   });
 
   it("rejects a delivery address outside the supported city", async () => {
@@ -97,7 +98,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: { ...validDelivery, city: "Mumbai" } });
+      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: { ...validDelivery, city: "Mumbai" }, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -106,7 +107,7 @@ describe("POST /tiffin/subscriptions", () => {
     const plan = await TiffinPlanModel.create({
       name: "Retired Plan",
       dietType: "veg",
-      mealType: "lunch",
+      style: "single",
       durationDays: 7,
       price: 899,
       active: false,
@@ -116,7 +117,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: validDelivery });
+      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -125,7 +126,7 @@ describe("POST /tiffin/subscriptions", () => {
     const plan = await seedWeeklyVegPlan();
     const response = await request(app)
       .post("/tiffin/subscriptions")
-      .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: validDelivery });
+      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
     expect(response.status).toBe(401);
   });
 });

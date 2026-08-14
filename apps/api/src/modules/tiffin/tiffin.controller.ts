@@ -86,6 +86,18 @@ export const postSkipMeal: RequestHandler = async (req, res) => {
   }
 };
 
+export const postUnskipMeal: RequestHandler = async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const meal = await tiffinService.unskipMeal(userId, req.params.id, req.params.mealId);
+    res.json({ meal });
+  } catch (err) {
+    if (handleTiffinError(err, res)) return;
+    throw err;
+  }
+};
+
 export const postPauseSubscription: RequestHandler = async (req, res) => {
   const userId = requireUserId(req, res);
   if (!userId) return;
@@ -116,6 +128,61 @@ export const postResumeSubscription: RequestHandler = async (req, res) => {
     throw err;
   }
 };
+
+export const postCancelSubscription: RequestHandler = async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const subscription = await tiffinService.cancelSubscription(userId, req.params.id);
+    res.json({ subscription });
+  } catch (err) {
+    if (handleTiffinError(err, res)) return;
+    throw err;
+  }
+};
+
+export function postTiffinRazorpayOrder(env: Env): RequestHandler {
+  return async (req, res) => {
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    try {
+      const razorpayOrder = await tiffinService.createTiffinRazorpayOrder(env, userId, req.params.id);
+      res.json(razorpayOrder);
+    } catch (err) {
+      if (handleTiffinError(err, res)) return;
+      throw err;
+    }
+  };
+}
+
+export function postTiffinRazorpayVerify(env: Env): RequestHandler {
+  return async (req, res) => {
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body as {
+      razorpay_order_id?: string;
+      razorpay_payment_id?: string;
+      razorpay_signature?: string;
+    };
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      res.status(400).json({ error: "Missing required verification fields" });
+      return;
+    }
+
+    try {
+      const subscription = await tiffinService.verifyTiffinRazorpayPayment(env, userId, req.params.id, {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+      res.json({ subscription });
+    } catch (err) {
+      if (handleTiffinError(err, res)) return;
+      throw err;
+    }
+  };
+}
 
 // --- Admin ---
 

@@ -6,7 +6,7 @@ const TiffinPlanSchema = new Schema(
   {
     name: { type: String, required: true },
     dietType: { type: String, enum: ["veg", "non-veg"], required: true },
-    mealType: { type: String, enum: ["lunch"], required: true },
+    style: { type: String, enum: ["single", "twice-daily"], required: true },
     durationDays: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
     active: { type: Boolean, required: true, default: true },
