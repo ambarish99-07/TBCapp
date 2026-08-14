@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import type { Brand } from "@tbc/shared-types";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
@@ -6,37 +7,59 @@ import { theme, type ColorPalette } from "../constants/theme";
 import { useBrandStore } from "../state/brandStore";
 
 const ROTATE_INTERVAL_MS = 4000;
-const FADE_DURATION_MS = 350;
+// Slow, deliberate crossfade (1s out + 1s in = ~2s total) rather than a snappy cut — matches
+// the pace of the brand actually changing underneath (PIPs highlight + Home's collections rows).
+const FADE_DURATION_MS = 1000;
 
 interface Props {
   colors: ColorPalette;
   /** Called after a brand is selected (e.g. so the host screen can scroll to top). */
   onSelect?: (brand: Brand) => void;
+  /** True while something on top of Home (e.g. the "Choose a Brand" popup) needs the
+   * selected brand to hold still — pauses rotation without unmounting anything. */
+  paused?: boolean;
 }
 
 /**
  * Streaming-app-style "burst photo" hero (auto-rotates through every live brand every
  * few seconds) plus a row of small clickable "PIP" thumbnails — tapping either the hero
  * or a thumbnail switches the active brand in-place (no navigation away from this screen).
+ * The auto-rotation is connected to the actually-selected brand, so as the hero shows TBC,
+ * the PIPs highlight TBC and the rest of the Home page (Recommended/Offers/etc.) follows.
  */
-export function BrandCarousel({ colors, onSelect }: Props) {
+export function BrandCarousel({ colors, onSelect, paused }: Props) {
   const { data: brands, isLoading, error } = useBrands();
   const selectBrand = useBrandStore((state) => state.selectBrand);
+  const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const [activeIndex, setActiveIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const styles = makeStyles(colors);
+  // React Navigation keeps Home mounted underneath a pushed screen (e.g. RestaurantMenu) —
+  // without this, rotation kept running in the background and silently swapped the brand
+  // being viewed on that other screen out from under the customer.
+  const isFocused = useIsFocused();
+  const isRotating = isFocused && !paused;
 
+  // The auto-rotation drives the actually-selected brand (via restoreBrand, not selectBrand)
+  // — so the PIPs' highlight and Home's Recommended/Offers/etc. rows below follow the hero
+  // photo automatically. restoreBrand rather than selectBrand deliberately, so this ambient
+  // rotation never silently clears whatever's already in the cart. Only runs at all while
+  // Home is focused and nothing (like the brand picker) needs the selection to hold still.
   useEffect(() => {
-    if (!brands || brands.length <= 1) return;
+    if (!brands || brands.length <= 1 || !isRotating) return;
     const timer = setInterval(() => {
       Animated.timing(fadeAnim, { toValue: 0, duration: FADE_DURATION_MS, useNativeDriver: true }).start(() => {
-        setActiveIndex((i) => (i + 1) % brands.length);
+        setActiveIndex((i) => {
+          const next = (i + 1) % brands.length;
+          restoreBrand(brands[next]);
+          return next;
+        });
         Animated.timing(fadeAnim, { toValue: 1, duration: FADE_DURATION_MS, useNativeDriver: true }).start();
       });
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [brands, fadeAnim]);
+  }, [brands, fadeAnim, restoreBrand, isRotating]);
 
   // Keep the hero in sync if the active brand was switched via a thumbnail tap elsewhere.
   useEffect(() => {
@@ -90,8 +113,8 @@ export function BrandCarousel({ colors, onSelect }: Props) {
         {brands.map((brand, index) => (
           <Pressable
             key={brand.id}
-            // Highlights the customer's actual chosen brand (drives the menu below) — deliberately NOT
-            // tied to the auto-rotating hero photo, which cycles on its own as a preview/showcase.
+            // Highlights the customer's actual chosen brand (drives the menu below) — now kept
+            // in sync with the auto-rotating hero photo above, not just manual taps.
             style={[styles.thumb, brand.id === selectedBrandId && styles.thumbActive]}
             onPress={() => handleSelect(brand, index)}
           >

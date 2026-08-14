@@ -17,6 +17,8 @@ import { CartHeaderButton } from "../components/CartHeaderButton";
 import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
 import { MenuScreen } from "../screens/Menu/MenuScreen";
 import { OrderStatusScreen } from "../screens/OrderStatus/OrderStatusScreen";
+import { PaymentMethodScreen } from "../screens/PaymentMethod/PaymentMethodScreen";
+import { RestaurantMenuScreen } from "../screens/RestaurantMenu/RestaurantMenuScreen";
 import { CategoryResultsScreen } from "../screens/Search/CategoryResultsScreen";
 import { SearchScreen } from "../screens/Search/SearchScreen";
 import { useAuthStore } from "../state/authStore";
@@ -55,6 +57,11 @@ export function RootNavigator() {
         {user ? (
           <Stack.Navigator initialRouteName="Menu">
             <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="RestaurantMenu"
+              component={RestaurantMenuScreen}
+              options={{ title: "Menu", headerRight: () => <CartHeaderButton /> }}
+            />
             <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
             <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
             <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
@@ -75,7 +82,8 @@ export function RootNavigator() {
             />
             <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Deals" }} />
             <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
-            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Checkout" }} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
+            <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />
             <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />
             <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
             <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />

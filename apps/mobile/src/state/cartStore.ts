@@ -1,6 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ADD_ON_PRICES, computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
 import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { create } from "zustand";
+
+const CART_STORAGE_KEY = "tbc_cart_lines";
 
 export interface CartLine {
   lineId: string;
@@ -32,6 +35,11 @@ interface AuthContext {
 
 interface CartState {
   lines: CartLine[];
+  isHydrated: boolean;
+  /** Loads whatever was left in the cart last time the app was open — the cart survives
+   * a restart now, same as the saved address/payment method, and only empties when the
+   * customer clears it themselves (the summary bar's ✕) or completes an order. */
+  hydrate: () => Promise<void>;
   addLine: (line: CartLine) => void;
   removeLine: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
@@ -51,6 +59,18 @@ interface CartState {
 
 export const useCartStore = create<CartState>((set, get) => ({
   lines: [],
+  isHydrated: false,
+
+  hydrate: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
+      if (raw) set({ lines: JSON.parse(raw) as CartLine[] });
+    } catch {
+      // Corrupt/unreadable storage — start with an empty cart rather than crashing.
+    } finally {
+      set({ isHydrated: true });
+    }
+  },
 
   addLine: (line) => set((state) => ({ lines: [...state.lines, line] })),
 
@@ -95,3 +115,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 }));
+
+// Persists `lines` to AsyncStorage on every change, once hydration has finished — guarded
+// so the empty initial state (before hydrate() loads anything) can never overwrite what's
+// actually saved on disk.
+useCartStore.subscribe((state, prevState) => {
+  if (!state.isHydrated || state.lines === prevState.lines) return;
+  AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.lines)).catch(() => {});
+});

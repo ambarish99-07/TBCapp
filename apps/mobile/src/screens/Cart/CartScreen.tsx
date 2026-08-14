@@ -1,13 +1,19 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMenuItems } from "../../api/menu.api";
+import { createOrderRequest } from "../../api/orders.api";
+import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
 import { EditCartItemModal } from "../../components/EditCartItemModal";
 import { PriceBreakdown } from "../../components/PriceBreakdown";
 import { theme, type ColorPalette } from "../../constants/theme";
+import { useAuthStore } from "../../state/authStore";
 import { useCartStore, type CartLine } from "../../state/cartStore";
+import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { useAuthContext } from "../../state/useAuthContext";
+import { hasCompleteAddress } from "../../utils/profile";
+import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
@@ -19,11 +25,18 @@ export function CartScreen({ navigation }: Props) {
   const setQuantity = useCartStore((state) => state.setQuantity);
   const removeLine = useCartStore((state) => state.removeLine);
   const computeTotals = useCartStore((state) => state.computeTotals);
+  const clearCart = useCartStore((state) => state.clear);
   const auth = useAuthContext();
+  const user = useAuthStore((state) => state.user);
   const { data: menuItems } = useMenuItems();
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const editingMenuItem = editingLine ? menuItems?.find((item) => item.id === editingLine.menuItemId) : null;
   const editingCategory = editingMenuItem?.category ?? null;
+  const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
+  const [submitting, setSubmitting] = useState(false);
+
+  const profileComplete = hasCompleteAddress(user);
+  const canProceed = profileComplete && !!selectedPaymentOption;
 
   if (lines.length === 0) {
     return (
@@ -37,6 +50,57 @@ export function CartScreen({ navigation }: Props) {
   }
 
   const result = computeTotals(auth);
+
+  async function handleProceedToPay() {
+    if (!profileComplete || !selectedPaymentOption || !user) return;
+
+    setSubmitting(true);
+    try {
+      const order = await createOrderRequest({
+        items: lines.map((line) => ({
+          lineId: line.lineId,
+          menuItemId: line.menuItemId,
+          quantity: line.quantity,
+          customization: { sugarLevel: line.sugarLevel, iceLevel: line.iceLevel, addOnIds: line.addOnIds, comment: line.comment },
+        })),
+        delivery: {
+          fullName: user.fullName,
+          phone: user.phone!,
+          address: user.address!,
+          houseNumber: user.houseNumber,
+          area: user.area,
+          landmark: user.landmark,
+          city: user.city!,
+          pincode: user.pincode!,
+        },
+        deliveryFor: "self",
+        paymentMethod: selectedPaymentOption.apiMethod,
+      });
+
+      if (selectedPaymentOption.apiMethod === "razorpay") {
+        const razorpayOrder = await createRazorpayOrderRequest(order.id, order.accessToken);
+        const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
+        if (paymentResult) {
+          await verifyRazorpayPaymentRequest({
+            orderId: order.id,
+            accessToken: order.accessToken,
+            razorpay_order_id: razorpayOrder.razorpayOrderId,
+            razorpay_payment_id: paymentResult.razorpay_payment_id,
+            razorpay_signature: paymentResult.razorpay_signature,
+          });
+        }
+      }
+
+      // Payment method deliberately stays selected — it carries over to the next order
+      // rather than resetting, same as the saved address.
+      clearCart();
+      navigation.replace("OrderStatus", { accessToken: order.accessToken });
+    } catch (err) {
+      Alert.alert("Couldn't place order", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -90,9 +154,32 @@ export function CartScreen({ navigation }: Props) {
 
       <PriceBreakdown result={result} />
 
-      <Pressable style={styles.checkoutButton} onPress={() => navigation.navigate("Checkout")}>
-        <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-      </Pressable>
+      {!profileComplete && (
+        <Pressable style={styles.completeProfileBanner} onPress={() => navigation.navigate("Checkout")}>
+          <Text style={styles.completeProfileText}>Complete your profile for a seamless experience</Text>
+          <Text style={styles.completeProfileArrow}>→</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.actionRow}>
+        <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod")}>
+          <Text style={styles.payUsingLabel}>Pay using</Text>
+          <View style={styles.payUsingValueRow}>
+            <Text style={styles.payUsingValue} numberOfLines={1}>
+              {selectedPaymentOption?.label ?? "Select"}
+            </Text>
+            <Text style={styles.payUsingTriangle}>▾</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={[styles.checkoutButton, !canProceed && styles.checkoutButtonDisabled]}
+          onPress={handleProceedToPay}
+          disabled={!canProceed || submitting}
+        >
+          <Text style={styles.checkoutButtonText}>{submitting ? "Placing order…" : "Proceed to Pay"}</Text>
+        </Pressable>
+      </View>
 
       <EditCartItemModal
         line={editingLine}
@@ -137,6 +224,32 @@ const makeStyles = (colors: ColorPalette) =>
       marginBottom: theme.spacing(2),
     },
     addMoreButtonText: { color: colors.primary, fontWeight: "700" },
-    checkoutButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(1) },
+    completeProfileBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      marginTop: theme.spacing(1.5),
+    },
+    completeProfileText: { flex: 1, fontSize: 12, fontWeight: "700", color: colors.primary },
+    completeProfileArrow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginLeft: 8 },
+    actionRow: { flexDirection: "row", gap: theme.spacing(1), marginTop: theme.spacing(1.5) },
+    payUsingBox: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      justifyContent: "center",
+    },
+    payUsingLabel: { fontSize: 12, fontWeight: "700", color: colors.text },
+    payUsingValueRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+    payUsingValue: { flexShrink: 1, fontSize: 13, color: colors.muted },
+    payUsingTriangle: { fontSize: 12, color: colors.muted },
+    checkoutButton: { flex: 1, backgroundColor: colors.primary, borderRadius: theme.radius, alignItems: "center", justifyContent: "center" },
+    checkoutButtonDisabled: { opacity: 0.4 },
     checkoutButtonText: { color: "#fff", fontWeight: "700" },
   });

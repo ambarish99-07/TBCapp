@@ -399,6 +399,7 @@ function buildAlchemyTailsMenuItems(env: ReturnType<typeof loadEnv>) {
       image: imageUrl(env, "rainbow-fizz"),
       flavorBadges: ["Fruity", "Signature"],
       isNew: true,
+      isPopular: true,
     },
     {
       _id: "rose-lemonade",

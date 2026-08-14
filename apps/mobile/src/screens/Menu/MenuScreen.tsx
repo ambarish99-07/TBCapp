@@ -1,14 +1,16 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { BROWSE_CATEGORIES, type Brand, type MenuItem } from "@tbc/shared-types";
+import { BROWSE_CATEGORIES, isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
-import { useAllCombos, useMenuItems } from "../../api/menu.api";
+import { useAllCombos, useAllMenuItems, useMenuItems } from "../../api/menu.api";
+import { fetchMyOrders } from "../../api/orders.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
-import { MenuItemCard } from "../../components/MenuItemCard";
+import { HomeCollections } from "../../components/HomeCollections";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
@@ -22,14 +24,6 @@ type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
 
 const SEARCH_PLACEHOLDER_ROTATE_MS = 2200;
 
-/** "signature-shakes" -> "Signature Shakes" — no brand-specific category list hardcoded here, since every brand has its own menu directory. */
-function formatCategoryLabel(category: string): string {
-  return category
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 export function MenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -37,12 +31,15 @@ export function MenuScreen({ navigation }: Props) {
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const selectedBrand = useBrandStore((state) => state.selectedBrand);
   const selectBrand = useBrandStore((state) => state.selectBrand);
-  const { data: items, isLoading, error } = useMenuItems();
-  // Cross-brand, not scoped to the selected brand — the Combos icon should stay visible as
-  // long as *any* live brand has combos, since tapping it now opens a cross-brand page.
+  const restoreBrand = useBrandStore((state) => state.restoreBrand);
+  const { data: items } = useMenuItems();
+  // Cross-brand — Recommended/Discounts/Signature/Premium rows still scope to the selected
+  // brand, but the Restaurants row needs one representative item photo per brand regardless.
+  const { data: allItems } = useAllMenuItems();
+  // Also cross-brand, not scoped to the selected brand — the Combos icon should stay visible
+  // as long as *any* live brand has combos, since tapping it now opens a cross-brand page.
   const { data: combos } = useAllCombos();
-  const [category, setCategory] = useState<string>("all");
-  const cartLineCount = useCartStore((state) => state.lines.length);
+  const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
@@ -52,10 +49,16 @@ export function MenuScreen({ navigation }: Props) {
   const [isBrandPickerOpen, setIsBrandPickerOpen] = useState(false);
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
-  function handlePickBrand(brand: Brand) {
+  function handleOpenRestaurant(brand: Brand) {
     selectBrand(brand);
+    navigation.navigate("RestaurantMenu");
+  }
+
+  // Same behavior as picking a restaurant from the Home page's Restaurants row —
+  // selecting a brand here goes straight to that brand's own menu page.
+  function handlePickBrand(brand: Brand) {
     setIsBrandPickerOpen(false);
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    handleOpenRestaurant(brand);
   }
 
   // Cycles the locked search bar's placeholder through every cross-brand browse category
@@ -70,45 +73,62 @@ export function MenuScreen({ navigation }: Props) {
   }, []);
   const searchPlaceholder = `🔍 Search ${BROWSE_CATEGORIES[placeholderIndex].label.toLowerCase()}...`;
 
-  // Every brand has its own category taxonomy (a cocktail bar's categories are nothing
-  // like a shake shop's) — derive tabs from whatever categories this brand's own items
-  // actually use, instead of a hardcoded TBC-specific list.
-  const categories = useMemo(() => {
-    if (!items || items.length === 0) return [];
-    return Array.from(new Set(items.map((item) => item.category)));
-  }, [items]);
-
   // Land here with no brand chosen yet (fresh login) — default to the first live brand
-  // rather than showing a blank menu; the carousel below lets the customer switch.
+  // rather than showing a blank menu; the carousel below lets the customer switch. A
+  // *restart* with a brand id already restored from last session isn't a fresh pick
+  // though — resolve it to the full Brand object via restoreBrand (not selectBrand), so
+  // the cart the customer left behind doesn't get silently wiped on every cold start.
   useEffect(() => {
-    if (!selectedBrandId && brands && brands.length > 0) {
+    if (!brands || brands.length === 0) return;
+    if (!selectedBrandId) {
       selectBrand(brands[0]);
+      return;
     }
-  }, [selectedBrandId, brands, selectBrand]);
+    if (!selectedBrand) {
+      const restored = brands.find((brand) => brand.id === selectedBrandId);
+      if (restored) restoreBrand(restored);
+    }
+  }, [selectedBrandId, selectedBrand, brands, selectBrand, restoreBrand]);
 
-  // A category filter chosen for one brand (e.g. "cold-coffee") won't exist on another —
-  // reset to "All" whenever the active brand changes so switching brands never silently
-  // hides every item behind a stale, brand-specific filter.
-  useEffect(() => {
-    setCategory("all");
-  }, [selectedBrandId]);
+  // Scoped to this brand only — the cross-brand combo has its own home on the Combos screen.
+  const brandCombos = useMemo(() => (combos ?? []).filter((combo) => combo.brandId === selectedBrandId), [combos, selectedBrandId]);
 
-  const filtered = useMemo(() => {
-    if (!items) return [];
-    if (category === "all") return items;
-    return items.filter((item) => item.category === category);
-  }, [items, category]);
+  // Shares the ["my-orders"] cache key with OrderHistoryScreen — same query, no duplicate fetch.
+  const { data: myOrders } = useQuery({
+    queryKey: ["my-orders"],
+    queryFn: fetchMyOrders,
+    enabled: !!user,
+  });
+
+  // "Repeatedly orders" means across separate orders, not just a qty>1 line within one order —
+  // counts the DISTINCT delivered orders each item appeared in, for this brand, and only
+  // surfaces items ordered 2+ times. Hidden entirely (via HomeCollections' Row) until then.
+  const mostlyOrdered = useMemo(() => {
+    if (!myOrders || !items) return [];
+    const orderCountByItemId = new Map<string, number>();
+    for (const order of myOrders) {
+      if (order.status !== "delivered" || order.brandId !== selectedBrandId) continue;
+      const seenInThisOrder = new Set<string>();
+      for (const line of order.items) {
+        if (isComboLineId(line.menuItemId)) continue;
+        seenInThisOrder.add(line.menuItemId);
+      }
+      for (const id of seenInThisOrder) {
+        orderCountByItemId.set(id, (orderCountByItemId.get(id) ?? 0) + 1);
+      }
+    }
+    return items
+      .filter((item) => (orderCountByItemId.get(item.id) ?? 0) >= 2)
+      .sort((a, b) => (orderCountByItemId.get(b.id) ?? 0) - (orderCountByItemId.get(a.id) ?? 0));
+  }, [myOrders, items, selectedBrandId]);
 
   // The address/cart/avatar row and the search bar visually stack in that order at rest,
   // exactly as before — but only the search row is sticky (stays pinned once scrolled past)
   // while the address row scrolls away above it. FlatList's stickyHeaderIndices only works on
   // its own top-level rows, so both live as rows in `data` instead of a single ListHeaderComponent.
-  type Row = { kind: "header" } | { kind: "search" } | { kind: "content" } | { kind: "item"; item: MenuItem };
+  type Row = { kind: "header" } | { kind: "search" } | { kind: "content" };
 
-  const rows: Row[] = useMemo(
-    () => [{ kind: "header" }, { kind: "search" }, { kind: "content" }, ...filtered.map((item) => ({ kind: "item" as const, item }))],
-    [filtered]
-  );
+  const rows: Row[] = useMemo(() => [{ kind: "header" }, { kind: "search" }, { kind: "content" }], []);
 
   function renderRow({ item: row }: { item: Row }) {
     switch (row.kind) {
@@ -116,7 +136,7 @@ export function MenuScreen({ navigation }: Props) {
         return (
           <View style={styles.headerRow}>
             <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
-              <Text style={styles.addressLabel}>📍 Delivering to</Text>
+              <Text style={styles.addressLabel}>🏠 Home</Text>
               <View style={styles.addressValueRow}>
                 <Text style={styles.addressValue} numberOfLines={1}>
                   {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
@@ -126,9 +146,9 @@ export function MenuScreen({ navigation }: Props) {
             </Pressable>
             <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
               <Text style={styles.cartButtonText}>🛒</Text>
-              {cartLineCount > 0 && (
+              {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{cartLineCount > 9 ? "9+" : cartLineCount}</Text>
+                  <Text style={styles.cartBadgeText}>{cartItemCount > 9 ? "9+" : cartItemCount}</Text>
                 </View>
               )}
             </Pressable>
@@ -148,30 +168,26 @@ export function MenuScreen({ navigation }: Props) {
       case "content":
         return (
           <View>
-            <BrandCarousel colors={colors} />
+            <BrandCarousel colors={colors} paused={isBrandPickerOpen} />
 
-            {categories.length > 1 && (
-              <View style={styles.tabs}>
-                <Pressable onPress={() => setCategory("all")} style={[styles.tab, category === "all" && styles.tabActive]}>
-                  <Text style={[styles.tabText, category === "all" && styles.tabTextActive]}>All</Text>
-                </Pressable>
-                {categories.map((cat) => (
-                  <Pressable key={cat} onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
-                    <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
-                  </Pressable>
-                ))}
-              </View>
+            {items && items.length > 0 && (
+              <HomeCollections
+                items={items}
+                combos={brandCombos}
+                onItemPress={(item) => setAddingItem(item)}
+                onChooseCombo={(combo) => navigation.navigate("ChooseCombo", { comboId: combo.id })}
+                brands={brands ?? []}
+                allItems={allItems ?? []}
+                onOpenRestaurant={handleOpenRestaurant}
+                mostlyOrdered={mostlyOrdered}
+              />
             )}
 
-            {isLoading && <Text style={styles.info}>Loading menu…</Text>}
-            {error && <Text style={styles.info}>Couldn't load the menu. Pull to retry.</Text>}
-            {!isLoading && !error && filtered.length === 0 && (
+            {items && items.length === 0 && (
               <Text style={styles.info}>{`${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}</Text>
             )}
           </View>
         );
-      case "item":
-        return <MenuItemCard item={row.item} onAddPress={() => setAddingItem(row.item)} />;
     }
   }
 
@@ -181,7 +197,7 @@ export function MenuScreen({ navigation }: Props) {
         ref={listRef}
         style={styles.list}
         data={rows}
-        keyExtractor={(row) => (row.kind === "item" ? row.item.id : row.kind)}
+        keyExtractor={(row) => row.kind}
         stickyHeaderIndices={[1]}
         contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
         renderItem={renderRow}
@@ -271,17 +287,19 @@ const makeStyles = (colors: ColorPalette) =>
     cartButtonText: { fontSize: 18 },
     cartBadge: {
       position: "absolute",
-      top: -4,
-      right: -4,
-      minWidth: 18,
-      height: 18,
-      borderRadius: 9,
-      paddingHorizontal: 4,
+      top: -6,
+      right: -6,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      paddingHorizontal: 5,
       backgroundColor: colors.danger,
       alignItems: "center",
       justifyContent: "center",
     },
-    cartBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+    // includeFontPadding:false strips Android's default extra glyph padding, which is what
+    // was pushing the digit past the badge's tight circular bounds and cutting it off.
+    cartBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800", lineHeight: 14, includeFontPadding: false },
     // Opaque so the carousel/items scrolling underneath don't show through the pinned strip
     // once this row becomes sticky.
     stickySearchWrap: { backgroundColor: colors.background, paddingBottom: theme.spacing(1.5) },
@@ -292,11 +310,6 @@ const makeStyles = (colors: ColorPalette) =>
       padding: theme.spacing(1.25),
     },
     searchPlaceholder: { color: colors.muted },
-    tabs: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
-    tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: colors.surface },
-    tabActive: { backgroundColor: colors.primary },
-    tabText: { fontSize: 12, color: colors.text },
-    tabTextActive: { color: "#fff", fontWeight: "700" },
     bottomBar: {
       flexDirection: "row",
       justifyContent: "flex-start",

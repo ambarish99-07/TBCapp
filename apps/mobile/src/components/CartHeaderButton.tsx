@@ -12,14 +12,14 @@ export function CartHeaderButton() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const cartLineCount = useCartStore((state) => state.lines.length);
+  const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
 
   return (
     <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
       <Text style={styles.cartButtonText}>🛒</Text>
-      {cartLineCount > 0 && (
+      {cartItemCount > 0 && (
         <View style={styles.cartBadge}>
-          <Text style={styles.cartBadgeText}>{cartLineCount > 9 ? "9+" : cartLineCount}</Text>
+          <Text style={styles.cartBadgeText}>{cartItemCount > 9 ? "9+" : cartItemCount}</Text>
         </View>
       )}
     </Pressable>
@@ -42,15 +42,17 @@ const makeStyles = (colors: ColorPalette) =>
     cartButtonText: { fontSize: 16 },
     cartBadge: {
       position: "absolute",
-      top: -4,
-      right: -4,
-      minWidth: 18,
-      height: 18,
-      borderRadius: 9,
-      paddingHorizontal: 4,
+      top: -6,
+      right: -6,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      paddingHorizontal: 5,
       backgroundColor: colors.danger,
       alignItems: "center",
       justifyContent: "center",
     },
-    cartBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+    // includeFontPadding:false strips Android's default extra glyph padding, which is what
+    // was pushing the digit past the badge's tight circular bounds and cutting it off.
+    cartBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800", lineHeight: 14, includeFontPadding: false },
   });
