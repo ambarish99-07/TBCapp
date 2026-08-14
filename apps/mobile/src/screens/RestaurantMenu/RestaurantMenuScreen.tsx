@@ -20,7 +20,7 @@ const COMBOS_TAB = "combos";
 const PREMIUM_TAB = "premium";
 
 /** A friendlier storefront name than the raw category value for tabs that need one. */
-const CATEGORY_LABEL_OVERRIDES: Record<string, string> = { mocktails: "Signature" };
+const CATEGORY_LABEL_OVERRIDES: Record<string, string> = { mocktails: "Signature", "signature-shakes": "Signature" };
 
 /** "signature-shakes" -> "Signature Shakes" — no brand-specific category list hardcoded here, since every brand has its own menu directory. */
 function formatCategoryLabel(category: string): string {

@@ -24,6 +24,13 @@ export function SearchScreen({ navigation }: Props) {
   // no manual list to maintain.
   const availableCategories = useMemo(() => (categories ?? []).filter((cat) => cat.itemCount > 0), [categories]);
 
+  // Same "hide until populated" rule as the tile grid below — the hint text names only
+  // categories that actually have items today, and picks up new ones automatically.
+  const searchPlaceholder = useMemo(() => {
+    const names = availableCategories.slice(0, 3).map((cat) => cat.label.toLowerCase());
+    return names.length > 0 ? `Search ${names.join(", ")}, and more...` : "Search the menu...";
+  }, [availableCategories]);
+
   function runSearch() {
     const trimmed = query.trim();
     if (trimmed.length === 0) return;
@@ -31,15 +38,17 @@ export function SearchScreen({ navigation }: Props) {
   }
 
   function handleOpenBrand(brand: Brand) {
+    // Straight to that restaurant's own menu — same as tapping a brand from Home's
+    // Restaurants row — not back to the generic Home page.
     selectBrand(brand);
-    navigation.navigate("Menu");
+    navigation.navigate("RestaurantMenu");
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <TextInput
         style={styles.search}
-        placeholder="Search shakes, mocktails, paneer, and more..."
+        placeholder={searchPlaceholder}
         value={query}
         onChangeText={setQuery}
         onSubmitEditing={runSearch}
