@@ -199,34 +199,37 @@ export function MenuScreen({ navigation }: Props) {
         data={rows}
         keyExtractor={(row) => row.kind}
         stickyHeaderIndices={[1]}
-        contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
+        contentContainerStyle={{ paddingBottom: theme.spacing(2) + 90 + insets.bottom }}
         renderItem={renderRow}
       />
 
-      <CartSummaryBar navigation={navigation} />
+      {/* Floats over the page instead of taking its own fixed row — the home content keeps
+          scrolling underneath, visible around the pill, rather than sitting on a solid strip. */}
+      <View pointerEvents="box-none" style={[styles.floatingFooter, { paddingBottom: insets.bottom + theme.spacing(1) }]}>
+        <CartSummaryBar navigation={navigation} />
 
-      {/* Fixed strip, not part of the scrolling list — a single top border spans the whole
-          row, and thin vertical dividers separate each icon+label instead of a box/circle
-          around every individual emoji. */}
-      <View style={[styles.bottomBar, { paddingBottom: theme.spacing(1) + insets.bottom }]}>
-        <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
-          <Text style={styles.bottomIconEmoji}>📋</Text>
-          <Text style={styles.bottomIconLabel}>Menu</Text>
-        </Pressable>
-        <View style={styles.bottomDivider} />
-        {showCombosBanner && (
-          <>
-            <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
-              <Text style={styles.bottomIconEmoji}>🎁</Text>
-              <Text style={styles.bottomIconLabel}>Combos</Text>
-            </Pressable>
-            <View style={styles.bottomDivider} />
-          </>
-        )}
-        <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
-          <Text style={styles.bottomIconEmoji}>🎉</Text>
-          <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
-        </Pressable>
+        {/* Single pill, sized to its content and centered — a shared top-to-bottom border
+            wraps the whole group, with thin vertical dividers separating each icon+label. */}
+        <View style={styles.bottomBar}>
+          <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
+            <Text style={styles.bottomIconEmoji}>📋</Text>
+            <Text style={styles.bottomIconLabel}>Menu</Text>
+          </Pressable>
+          <View style={styles.bottomDivider} />
+          {showCombosBanner && (
+            <>
+              <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
+                <Text style={styles.bottomIconEmoji}>🎁</Text>
+                <Text style={styles.bottomIconLabel}>Combos</Text>
+              </Pressable>
+              <View style={styles.bottomDivider} />
+            </>
+          )}
+          <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
+            <Text style={styles.bottomIconEmoji}>🎉</Text>
+            <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Brand picker popup — tapping a brand switches the whole menu below to that brand's. */}
@@ -259,9 +262,9 @@ const makeStyles = (colors: ColorPalette) =>
     list: { flex: 1 },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing(2) },
     addressBar: { flex: 1 },
-    addressLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
+    addressLabel: { fontSize: 14, color: colors.muted, fontWeight: "600" },
     addressValueRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
-    addressValue: { fontSize: 18, fontWeight: "800", color: colors.primary, flexShrink: 1 },
+    addressValue: { fontSize: 16, fontWeight: "800", color: colors.primary, flexShrink: 1 },
     addressChevron: { fontSize: 14, fontWeight: "800", color: colors.primary, marginLeft: 4 },
     avatarButton: {
       width: 40,
@@ -272,7 +275,7 @@ const makeStyles = (colors: ColorPalette) =>
       justifyContent: "center",
       marginLeft: theme.spacing(1),
     },
-    avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 24 },
     cartButton: {
       width: 40,
       height: 40,
@@ -310,18 +313,25 @@ const makeStyles = (colors: ColorPalette) =>
       padding: theme.spacing(1.25),
     },
     searchPlaceholder: { color: colors.muted },
+    // Absolute positioning is relative to the screen's border box, not its padding box — restate
+    // the screen's own horizontal padding here so the floating cart bar isn't flush against the edges.
+    floatingFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: theme.spacing(2) },
     bottomBar: {
       flexDirection: "row",
-      justifyContent: "flex-start",
-      paddingTop: theme.spacing(1.25),
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+      alignSelf: "center",
+      marginTop: theme.spacing(1),
+      paddingVertical: theme.spacing(1),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      backgroundColor: colors.surface,
+      overflow: "hidden",
     },
     bottomIcon: { alignItems: "center", paddingHorizontal: theme.spacing(2.5) },
     // Thin vertical rule between icons — stretches to match the tallest sibling's height
     // (default cross-axis alignItems: "stretch") instead of a fixed px guess.
     bottomDivider: { width: 1, backgroundColor: colors.border },
-    bottomIconEmoji: { fontSize: 26 },
+    bottomIconEmoji: { fontSize: 20 },
     bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },

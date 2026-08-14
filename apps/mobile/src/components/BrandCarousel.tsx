@@ -1,15 +1,12 @@
 import { useIsFocused } from "@react-navigation/native";
 import type { Brand } from "@tbc/shared-types";
-import { useEffect, useRef, useState } from "react";
-import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useBrandStore } from "../state/brandStore";
 
 const ROTATE_INTERVAL_MS = 4000;
-// Slow, deliberate crossfade (1s out + 1s in = ~2s total) rather than a snappy cut — matches
-// the pace of the brand actually changing underneath (PIPs highlight + Home's collections rows).
-const FADE_DURATION_MS = 1000;
 
 interface Props {
   colors: ColorPalette;
@@ -33,7 +30,6 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const [activeIndex, setActiveIndex] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const styles = makeStyles(colors);
   // React Navigation keeps Home mounted underneath a pushed screen (e.g. RestaurantMenu) —
   // without this, rotation kept running in the background and silently swapped the brand
@@ -49,17 +45,14 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
   useEffect(() => {
     if (!brands || brands.length <= 1 || !isRotating) return;
     const timer = setInterval(() => {
-      Animated.timing(fadeAnim, { toValue: 0, duration: FADE_DURATION_MS, useNativeDriver: true }).start(() => {
-        setActiveIndex((i) => {
-          const next = (i + 1) % brands.length;
-          restoreBrand(brands[next]);
-          return next;
-        });
-        Animated.timing(fadeAnim, { toValue: 1, duration: FADE_DURATION_MS, useNativeDriver: true }).start();
+      setActiveIndex((i) => {
+        const next = (i + 1) % brands.length;
+        restoreBrand(brands[next]);
+        return next;
       });
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [brands, fadeAnim, restoreBrand, isRotating]);
+  }, [brands, restoreBrand, isRotating]);
 
   // Keep the hero in sync if the active brand was switched via a thumbnail tap elsewhere.
   useEffect(() => {
@@ -70,7 +63,6 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
 
   function handleSelect(brand: Brand, index: number) {
     setActiveIndex(index);
-    fadeAnim.setValue(1);
     selectBrand(brand);
     onSelect?.(brand);
   }
@@ -84,27 +76,25 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
   return (
     <View style={styles.wrap}>
       <Pressable onPress={() => handleSelect(activeBrand, activeIndex)}>
-        <Animated.View style={{ opacity: fadeAnim }}>
-          <ImageBackground
-            source={{ uri: activeBrand.heroImageUrl ?? activeBrand.logoUrl }}
-            style={styles.hero}
-            imageStyle={styles.heroImageStyle}
-            resizeMode="cover"
-          >
-            <View style={styles.heroScrim} />
-            <View style={styles.heroTextBlock}>
-              {/* The dedicated hero photos already carry the brand name/tagline baked in — only show
-                  app-rendered text as a fallback for a brand that doesn't have one yet. */}
-              {!activeBrand.heroImageUrl && (
-                <>
-                  <Text style={styles.heroName}>{activeBrand.name}</Text>
-                  {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}
-                </>
-              )}
-              <Text style={styles.heroCta}>Tap to explore →</Text>
-            </View>
-          </ImageBackground>
-        </Animated.View>
+        <ImageBackground
+          source={{ uri: activeBrand.heroImageUrl ?? activeBrand.logoUrl }}
+          style={styles.hero}
+          imageStyle={styles.heroImageStyle}
+          resizeMode="cover"
+        >
+          <View style={styles.heroScrim} />
+          <View style={styles.heroTextBlock}>
+            {/* The dedicated hero photos already carry the brand name/tagline baked in — only show
+                app-rendered text as a fallback for a brand that doesn't have one yet. */}
+            {!activeBrand.heroImageUrl && (
+              <>
+                <Text style={styles.heroName}>{activeBrand.name}</Text>
+                {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}
+              </>
+            )}
+            <Text style={styles.heroCta}>Tap to explore →</Text>
+          </View>
+        </ImageBackground>
       </Pressable>
 
       {/* Fixed row, not a horizontal scroller — all tiles share the screen width equally

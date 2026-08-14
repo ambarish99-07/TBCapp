@@ -117,6 +117,107 @@ describe("POST /orders — never trusts a client-submitted price", () => {
   });
 });
 
+describe("POST /orders — estimated delivery time scales with order size", () => {
+  it("gives a small order the base estimate", async () => {
+    await seedMenuItem();
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            quantity: 1,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.order.estimatedMinutes).toBe(35);
+  });
+
+  it("gives a large order a longer, capped estimate", async () => {
+    await seedMenuItem();
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            quantity: 20,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    // 20 items, 3 free -> 17 extra * 3min = 51 -> 35+51=86, capped at 75.
+    expect(response.body.order.estimatedMinutes).toBe(75);
+  });
+
+  it("gives a farther address a longer estimate", async () => {
+    await seedMenuItem();
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            quantity: 1,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: { ...validDelivery, distanceFromShopKm: 9 },
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    // 9km, 3 free -> 6 extra * 2min = 12 -> 35+12=47.
+    expect(response.body.order.estimatedMinutes).toBe(47);
+  });
+
+  it("caps the estimate even when both order size and distance are large", async () => {
+    await seedMenuItem();
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            quantity: 20,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: { ...validDelivery, distanceFromShopKm: 12 },
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    // 35 + 51 (items) + 18 (distance: 9 extra * 2min) = 104, capped at 75.
+    expect(response.body.order.estimatedMinutes).toBe(75);
+  });
+});
+
 describe("POST /orders — payload caps", () => {
   it("rejects more than 50 line items", async () => {
     await seedMenuItem();

@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Animated, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMenuItems } from "../../api/menu.api";
 import { createOrderRequest } from "../../api/orders.api";
 import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
@@ -18,6 +18,8 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
 
+const ORDER_PLACED_DURATION_MS = 1700;
+
 export function CartScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -34,11 +36,27 @@ export function CartScreen({ navigation }: Props) {
   const editingCategory = editingMenuItem?.category ?? null;
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
   const [submitting, setSubmitting] = useState(false);
+  // Set the instant the order succeeds — triggers the full-screen "Order Placed" confirmation
+  // below, which then clears the cart and navigates on once it's done, same pattern as the
+  // Account screen's full-screen "<Mode> Activated" confirmation.
+  const [placedAccessToken, setPlacedAccessToken] = useState<string | null>(null);
+  const thumbScale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!placedAccessToken) return;
+    thumbScale.setValue(0);
+    Animated.spring(thumbScale, { toValue: 1, friction: 4, tension: 120, useNativeDriver: true }).start();
+    const timer = setTimeout(() => {
+      clearCart();
+      navigation.replace("OrderStatus", { accessToken: placedAccessToken });
+    }, ORDER_PLACED_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [placedAccessToken, thumbScale, clearCart, navigation]);
 
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption;
 
-  if (lines.length === 0) {
+  if (lines.length === 0 && !placedAccessToken) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyText}>Your cart is empty.</Text>
@@ -92,9 +110,9 @@ export function CartScreen({ navigation }: Props) {
       }
 
       // Payment method deliberately stays selected — it carries over to the next order
-      // rather than resetting, same as the saved address.
-      clearCart();
-      navigation.replace("OrderStatus", { accessToken: order.accessToken });
+      // rather than resetting, same as the saved address. Cart clears once the "Order
+      // Placed" confirmation below finishes, not immediately — see the effect above.
+      setPlacedAccessToken(order.accessToken);
     } catch (err) {
       Alert.alert("Couldn't place order", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -187,6 +205,17 @@ export function CartScreen({ navigation }: Props) {
         description={editingMenuItem?.description}
         onClose={() => setEditingLine(null)}
       />
+
+      {/* Full-screen "Order Placed" confirmation, same treatment as the Account screen's
+          "<Mode> Activated" — sits on top until the effect above clears the cart and moves on. */}
+      {placedAccessToken && (
+        <View style={[styles.orderPlacedOverlay, { backgroundColor: colors.background }]}>
+          <Animated.View style={{ transform: [{ scale: thumbScale }], alignItems: "center" }}>
+            <Text style={styles.orderPlacedEmoji}>👍</Text>
+            <Text style={styles.orderPlacedText}>Order Placed</Text>
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 }
@@ -252,4 +281,15 @@ const makeStyles = (colors: ColorPalette) =>
     checkoutButton: { flex: 1, backgroundColor: colors.primary, borderRadius: theme.radius, alignItems: "center", justifyContent: "center" },
     checkoutButtonDisabled: { opacity: 0.4 },
     checkoutButtonText: { color: "#fff", fontWeight: "700" },
+    orderPlacedOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    orderPlacedEmoji: { fontSize: 72, marginBottom: theme.spacing(1.5) },
+    orderPlacedText: { fontSize: 24, fontWeight: "800", color: colors.primary },
   });

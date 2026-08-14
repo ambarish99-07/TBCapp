@@ -7,6 +7,7 @@ import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js
 import { resolveCartLines } from "../pricing/priceResolver.js";
 import { generateAccessToken } from "./accessToken.js";
 import { assertWithinDeliveryZone } from "./deliveryZone.js";
+import { estimateDeliveryMinutes } from "./estimateDeliveryTime.js";
 import { advanceLoyaltyOrderCount } from "./loyaltyAdvance.js";
 import { generateOrderNumber } from "./orderNumber.js";
 import { OrderValidationError } from "./orders.errors.js";
@@ -57,7 +58,10 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
       total: pricingResult.total,
     },
     isPremiumMemberAtOrder: pricingResult.isPremiumMember,
-    estimatedMinutes: 35,
+    estimatedMinutes: estimateDeliveryMinutes(
+      resolvedLines.reduce((sum, line) => sum + line.quantity, 0),
+      request.delivery.distanceFromShopKm ?? null
+    ),
     status: "received",
     statusHistory: [{ status: "received", at: new Date() }],
     payment: { method: request.paymentMethod, status: "pending" },
