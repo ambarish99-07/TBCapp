@@ -41,10 +41,9 @@ const TiffinSubscriptionSchema = new Schema(
     // rewrite what a past subscriber actually signed up for and paid.
     planName: { type: String, required: true },
     dietType: { type: String, enum: ["veg", "non-veg"], required: true },
-    style: { type: String, enum: ["single", "twice-daily"], required: true },
-    // ["lunch"], ["dinner"], or ["lunch", "dinner"] — what was actually subscribed.
-    mealTypes: { type: [String], enum: ["lunch", "dinner"], required: true },
-    sundayVegChoice: { type: String, enum: ["paneer", "chole"] },
+    style: { type: String, enum: ["single", "twice-daily", "thrice-daily"], required: true },
+    // What was actually subscribed — one element for "single", all three for "thrice-daily".
+    mealTypes: { type: [String], enum: ["breakfast", "lunch", "dinner"], required: true },
     status: { type: String, enum: ["active", "paused", "completed", "cancelled"], required: true, default: "active" },
     // Snapshotted at subscribe time — used to tell a weekly plan (never cancellable) from a
     // monthly one, independent of any later pause-driven extension to endDate.

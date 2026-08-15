@@ -9,6 +9,7 @@ import { LoginPage } from "./routes/LoginPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
 import { TiffinDeliveriesPage } from "./routes/TiffinDeliveriesPage.js";
+import { TiffinMealPricesPage } from "./routes/TiffinMealPricesPage.js";
 import { TiffinPlansPage } from "./routes/TiffinPlansPage.js";
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
@@ -83,6 +84,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <TiffinDeliveriesPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-meal-prices"
+          element={
+            <RequireAdmin>
+              <TiffinMealPricesPage />
             </RequireAdmin>
           }
         />

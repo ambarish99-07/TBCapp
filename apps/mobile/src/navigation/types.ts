@@ -12,8 +12,20 @@ export type RootStackParamList = {
   // GG Tiffin's own flow — reached from the GG Tiffin brand tile instead of RestaurantMenu.
   TiffinLanding: undefined;
   TiffinPlanSelect: { planId: string };
-  TiffinCheckout: { planId: string; mealType?: "lunch" | "dinner"; sundayVegChoice?: "paneer" | "chole" };
+  TiffinCheckout: { planId: string; mealType?: "breakfast" | "lunch" | "dinner" };
   MyTiffin: undefined;
+  // One-off "buy tomorrow's tiffin" purchase — no subscription commitment, separate from the
+  // plan catalog above. Three tiers (Regular / Mini Meal / Premium) x two diet sections (Veg / Non-Veg).
+  TiffinSingleMeal: undefined;
+  TiffinSingleMealCheckout: {
+    tier: "regular" | "mini" | "premium";
+    mealType: "breakfast" | "lunch" | "dinner";
+    dietType: "veg" | "non-veg";
+    date: string;
+    dishName: string;
+    price: number;
+    carbChoice?: "rice" | "roti";
+  };
   Cart: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.

@@ -29,11 +29,13 @@ export function listActivePlans() {
   return TiffinPlanModel.find({ active: true }).sort({ price: 1 });
 }
 
-/** "single" needs the customer's lunch/dinner choice; "twice-daily" always schedules both, regardless of what (if anything) was sent. */
-function resolveMealTypes(style: "single" | "twice-daily", requestedMealType: TiffinMealType | undefined): TiffinMealType[] {
+/** "single" needs the customer's breakfast/lunch/dinner choice; "twice-daily"/"thrice-daily"
+ * always schedule their fixed set, regardless of what (if anything) was sent. */
+function resolveMealTypes(style: "single" | "twice-daily" | "thrice-daily", requestedMealType: TiffinMealType | undefined): TiffinMealType[] {
   if (style === "twice-daily") return ["lunch", "dinner"];
+  if (style === "thrice-daily") return ["breakfast", "lunch", "dinner"];
   if (!requestedMealType) {
-    throw new TiffinValidationError("Please choose Lunch or Dinner for this plan");
+    throw new TiffinValidationError("Please choose Breakfast, Lunch, or Dinner for this plan");
   }
   return [requestedMealType];
 }
@@ -42,9 +44,6 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   const plan = await TiffinPlanModel.findById(request.planId);
   if (!plan || !plan.active) {
     throw new TiffinValidationError("This plan is not currently available");
-  }
-  if (plan.dietType === "veg" && !request.sundayVegChoice) {
-    throw new TiffinValidationError("Please choose Paneer or Chole for Sunday");
   }
   if (plan.durationDays === TIFFIN_PLAN_DURATIONS.monthly && request.paymentMethod === "cod") {
     throw new TiffinValidationError("Cash on Delivery isn't available for monthly plans — please pay online");
@@ -62,8 +61,7 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   const startDate = new Date();
   startDate.setUTCHours(0, 0, 0, 0);
   startDate.setUTCDate(startDate.getUTCDate() + 1);
-  const sundayVegChoice = plan.dietType === "veg" ? request.sundayVegChoice : undefined;
-  const meals = computeMealsForRange(plan.dietType, mealTypes, startDate, plan.durationDays, sundayVegChoice);
+  const meals = computeMealsForRange(plan.dietType, mealTypes, startDate, plan.durationDays);
 
   const subscription = await TiffinSubscriptionModel.create({
     subscriptionNumber: generateSubscriptionNumber(),
@@ -73,7 +71,6 @@ export async function createSubscription(env: Env, userId: string, request: Crea
     dietType: plan.dietType,
     style: plan.style,
     mealTypes,
-    sundayVegChoice,
     status: "active",
     durationDays: plan.durationDays,
     startDate: meals[0].date,
@@ -240,13 +237,7 @@ export async function pauseSubscription(userId: string, subscriptionId: string, 
     const pausedDayCount = new Set(pausedMeals.map((meal) => meal.date)).size;
     const nextDay = new Date(`${subscription.endDate}T00:00:00Z`);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    const extraMeals = computeMealsForRange(
-      subscription.dietType,
-      subscription.mealTypes as TiffinMealType[],
-      nextDay,
-      pausedDayCount,
-      subscription.sundayVegChoice ?? undefined
-    );
+    const extraMeals = computeMealsForRange(subscription.dietType, subscription.mealTypes as TiffinMealType[], nextDay, pausedDayCount);
     await TiffinScheduledMealModel.insertMany(extraMeals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
     subscription.endDate = extraMeals[extraMeals.length - 1].date;
   }

@@ -4,7 +4,11 @@ import { adminClient } from "../api/adminClient.js";
 
 const DIET_OPTIONS: TiffinDietType[] = ["veg", "non-veg"];
 
-const STYLE_LABELS: Record<TiffinPlanStyle, string> = { single: "Single (Lunch or Dinner)", "twice-daily": "Twice Daily (Lunch & Dinner)" };
+const STYLE_LABELS: Record<TiffinPlanStyle, string> = {
+  single: "Single (Breakfast, Lunch, or Dinner)",
+  "twice-daily": "Twice Daily (Lunch & Dinner)",
+  "thrice-daily": "Thrice Daily (Breakfast, Lunch & Dinner)",
+};
 
 const emptyForm = {
   name: "",

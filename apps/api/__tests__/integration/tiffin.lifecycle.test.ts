@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { TiffinPlanModel } from "../../src/db/models/TiffinPlan.model.js";
+import { TiffinScheduledMealModel } from "../../src/db/models/TiffinScheduledMeal.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 // Split into its own file (separate from tiffin.test.ts) so each file gets its own signup
@@ -82,10 +83,14 @@ describe("skip / pause / resume", () => {
   it("rejects skipping today's meal — inside the skip deadline", async () => {
     const token = await signup("skip-late@example.com", "9812400011");
     const { subscription, meals } = await subscribeToWeeklyVeg(token);
-    const today = meals[0];
+    // Subscriptions always start tomorrow now, so meals[0] alone isn't reliably within the
+    // 12h deadline at every time of day the test suite might run — backdate it to today so
+    // the deadline check is deterministic regardless of when this test executes.
+    const today = new Date().toISOString().slice(0, 10);
+    await TiffinScheduledMealModel.findByIdAndUpdate(meals[0].id, { date: today });
 
     const response = await request(app)
-      .post(`/tiffin/subscriptions/${subscription.id}/meals/${today.id}/skip`)
+      .post(`/tiffin/subscriptions/${subscription.id}/meals/${meals[0].id}/skip`)
       .set("Authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(400);

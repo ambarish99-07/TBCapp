@@ -1,12 +1,10 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { TIFFIN_PLAN_DURATIONS, type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-  createTiffinRazorpayOrderRequest,
-  createTiffinSubscriptionRequest,
-  useTiffinPlans,
-  verifyTiffinRazorpayPaymentRequest,
+  createSingleMealOrderRequest,
+  createSingleMealRazorpayOrderRequest,
+  verifySingleMealRazorpayPaymentRequest,
 } from "../../api/tiffin.api";
 import { DeliveryDetailsForm } from "../../components/DeliveryDetailsForm";
 import { DraggableSheet } from "../../components/DraggableSheet";
@@ -18,54 +16,42 @@ import { hasCompleteAddress } from "../../utils/profile";
 import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
 import type { RootStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<RootStackParamList, "TiffinCheckout">;
+type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealCheckout">;
 
 const BELL_RING_DURATION_MS = 1000;
 
-const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+const TIER_LABELS: Record<Props["route"]["params"]["tier"], string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
+const MEAL_TYPE_LABELS: Record<Props["route"]["params"]["mealType"], string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+const DIET_LABELS: Record<Props["route"]["params"]["dietType"], string> = { veg: "Veg", "non-veg": "Non-Veg" };
+const CARB_CHOICE_LABELS: Record<"rice" | "roti", string> = { rice: "Rice", roti: "Roti" };
 
-function styleMetaLabel(style: TiffinPlanStyle, mealType: TiffinMealType | undefined): string {
-  if (style === "twice-daily") return "Lunch & Dinner";
-  if (style === "thrice-daily") return "Breakfast, Lunch & Dinner";
-  return MEAL_TYPE_LABELS[mealType ?? "lunch"];
-}
-
-/** Payment method is picked on the shared PaymentMethodScreen (same picker CartScreen uses) and
- * persisted in usePaymentMethodStore, so it carries over untouched to the next order. A first-time
- * subscriber (no saved address) sees a "Complete your profile" tab above the footer — tapping it
- * opens the popup; repeat customers already have an address and never see the tab. */
-export function TiffinCheckoutScreen({ route, navigation }: Props) {
+/** Checkout for the one-off single-meal purchase — same footer/payment/profile-popup/confirmation
+ * treatment as TiffinCheckoutScreen (that screen isn't factored into shared components, so this
+ * mirrors its structure rather than importing it), adapted for a single meal instead of a plan. */
+export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
+  const { tier, mealType, dietType, date, dishName, price, carbChoice } = route.params;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { data: plans } = useTiffinPlans();
-  const plan = plans?.find((p) => p.id === route.params.planId);
   const user = useAuthStore((state) => state.user);
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
   const [submitting, setSubmitting] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileNudge, setShowProfileNudge] = useState(false);
   const nudgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // "Tiffin Subscribed" + ringing bell shows first, on its own, for a second — the "View My
-  // Tiffin" tab only fades in below it once that beat has played out, same idea as the Cart
-  // screen's full-screen "Order Placed" confirmation but not auto-navigating away.
   const [confirmed, setConfirmed] = useState(false);
-  const [showViewTiffin, setShowViewTiffin] = useState(false);
+  const [showViewOrders, setShowViewOrders] = useState(false);
   const bellRotate = useRef(new Animated.Value(0)).current;
-  const viewTiffinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewOrdersTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileComplete = hasCompleteAddress(user);
-  const isMonthly = plan?.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
-  const codBlocked = isMonthly && selectedPaymentOption?.apiMethod === "cod";
-  const canProceed = profileComplete && !!selectedPaymentOption && !codBlocked;
+  const canProceed = profileComplete && !!selectedPaymentOption;
 
   useEffect(() => () => {
     if (nudgeTimeoutRef.current) clearTimeout(nudgeTimeoutRef.current);
-    if (viewTiffinTimeoutRef.current) clearTimeout(viewTiffinTimeoutRef.current);
+    if (viewOrdersTimeoutRef.current) clearTimeout(viewOrdersTimeoutRef.current);
   }, []);
 
-  async function handleSubscribe() {
-    if (!plan || !user) return;
-    // Tapping while the profile is incomplete doesn't fail silently — it briefly points the
-    // customer at the "Complete your profile" tab above, which opens the popup.
+  async function handleOrder() {
+    if (!user) return;
     if (!profileComplete) {
       setShowProfileNudge(true);
       if (nudgeTimeoutRef.current) clearTimeout(nudgeTimeoutRef.current);
@@ -75,9 +61,11 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
     if (!canProceed || !selectedPaymentOption) return;
     setSubmitting(true);
     try {
-      const subscription = await createTiffinSubscriptionRequest({
-        planId: plan.id,
-        mealType: route.params.mealType,
+      const order = await createSingleMealOrderRequest({
+        tier,
+        mealType,
+        dietType,
+        carbChoice,
         delivery: {
           fullName: user.fullName,
           phone: user.phone!,
@@ -92,10 +80,10 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
       });
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
-        const razorpayOrder = await createTiffinRazorpayOrderRequest(subscription.id);
+        const razorpayOrder = await createSingleMealRazorpayOrderRequest(order.id);
         const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
         if (paymentResult) {
-          await verifyTiffinRazorpayPaymentRequest(subscription.id, {
+          await verifySingleMealRazorpayPaymentRequest(order.id, {
             razorpay_order_id: razorpayOrder.razorpayOrderId,
             razorpay_payment_id: paymentResult.razorpay_payment_id,
             razorpay_signature: paymentResult.razorpay_signature,
@@ -112,31 +100,24 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
         Animated.timing(bellRotate, { toValue: -1, duration: 100, useNativeDriver: true }),
         Animated.timing(bellRotate, { toValue: 0, duration: 100, useNativeDriver: true }),
       ]).start();
-      viewTiffinTimeoutRef.current = setTimeout(() => setShowViewTiffin(true), BELL_RING_DURATION_MS);
+      viewOrdersTimeoutRef.current = setTimeout(() => setShowViewOrders(true), BELL_RING_DURATION_MS);
     } catch (err) {
-      Alert.alert("Couldn't subscribe", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Couldn't place order", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (!plan) {
-    return (
-      <View style={[styles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
   }
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.summaryCard}>
-          <Text style={styles.planName}>{plan.name}</Text>
+          <Text style={styles.dishName}>{dishName}</Text>
           <Text style={styles.planMeta}>
-            {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style, route.params.mealType)}
+            {DIET_LABELS[dietType]} · {TIER_LABELS[tier]} · {MEAL_TYPE_LABELS[mealType]} · {date}
+            {carbChoice ? ` · ${CARB_CHOICE_LABELS[carbChoice]}` : ""}
           </Text>
-          <Text style={styles.priceRow}>Total: ₹{plan.price}</Text>
+          <Text style={styles.priceRow}>Total: ₹{price}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Delivery Address</Text>
@@ -154,17 +135,13 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
 
       {!profileComplete && (
         <Pressable style={styles.completeProfileTab} onPress={() => setShowProfileModal(true)}>
-          <Text style={styles.completeProfileText}>Complete your profile to subscribe</Text>
+          <Text style={styles.completeProfileText}>Complete your profile to order</Text>
           <Text style={styles.completeProfileArrow}>→</Text>
         </Pressable>
       )}
 
-      {codBlocked && (
-        <Text style={styles.codBlockedNotice}>Cash on Delivery isn't available for monthly plans — please choose another payment method.</Text>
-      )}
-
       <View style={styles.actionRow}>
-        <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod", { hideCod: isMonthly })}>
+        <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod")}>
           <Text style={styles.payUsingLabel}>Pay via</Text>
           <View style={styles.payUsingValueRow}>
             <Text style={styles.payUsingValue} numberOfLines={1}>
@@ -175,18 +152,18 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
         </Pressable>
 
         <Pressable
-          style={[styles.subscribeButton, !canProceed && styles.subscribeButtonDisabled]}
-          onPress={handleSubscribe}
+          style={[styles.orderButton, !canProceed && styles.orderButtonDisabled]}
+          onPress={handleOrder}
           disabled={submitting || (profileComplete && !canProceed)}
         >
-          <Text style={styles.subscribeButtonText}>{submitting ? "Subscribing…" : `Subscribe & Pay ₹${plan.price}`}</Text>
+          <Text style={styles.orderButtonText}>{submitting ? "Placing order…" : `Order Now & Pay ₹${price}`}</Text>
         </Pressable>
       </View>
 
       {showProfileNudge && (
         <View style={styles.profileNudgeOverlay} pointerEvents="none">
           <View style={styles.profileNudgeBubble}>
-            <Text style={styles.profileNudgeText}>Complete your profile to subscribe</Text>
+            <Text style={styles.profileNudgeText}>Complete your profile to order</Text>
           </View>
         </View>
       )}
@@ -195,21 +172,17 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
         <View style={[styles.confirmedOverlay, { backgroundColor: colors.background }]}>
           <Animated.View
             style={{
-              transform: [
-                {
-                  rotate: bellRotate.interpolate({ inputRange: [-1, 1], outputRange: ["-18deg", "18deg"] }),
-                },
-              ],
+              transform: [{ rotate: bellRotate.interpolate({ inputRange: [-1, 1], outputRange: ["-18deg", "18deg"] }) }],
             }}
           >
             <Text style={styles.confirmedEmoji}>🔔</Text>
           </Animated.View>
-          <Text style={styles.confirmedText}>Tiffin Subscribed</Text>
+          <Text style={styles.confirmedText}>Meal Ordered</Text>
 
-          {showViewTiffin && (
-            <Pressable style={styles.viewTiffinTab} onPress={() => navigation.replace("MyTiffin")}>
-              <Text style={styles.viewTiffinText}>View My Tiffin</Text>
-              <Text style={styles.viewTiffinArrow}>→</Text>
+          {showViewOrders && (
+            <Pressable style={styles.viewOrdersTab} onPress={() => navigation.replace("MyTiffin")}>
+              <Text style={styles.viewOrdersText}>View My Orders</Text>
+              <Text style={styles.viewOrdersArrow}>→</Text>
             </Pressable>
           )}
         </View>
@@ -233,10 +206,9 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
-    centered: { alignItems: "center", justifyContent: "center" },
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
     summaryCard: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-    planName: { fontSize: 17, fontWeight: "800", color: colors.text },
+    dishName: { fontSize: 17, fontWeight: "800", color: colors.text },
     planMeta: { fontSize: 12, color: colors.muted, marginTop: 4 },
     priceRow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginTop: theme.spacing(1) },
     sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginTop: theme.spacing(2.5), marginBottom: theme.spacing(1) },
@@ -256,13 +228,6 @@ const makeStyles = (colors: ColorPalette) =>
     },
     completeProfileText: { flex: 1, fontSize: 12, fontWeight: "700", color: colors.primary },
     completeProfileArrow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginLeft: 8 },
-    codBlockedNotice: {
-      fontSize: 12,
-      color: colors.danger,
-      fontWeight: "600",
-      paddingHorizontal: theme.spacing(2),
-      paddingTop: theme.spacing(1),
-    },
     actionRow: {
       flexDirection: "row",
       gap: theme.spacing(1),
@@ -283,15 +248,15 @@ const makeStyles = (colors: ColorPalette) =>
     payUsingValueRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
     payUsingValue: { flexShrink: 1, fontSize: 13, color: colors.muted },
     payUsingTriangle: { fontSize: 12, color: colors.muted },
-    subscribeButton: {
+    orderButton: {
       flex: 1,
       backgroundColor: colors.primary,
       borderRadius: theme.radius,
       alignItems: "center",
       justifyContent: "center",
     },
-    subscribeButtonDisabled: { opacity: 0.5 },
-    subscribeButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+    orderButtonDisabled: { opacity: 0.5 },
+    orderButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
     profileNudgeOverlay: {
       position: "absolute",
       top: 0,
@@ -320,7 +285,7 @@ const makeStyles = (colors: ColorPalette) =>
     },
     confirmedEmoji: { fontSize: 72, marginBottom: theme.spacing(1.5) },
     confirmedText: { fontSize: 24, fontWeight: "800", color: colors.primary },
-    viewTiffinTab: {
+    viewOrdersTab: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
@@ -330,8 +295,8 @@ const makeStyles = (colors: ColorPalette) =>
       paddingHorizontal: theme.spacing(3),
       marginTop: theme.spacing(3),
     },
-    viewTiffinText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-    viewTiffinArrow: { color: "#fff", fontWeight: "800", fontSize: 16 },
+    viewOrdersText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+    viewOrdersArrow: { color: "#fff", fontWeight: "800", fontSize: 16 },
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
     sheet: {
       backgroundColor: colors.background,

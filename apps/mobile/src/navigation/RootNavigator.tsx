@@ -25,6 +25,8 @@ import { MyTiffinScreen } from "../screens/Tiffin/MyTiffinScreen";
 import { TiffinCheckoutScreen } from "../screens/Tiffin/TiffinCheckoutScreen";
 import { TiffinLandingScreen } from "../screens/Tiffin/TiffinLandingScreen";
 import { TiffinPlanSelectScreen } from "../screens/Tiffin/TiffinPlanSelectScreen";
+import { TiffinSingleMealCheckoutScreen } from "../screens/Tiffin/TiffinSingleMealCheckoutScreen";
+import { TiffinSingleMealScreen } from "../screens/Tiffin/TiffinSingleMealScreen";
 import { useAuthStore } from "../state/authStore";
 import { useTheme } from "../state/themeStore";
 import type { RootStackParamList } from "./types";
@@ -89,6 +91,12 @@ export function RootNavigator() {
             <Stack.Screen name="TiffinPlanSelect" component={TiffinPlanSelectScreen} options={{ title: "Choose Your Plan" }} />
             <Stack.Screen name="TiffinCheckout" component={TiffinCheckoutScreen} options={{ title: "Subscribe" }} />
             <Stack.Screen name="MyTiffin" component={MyTiffinScreen} options={{ title: "My Tiffin" }} />
+            <Stack.Screen name="TiffinSingleMeal" component={TiffinSingleMealScreen} options={{ title: "Order a Single Meal" }} />
+            <Stack.Screen
+              name="TiffinSingleMealCheckout"
+              component={TiffinSingleMealCheckoutScreen}
+              options={{ title: "Checkout" }}
+            />
             <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
             <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />

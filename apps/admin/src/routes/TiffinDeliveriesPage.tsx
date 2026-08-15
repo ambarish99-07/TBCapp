@@ -1,22 +1,32 @@
-import { TiffinScheduledMealStatusSchema, type TiffinScheduledMeal, type TiffinSubscription } from "@tbc/shared-types";
+import {
+  TiffinScheduledMealStatusSchema,
+  TiffinSingleMealOrderStatusSchema,
+  type TiffinScheduledMeal,
+  type TiffinSingleMealOrder,
+  type TiffinSubscription,
+} from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
 
 const MEAL_STATUS_OPTIONS = TiffinScheduledMealStatusSchema.options;
+const SINGLE_MEAL_ORDER_STATUS_OPTIONS = TiffinSingleMealOrderStatusSchema.options;
 
 export function TiffinDeliveriesPage() {
   const [meals, setMeals] = useState<TiffinScheduledMeal[]>([]);
   const [subscriptions, setSubscriptions] = useState<TiffinSubscription[]>([]);
+  const [singleMealOrders, setSingleMealOrders] = useState<TiffinSingleMealOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   async function reload() {
     setIsLoading(true);
-    const [mealsRes, subscriptionsRes] = await Promise.all([
+    const [mealsRes, subscriptionsRes, singleMealOrdersRes] = await Promise.all([
       adminClient.get<{ meals: TiffinScheduledMeal[] }>("/admin/tiffin/deliveries/today"),
       adminClient.get<{ subscriptions: TiffinSubscription[] }>("/admin/tiffin/subscriptions"),
+      adminClient.get<{ orders: TiffinSingleMealOrder[] }>("/admin/tiffin/single-meal/orders/today"),
     ]);
     setMeals(mealsRes.data.meals);
     setSubscriptions(subscriptionsRes.data.subscriptions);
+    setSingleMealOrders(singleMealOrdersRes.data.orders);
     setIsLoading(false);
   }
 
@@ -26,6 +36,11 @@ export function TiffinDeliveriesPage() {
 
   async function handleStatusChange(id: string, status: string) {
     await adminClient.patch(`/admin/tiffin/meals/${id}/status`, { status });
+    await reload();
+  }
+
+  async function handleSingleMealOrderStatusChange(id: string, status: string) {
+    await adminClient.patch(`/admin/tiffin/single-meal/orders/${id}/status`, { status });
     await reload();
   }
 
@@ -85,6 +100,47 @@ export function TiffinDeliveriesPage() {
                 <td>
                   <select value={meal.status} onChange={(e) => handleStatusChange(meal.id, e.target.value)}>
                     {MEAL_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <h2>Today's Single-Meal Orders</h2>
+      {singleMealOrders.length === 0 ? (
+        <p>No single-meal orders today.</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+          <thead>
+            <tr>
+              <th align="left">Order #</th>
+              <th align="left">Diet</th>
+              <th align="left">Tier</th>
+              <th align="left">Meal</th>
+              <th align="left">Dish</th>
+              <th align="left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {singleMealOrders.map((order) => (
+              <tr key={order.id} style={{ borderTop: "1px solid #E4DCD3" }}>
+                <td>{order.orderNumber}</td>
+                <td>{order.dietType}</td>
+                <td>{order.tier}</td>
+                <td>
+                  {order.mealType}
+                  {order.carbChoice ? ` (${order.carbChoice})` : ""}
+                </td>
+                <td>{order.dishName}</td>
+                <td>
+                  <select value={order.status} onChange={(e) => handleSingleMealOrderStatusChange(order.id, e.target.value)}>
+                    {SINGLE_MEAL_ORDER_STATUS_OPTIONS.map((status) => (
                       <option key={status} value={status}>
                         {status}
                       </option>

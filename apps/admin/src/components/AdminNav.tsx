@@ -6,6 +6,7 @@ const LINKS = [
   { to: "/brands", label: "Brands" },
   { to: "/tiffin-plans", label: "Tiffin Plans" },
   { to: "/tiffin-deliveries", label: "Tiffin Deliveries" },
+  { to: "/tiffin-meal-prices", label: "Meal Prices" },
 ];
 
 export function AdminNav() {

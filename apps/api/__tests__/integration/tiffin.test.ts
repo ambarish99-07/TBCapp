@@ -50,7 +50,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "chole", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.planName).toBe("Weekly Veg Plan");
@@ -65,19 +65,7 @@ describe("POST /tiffin/subscriptions", () => {
     expect(meals.body.meals.every((meal: { status: string }) => meal.status === "scheduled")).toBe(true);
   });
 
-  it("rejects subscribing to a veg plan without a Sunday paneer/chole choice", async () => {
-    const plan = await seedWeeklyVegPlan();
-    const token = await signup("veg-nochoice@example.com", "9812400002");
-
-    const response = await request(app)
-      .post("/tiffin/subscriptions")
-      .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
-
-    expect(response.status).toBe(400);
-  });
-
-  it("subscribes to a non-veg plan with no Sunday choice needed", async () => {
+  it("subscribes to a non-veg plan", async () => {
     const plan = await seedWeeklyNonVegPlan();
     const token = await signup("nonveg-sub@example.com", "9812400003");
 
@@ -98,7 +86,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: { ...validDelivery, city: "Mumbai" }, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: { ...validDelivery, city: "Mumbai" }, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -117,7 +105,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -126,7 +114,7 @@ describe("POST /tiffin/subscriptions", () => {
     const plan = await seedWeeklyVegPlan();
     const response = await request(app)
       .post("/tiffin/subscriptions")
-      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
     expect(response.status).toBe(401);
   });
 });

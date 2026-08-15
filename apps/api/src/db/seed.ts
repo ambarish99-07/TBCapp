@@ -5,8 +5,10 @@ import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
 import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
+import { TiffinMealPriceModel } from "./models/TiffinMealPrice.model.js";
 import { TiffinPlanModel } from "./models/TiffinPlan.model.js";
 import { TiffinScheduledMealModel } from "./models/TiffinScheduledMeal.model.js";
+import { TiffinSingleMealOrderModel } from "./models/TiffinSingleMealOrder.model.js";
 import { TiffinSubscriptionModel } from "./models/TiffinSubscription.model.js";
 
 const TBC_BRAND_ID = "tbc";
@@ -536,13 +538,13 @@ function buildCrossBrandCombos(allItemIds: string[]) {
   ];
 }
 
-/** GG Tiffin's starter plan catalog — two styles (single meal a day, the customer's choice of
- * lunch or dinner; or twice-daily, both lunch and dinner) × two diets × two durations.
- * Placeholder prices, fully editable afterward via the admin Tiffin Plans page (never
- * hardcoded anywhere else in the application). */
+/** GG Tiffin's starter plan catalog — three styles (single meal a day, the customer's choice of
+ * breakfast/lunch/dinner; twice-daily, lunch and dinner; thrice-daily, all three) × two diets ×
+ * two durations. Placeholder prices, fully editable afterward via the admin Tiffin Plans page
+ * (never hardcoded anywhere else in the application). */
 function buildTiffinPlans() {
   return [
-    // Single — one meal a day, lunch or dinner chosen at subscribe time.
+    // Single — one meal a day, breakfast/lunch/dinner chosen at subscribe time.
     { name: "Weekly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
     { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
     { name: "Monthly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, active: true },
@@ -552,6 +554,26 @@ function buildTiffinPlans() {
     { name: "Weekly Non-Veg Plan — Twice Daily", dietType: "non-veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 2599, active: true },
     { name: "Monthly Veg Plan — Twice Daily", dietType: "veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 6499, active: true },
     { name: "Monthly Non-Veg Plan — Twice Daily", dietType: "non-veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 9999, active: true },
+    // Thrice-daily — breakfast, lunch, and dinner, every day.
+    { name: "Weekly Veg Plan — Thrice Daily", dietType: "veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 2399, active: true },
+    { name: "Weekly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 3599, active: true },
+    { name: "Monthly Veg Plan — Thrice Daily", dietType: "veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 8999, active: true },
+    { name: "Monthly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 13999, active: true },
+  ];
+}
+
+/** One-off single-meal purchase prices, per (tier, mealType) — Mini deliberately has no
+ * breakfast row (see singleMealMenu.ts), so it's simply not offered. */
+function buildTiffinMealPrices() {
+  return [
+    { tier: "regular" as const, mealType: "breakfast" as const, price: 79, active: true },
+    { tier: "regular" as const, mealType: "lunch" as const, price: 129, active: true },
+    { tier: "regular" as const, mealType: "dinner" as const, price: 129, active: true },
+    { tier: "mini" as const, mealType: "lunch" as const, price: 99, active: true },
+    { tier: "mini" as const, mealType: "dinner" as const, price: 99, active: true },
+    { tier: "premium" as const, mealType: "breakfast" as const, price: 99, active: true },
+    { tier: "premium" as const, mealType: "lunch" as const, price: 169, active: true },
+    { tier: "premium" as const, mealType: "dinner" as const, price: 169, active: true },
   ];
 }
 
@@ -565,6 +587,8 @@ async function seed() {
   await TiffinSubscriptionModel.deleteMany({});
   await TiffinScheduledMealModel.deleteMany({});
   await TiffinPlanModel.deleteMany({});
+  await TiffinSingleMealOrderModel.deleteMany({});
+  await TiffinMealPriceModel.deleteMany({});
 
   const brands = buildBrands(env);
   for (const brand of brands) {
@@ -603,9 +627,10 @@ async function seed() {
   }
 
   const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans());
+  const tiffinMealPrices = await TiffinMealPriceModel.insertMany(buildTiffinMealPrices());
 
   console.log(
-    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, and ${tiffinPlans.length} tiffin plans.`
+    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, and ${tiffinMealPrices.length} single-meal prices.`
   );
   await disconnectFromDatabase();
 }

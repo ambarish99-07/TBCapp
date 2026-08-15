@@ -1,5 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { CANCELLATION_FULL_REFUND_WINDOW_DAYS, CANCELLATION_REFUND_PERCENT, TIFFIN_PLAN_DURATIONS, type TiffinScheduledMeal } from "@tbc/shared-types";
+import {
+  CANCELLATION_FULL_REFUND_WINDOW_DAYS,
+  CANCELLATION_REFUND_PERCENT,
+  TIFFIN_PLAN_DURATIONS,
+  type TiffinScheduledMeal,
+  type TiffinSingleMealOrder,
+} from "@tbc/shared-types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -9,6 +15,7 @@ import {
   resumeTiffinSubscriptionRequest,
   skipTiffinMealRequest,
   unskipTiffinMealRequest,
+  useMySingleMealOrders,
   useMyTiffinSubscriptions,
   useTiffinUpcomingMeals,
 } from "../../api/tiffin.api";
@@ -18,7 +25,9 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "MyTiffin">;
 
-const MEAL_TYPE_LABELS: Record<string, string> = { lunch: "Lunch", dinner: "Dinner" };
+const MEAL_TYPE_LABELS: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+const TIER_LABELS: Record<string, string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
+const DIET_LABELS: Record<string, string> = { veg: "Veg", "non-veg": "Non-Veg" };
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Active",
@@ -27,10 +36,34 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
   scheduled: "Scheduled",
   skipped: "Skipped",
+  placed: "Placed",
   preparing: "Preparing",
   "out-for-delivery": "Out for Delivery",
   delivered: "Delivered",
 };
+
+/** Shown below the subscription card (or the empty state, if there's no active subscription) —
+ * a one-off single-meal order has no skip/pause/cancel actions, just status. */
+function SingleMealOrdersSection({ orders, styles }: { orders: TiffinSingleMealOrder[]; styles: ReturnType<typeof makeStyles> }) {
+  if (orders.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.sectionTitle}>Recent Single Meal Orders</Text>
+      {orders.map((order) => (
+        <View key={order.id} style={styles.mealRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.mealDate}>
+              {order.date} · {DIET_LABELS[order.dietType] ?? order.dietType} {TIER_LABELS[order.tier] ?? order.tier}{" "}
+              {MEAL_TYPE_LABELS[order.mealType] ?? order.mealType}
+            </Text>
+            <Text style={styles.mealDish}>{order.dishName}</Text>
+          </View>
+          <Text style={styles.mealStatus}>{STATUS_LABELS[order.status] ?? order.status}</Text>
+        </View>
+      ))}
+    </>
+  );
+}
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -45,6 +78,7 @@ export function MyTiffinScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const { data: subscriptions, isLoading } = useMyTiffinSubscriptions();
+  const { data: singleMealOrders } = useMySingleMealOrders();
   const [busy, setBusy] = useState(false);
 
   // Most recent subscription that's still relevant — active or paused, not completed/cancelled.
@@ -155,12 +189,15 @@ export function MyTiffinScreen({ navigation }: Props) {
 
   if (!subscription) {
     return (
-      <View style={[styles.screen, styles.centered]}>
-        <Text style={styles.emptyText}>You don't have an active tiffin subscription yet.</Text>
-        <Pressable style={styles.browseButton} onPress={() => navigation.navigate("TiffinLanding")}>
-          <Text style={styles.browseButtonText}>Browse Plans</Text>
-        </Pressable>
-      </View>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>You don't have an active tiffin subscription yet.</Text>
+          <Pressable style={styles.browseButton} onPress={() => navigation.navigate("TiffinLanding")}>
+            <Text style={styles.browseButtonText}>Browse Plans</Text>
+          </Pressable>
+        </View>
+        <SingleMealOrdersSection orders={singleMealOrders ?? []} styles={styles} />
+      </ScrollView>
     );
   }
 
@@ -235,6 +272,8 @@ export function MyTiffinScreen({ navigation }: Props) {
           )}
         </View>
       ))}
+
+      <SingleMealOrdersSection orders={singleMealOrders ?? []} styles={styles} />
     </ScrollView>
   );
 }

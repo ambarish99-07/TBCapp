@@ -11,6 +11,13 @@ import {
   updatePlanAdmin,
   updateScheduledMealStatusAdmin,
 } from "../tiffin/tiffin.controller.js";
+import {
+  createMealPriceAdmin,
+  listMealPricesAdmin,
+  listTodaysSingleMealOrdersAdmin,
+  updateMealPriceAdmin,
+  updateSingleMealOrderStatusAdmin,
+} from "../tiffin/singleMeal.controller.js";
 import { advanceOrderStatus, listOrders, recommendToCustomer } from "./admin.controller.js";
 
 export function createAdminRouter(env: Env): Router {
@@ -35,6 +42,12 @@ export function createAdminRouter(env: Env): Router {
   router.get("/tiffin/subscriptions", listAllSubscriptionsAdmin);
   router.get("/tiffin/deliveries/today", listTodaysScheduledMealsAdmin);
   router.patch("/tiffin/meals/:id/status", updateScheduledMealStatusAdmin);
+
+  router.get("/tiffin/single-meal/orders/today", listTodaysSingleMealOrdersAdmin);
+  router.patch("/tiffin/single-meal/orders/:id/status", updateSingleMealOrderStatusAdmin);
+  router.get("/tiffin/meal-prices", listMealPricesAdmin);
+  router.post("/tiffin/meal-prices", createMealPriceAdmin);
+  router.put("/tiffin/meal-prices/:id", updateMealPriceAdmin);
 
   return router;
 }

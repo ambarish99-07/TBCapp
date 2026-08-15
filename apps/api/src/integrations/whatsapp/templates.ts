@@ -9,4 +9,5 @@ export const WHATSAPP_TEMPLATES = {
   PRODUCT_RECOMMENDATION: "tbc_product_recommendation",
   BULK_ORDER_INQUIRY: "tbc_bulk_order_inquiry",
   NEW_TIFFIN_SUBSCRIPTION_ALERT: "tbc_new_tiffin_subscription_alert",
+  NEW_SINGLE_MEAL_ORDER_ALERT: "tbc_new_single_meal_order_alert",
 } as const;

@@ -1,37 +1,22 @@
 import { z } from "zod";
 import { DeliveryDetailsSchema, PaymentInfoSchema, PaymentMethodSchema } from "./order.js";
 
-export const TIFFIN_MEAL_TYPES = ["lunch", "dinner"] as const;
+export const TIFFIN_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 export const TiffinMealTypeSchema = z.enum(TIFFIN_MEAL_TYPES);
 export type TiffinMealType = z.infer<typeof TiffinMealTypeSchema>;
 
-/** "single" = one meal a day, the customer's choice of lunch or dinner (see
- * `CreateTiffinSubscriptionRequestSchema.mealType`). "twice-daily" = both lunch and dinner every
- * day, no choice needed — the plan itself decides, not the subscriber. */
-export const TIFFIN_PLAN_STYLES = ["single", "twice-daily"] as const;
+/** "single" = one meal a day, the customer's choice of breakfast, lunch, or dinner (see
+ * `CreateTiffinSubscriptionRequestSchema.mealType`). "twice-daily" = lunch and dinner every day,
+ * no choice needed. "thrice-daily" = breakfast, lunch, and dinner every day. */
+export const TIFFIN_PLAN_STYLES = ["single", "twice-daily", "thrice-daily"] as const;
 export const TiffinPlanStyleSchema = z.enum(TIFFIN_PLAN_STYLES);
 export type TiffinPlanStyle = z.infer<typeof TiffinPlanStyleSchema>;
 
 export const TiffinDietTypeSchema = z.enum(["veg", "non-veg"]);
 export type TiffinDietType = z.infer<typeof TiffinDietTypeSchema>;
 
-/** The one choice a veg subscriber makes — non-veg Sunday is always Mutton, no choice. */
-export const SUNDAY_VEG_CHOICES = ["paneer", "chole"] as const;
-export const SundayVegChoiceSchema = z.enum(SUNDAY_VEG_CHOICES);
-export type SundayVegChoice = z.infer<typeof SundayVegChoiceSchema>;
-
-/** Monday-first weekly veg sabzi rotation. Sunday isn't here — it's the customer's paneer/chole choice instead (see SUNDAY_VEG_CHOICES). */
-export const TIFFIN_WEEKLY_VEG_ROTATION: Record<string, string> = {
-  Monday: "Aloo Gobhi",
-  Tuesday: "Aloo Matar",
-  Wednesday: "Aloo Parwal",
-  Thursday: "Aloo Soyabean",
-  Friday: "Dum Aloo",
-  Saturday: "Lauki",
-};
-
 /** Days the non-veg plan swaps in a meat curry instead of that day's veg sabzi. Every other
- * weekday (Tue/Thu/Sat) falls back to `TIFFIN_WEEKLY_VEG_ROTATION`'s sabzi for that day. */
+ * weekday (Tue/Thu/Sat) falls back to that day's veg dish (see `TIFFIN_REGULAR_VEG_MENU`). */
 export const TIFFIN_NONVEG_CURRY_DAYS: Record<string, string> = {
   Monday: "Chicken Curry",
   Wednesday: "Fish Curry",
@@ -106,12 +91,11 @@ export const TiffinSubscriptionStatusSchema = z.enum(["active", "paused", "compl
 export type TiffinSubscriptionStatus = z.infer<typeof TiffinSubscriptionStatusSchema>;
 
 /** What the client POSTs to subscribe — no price, no schedule, server derives everything from the plan.
- * `mealType` is required only for a "single" style plan (the customer's lunch/dinner choice) — a
- * "twice-daily" plan ignores it and always schedules both. */
+ * `mealType` is required only for a "single" style plan (the customer's breakfast/lunch/dinner
+ * choice) — "twice-daily"/"thrice-daily" plans ignore it and always schedule their fixed set. */
 export const CreateTiffinSubscriptionRequestSchema = z.object({
   planId: z.string(),
   mealType: TiffinMealTypeSchema.optional(),
-  sundayVegChoice: SundayVegChoiceSchema.optional(),
   delivery: DeliveryDetailsSchema,
   paymentMethod: PaymentMethodSchema,
 });
@@ -134,9 +118,8 @@ export const TiffinSubscriptionSchema = z.object({
   planName: z.string(),
   dietType: TiffinDietTypeSchema,
   style: TiffinPlanStyleSchema,
-  /** What was actually subscribed — `["lunch"]` or `["dinner"]` for a "single" plan, `["lunch", "dinner"]` for "twice-daily". */
+  /** What was actually subscribed — one element for a "single" plan, all three for "thrice-daily". */
   mealTypes: z.array(TiffinMealTypeSchema).min(1),
-  sundayVegChoice: SundayVegChoiceSchema.optional(),
   status: TiffinSubscriptionStatusSchema,
   /** Snapshotted at subscribe time — determines cancellation eligibility (weekly plans can't be
    * cancelled) independent of any later pause-driven extension to `endDate`. */
@@ -153,3 +136,142 @@ export const TiffinSubscriptionSchema = z.object({
   createdAt: z.string(),
 });
 export type TiffinSubscription = z.infer<typeof TiffinSubscriptionSchema>;
+
+// --- Single-meal purchase (a one-off tiffin, no subscription) ---
+
+/** Three tiers of the one-off single-meal purchase — entirely separate from the subscription
+ * catalog above, which stays Regular-only and untiered. */
+export const TIFFIN_MEAL_TIERS = ["regular", "mini", "premium"] as const;
+export const TiffinMealTierSchema = z.enum(TIFFIN_MEAL_TIERS);
+export type TiffinMealTier = z.infer<typeof TiffinMealTierSchema>;
+
+/** Same values as `TiffinMealTypeSchema` but kept as its own named schema — single-meal
+ * purchases and subscriptions are unrelated features with independent lifecycles, so a change to
+ * one's meal-type handling shouldn't have to consider the other. */
+export const SINGLE_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
+export const SingleMealTypeSchema = z.enum(SINGLE_MEAL_TYPES);
+export type SingleMealType = z.infer<typeof SingleMealTypeSchema>;
+
+/** Only meaningful for the Mini tier — Regular includes both rice and roti, Premium substitutes
+ * paratha for roti (also included alongside rice), only Mini serves a single carb of the
+ * customer's choice. */
+export const TIFFIN_CARB_CHOICES = ["rice", "roti"] as const;
+export const TiffinCarbChoiceSchema = z.enum(TIFFIN_CARB_CHOICES);
+export type TiffinCarbChoice = z.infer<typeof TiffinCarbChoiceSchema>;
+
+export interface TiffinDailyMenu {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+}
+
+/** Curated from the business's real Regular Tiffin weekly menu (veg) — roti + rice + daal + sabzi,
+ * a distinct dish for breakfast/lunch/dinner each day. Mini reuses this table's lunch/dinner
+ * dishes (same sabzi, just one carb) — it has no separate menu of its own. */
+export const TIFFIN_REGULAR_VEG_MENU: Record<string, TiffinDailyMenu> = {
+  Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
+  Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
+  Wednesday: { breakfast: "Bread Omelette", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
+  Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
+  Friday: { breakfast: "Besan Chilla with Chutney & Achar", lunch: "Rajma", dinner: "Matar Chole" },
+  Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
+  Sunday: { breakfast: "Puri with Chole & Achar", lunch: "Lauki Masala", dinner: "Dum Aloo" },
+};
+
+/** Curated from the business's real Premium Tiffin weekly menu (veg) — same daily sabzi as
+ * Regular, served with paratha + daal fry instead of roti + daal, plus an upgraded Sunday. */
+export const TIFFIN_PREMIUM_VEG_MENU: Record<string, TiffinDailyMenu> = {
+  Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
+  Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
+  Wednesday: { breakfast: "Bread Omelette", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
+  Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
+  Friday: { breakfast: "Rice Chilla with Chutney & Achar", lunch: "Rajma", dinner: "Matar Chole" },
+  Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
+  Sunday: { breakfast: "Idli / Dosa with Sambar & Chutney", lunch: "Paneer Butter Masala with Pulao", dinner: "Puri with Chole" },
+};
+
+/** Single-meal non-veg curation — Regular/Premium swap in a meat curry at dinner on these days
+ * (both tiers share the same table); every other day/meal falls back to that tier's veg dish. */
+export const TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES: Record<string, string> = {
+  Monday: "Fish Curry",
+  Wednesday: "Egg Curry",
+  Friday: "Chicken Curry",
+};
+/** Premium's one extra non-veg upgrade beyond Regular's dinner swaps — Mutton at Sunday lunch. */
+export const TIFFIN_PREMIUM_NONVEG_LUNCH_OVERRIDES: Record<string, string> = {
+  Sunday: "Mutton Curry",
+};
+/** Mini deliberately has fewer non-veg days than Regular/Premium — just these two, both dinner. */
+export const TIFFIN_MINI_NONVEG_DINNER_OVERRIDES: Record<string, string> = {
+  Friday: "Egg Curry",
+  Sunday: "Chicken Curry",
+};
+
+/** Admin-configurable price per (tier, mealType) — never hardcoded, same convention as
+ * `TiffinPlanSchema.price`. Not every combo need exist (e.g. Mini has no breakfast row). */
+export const TiffinMealPriceSchema = z.object({
+  id: z.string(),
+  tier: TiffinMealTierSchema,
+  mealType: SingleMealTypeSchema,
+  price: z.number().positive(),
+  active: z.boolean(),
+});
+export type TiffinMealPrice = z.infer<typeof TiffinMealPriceSchema>;
+
+export const CreateTiffinMealPriceRequestSchema = z.object({
+  tier: TiffinMealTierSchema,
+  mealType: SingleMealTypeSchema,
+  price: z.number().positive(),
+  active: z.boolean().default(true),
+});
+export type CreateTiffinMealPriceRequest = z.infer<typeof CreateTiffinMealPriceRequestSchema>;
+
+export const UpdateTiffinMealPriceRequestSchema = CreateTiffinMealPriceRequestSchema.partial();
+export type UpdateTiffinMealPriceRequest = z.infer<typeof UpdateTiffinMealPriceRequestSchema>;
+
+/** What "tomorrow's menu" returns — two rows (veg + non-veg) per active (tier, mealType) price.
+ * Price is shared across diets — only the dish differs. */
+export const SingleMealMenuItemSchema = z.object({
+  tier: TiffinMealTierSchema,
+  mealType: SingleMealTypeSchema,
+  dietType: TiffinDietTypeSchema,
+  date: z.string(),
+  dishName: z.string(),
+  price: z.number().positive(),
+  carbChoiceRequired: z.boolean(),
+});
+export type SingleMealMenuItem = z.infer<typeof SingleMealMenuItemSchema>;
+
+export const CreateSingleMealOrderRequestSchema = z.object({
+  tier: TiffinMealTierSchema,
+  mealType: SingleMealTypeSchema,
+  dietType: TiffinDietTypeSchema,
+  carbChoice: TiffinCarbChoiceSchema.optional(),
+  delivery: DeliveryDetailsSchema,
+  paymentMethod: PaymentMethodSchema,
+});
+export type CreateSingleMealOrderRequest = z.infer<typeof CreateSingleMealOrderRequestSchema>;
+
+export const TiffinSingleMealOrderStatusSchema = z.enum(["placed", "preparing", "out-for-delivery", "delivered", "cancelled"]);
+export type TiffinSingleMealOrderStatus = z.infer<typeof TiffinSingleMealOrderStatusSchema>;
+
+/** Full persisted/returned single-meal order shape. */
+export const TiffinSingleMealOrderSchema = z.object({
+  id: z.string(),
+  orderNumber: z.string(),
+  userId: z.string(),
+  tier: TiffinMealTierSchema,
+  mealType: SingleMealTypeSchema,
+  dietType: TiffinDietTypeSchema,
+  carbChoice: TiffinCarbChoiceSchema.optional(),
+  /** ISO calendar date (yyyy-mm-dd) — the one day this meal is delivered, always tomorrow at order time. */
+  date: z.string(),
+  /** Snapshotted at order time — a later menu/price edit shouldn't retroactively rewrite what was ordered. */
+  dishName: z.string(),
+  status: TiffinSingleMealOrderStatusSchema,
+  delivery: DeliveryDetailsSchema,
+  price: z.number().positive(),
+  payment: TiffinPaymentInfoSchema,
+  createdAt: z.string(),
+});
+export type TiffinSingleMealOrder = z.infer<typeof TiffinSingleMealOrderSchema>;

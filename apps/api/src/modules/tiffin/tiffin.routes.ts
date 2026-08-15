@@ -14,6 +14,13 @@ import {
   postTiffinRazorpayVerify,
   postUnskipMeal,
 } from "./tiffin.controller.js";
+import {
+  getMySingleMealOrders,
+  getSingleMealMenu,
+  postSingleMealOrder,
+  postSingleMealRazorpayOrder,
+  postSingleMealRazorpayVerify,
+} from "./singleMeal.controller.js";
 
 /** GG Tiffin's own module — subscribing requires an account, same as the rest of ordering. */
 export function createTiffinRouter(env: Env): Router {
@@ -30,6 +37,14 @@ export function createTiffinRouter(env: Env): Router {
   router.post("/subscriptions/:id/cancel", requireAuth(env.JWT_SECRET), postCancelSubscription);
   router.post("/subscriptions/:id/razorpay-order", requireAuth(env.JWT_SECRET), postTiffinRazorpayOrder(env));
   router.post("/subscriptions/:id/razorpay-verify", requireAuth(env.JWT_SECRET), postTiffinRazorpayVerify(env));
+
+  // Single-meal purchase — a one-off tiffin, no subscription. The menu is public (same as /plans);
+  // ordering requires an account, same as everything else.
+  router.get("/single-meal/menu", getSingleMealMenu);
+  router.post("/single-meal/orders", requireAuth(env.JWT_SECRET), postSingleMealOrder(env));
+  router.get("/single-meal/orders/mine", requireAuth(env.JWT_SECRET), getMySingleMealOrders);
+  router.post("/single-meal/orders/:id/razorpay-order", requireAuth(env.JWT_SECRET), postSingleMealRazorpayOrder(env));
+  router.post("/single-meal/orders/:id/razorpay-verify", requireAuth(env.JWT_SECRET), postSingleMealRazorpayVerify(env));
 
   return router;
 }

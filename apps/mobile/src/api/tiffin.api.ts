@@ -1,8 +1,11 @@
 import type {
+  CreateSingleMealOrderRequest,
   CreateTiffinSubscriptionRequest,
   PauseTiffinSubscriptionRequest,
+  SingleMealMenuItem,
   TiffinPlan,
   TiffinScheduledMeal,
+  TiffinSingleMealOrder,
   TiffinSubscription,
 } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
@@ -87,4 +90,44 @@ export async function verifyTiffinRazorpayPaymentRequest(
   params: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
 ): Promise<void> {
   await apiClient.post(`/tiffin/subscriptions/${subscriptionId}/razorpay-verify`, params);
+}
+
+// --- Single-meal purchase (a one-off tiffin, no subscription) ---
+
+/** Public — same as useTiffinPlans, no auth needed just to browse tomorrow's menu. */
+export function useSingleMealMenu() {
+  return useQuery({
+    queryKey: ["tiffin-single-meal-menu"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ menu: SingleMealMenuItem[] }>("/tiffin/single-meal/menu");
+      return data.menu;
+    },
+  });
+}
+
+export function useMySingleMealOrders() {
+  return useQuery({
+    queryKey: ["tiffin-single-meal-orders-mine"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ orders: TiffinSingleMealOrder[] }>("/tiffin/single-meal/orders/mine");
+      return data.orders;
+    },
+  });
+}
+
+export async function createSingleMealOrderRequest(payload: CreateSingleMealOrderRequest): Promise<TiffinSingleMealOrder> {
+  const { data } = await apiClient.post<{ order: TiffinSingleMealOrder }>("/tiffin/single-meal/orders", payload);
+  return data.order;
+}
+
+export async function createSingleMealRazorpayOrderRequest(orderId: string): Promise<CreateTiffinRazorpayOrderResponse> {
+  const { data } = await apiClient.post<CreateTiffinRazorpayOrderResponse>(`/tiffin/single-meal/orders/${orderId}/razorpay-order`);
+  return data;
+}
+
+export async function verifySingleMealRazorpayPaymentRequest(
+  orderId: string,
+  params: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+): Promise<void> {
+  await apiClient.post(`/tiffin/single-meal/orders/${orderId}/razorpay-verify`, params);
 }

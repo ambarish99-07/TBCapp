@@ -7,7 +7,7 @@ const TiffinScheduledMealSchema = new Schema(
     subscriptionId: { type: Schema.Types.ObjectId, ref: "TiffinSubscription", required: true },
     // ISO calendar date (yyyy-mm-dd) — a specific day's meal, not a timestamp.
     date: { type: String, required: true },
-    mealType: { type: String, enum: ["lunch", "dinner"], required: true },
+    mealType: { type: String, enum: ["breakfast", "lunch", "dinner"], required: true },
     dishName: { type: String, required: true },
     status: {
       type: String,

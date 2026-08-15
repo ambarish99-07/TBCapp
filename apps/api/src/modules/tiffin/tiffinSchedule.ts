@@ -1,8 +1,7 @@
 import {
   TIFFIN_NONVEG_CURRY_DAYS,
   TIFFIN_NONVEG_SUNDAY_DISH,
-  TIFFIN_WEEKLY_VEG_ROTATION,
-  type SundayVegChoice,
+  TIFFIN_REGULAR_VEG_MENU,
   type TiffinDietType,
   type TiffinMealType,
 } from "@tbc/shared-types";
@@ -15,56 +14,51 @@ export interface ScheduledMealDraft {
   dishName: string;
 }
 
-const SUNDAY_VEG_DISH_NAME: Record<SundayVegChoice, string> = {
-  paneer: "Paneer Sabzi (Sunday Special)",
-  chole: "Chole (Sunday Special)",
-};
-
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
 /**
- * What GG Tiffin serves on a given day of the week, per the fixed weekly rotation. The only
- * customer choice anywhere in this schedule is a veg plan's Sunday paneer/chole pick — every
- * other day is determined purely by diet type + day name:
- * - Veg: Mon-Sat follow `TIFFIN_WEEKLY_VEG_ROTATION`; Sunday is the customer's paneer/chole choice.
- * - Non-veg: Mon/Wed/Fri get a meat curry (`TIFFIN_NONVEG_CURRY_DAYS`); Tue/Thu/Sat fall back to
- *   that day's veg sabzi (same as the veg plan); Sunday is always Mutton, no choice.
+ * What GG Tiffin serves on a given day/meal, per the real curated Regular Tiffin menu
+ * (subscriptions are always Regular tier — see `TIFFIN_REGULAR_VEG_MENU`):
+ * - Breakfast is the same dish regardless of diet type — no non-veg breakfast items exist.
+ * - Veg lunch/dinner follows the curated menu directly, every day including Sunday (fixed, no
+ *   customer choice).
+ * - Non-veg Mon/Wed/Fri swap in a meat curry (`TIFFIN_NONVEG_CURRY_DAYS`) for the whole day,
+ *   regardless of lunch or dinner; Sunday is always Mutton, also regardless of meal; every other
+ *   day/meal falls back to the same curated veg dish.
  */
-export function dishForDay(dietType: TiffinDietType, dayName: string, sundayVegChoice?: SundayVegChoice): string {
-  if (dayName === "Sunday") {
-    return dietType === "non-veg" ? TIFFIN_NONVEG_SUNDAY_DISH : SUNDAY_VEG_DISH_NAME[sundayVegChoice ?? "paneer"];
+export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
+  if (mealType === "breakfast") {
+    return TIFFIN_REGULAR_VEG_MENU[dayName].breakfast;
   }
-  if (dietType === "non-veg" && TIFFIN_NONVEG_CURRY_DAYS[dayName]) {
-    return TIFFIN_NONVEG_CURRY_DAYS[dayName];
+  if (dietType === "non-veg") {
+    if (dayName === "Sunday") return TIFFIN_NONVEG_SUNDAY_DISH;
+    if (TIFFIN_NONVEG_CURRY_DAYS[dayName]) return TIFFIN_NONVEG_CURRY_DAYS[dayName];
   }
-  return TIFFIN_WEEKLY_VEG_ROTATION[dayName];
+  return TIFFIN_REGULAR_VEG_MENU[dayName][mealType];
 }
 
 /**
  * Generates every scheduled meal for `durationDays` calendar days starting from `startDate`
- * (inclusive) — one row per (day, mealType) pair, so a "twice-daily" plan's two `mealTypes`
- * (`["lunch", "dinner"]`) produce two rows per day sharing that day's dish, while a "single"
- * plan's one-element array produces one. Called once, eagerly, at subscribe time (and again
- * when extending a subscription after a pause) — there's no scheduler process to generate
- * these day-by-day, so the full set has to exist up front.
+ * (inclusive) — one row per (day, mealType) pair, each with its own dish (a "twice-daily" or
+ * "thrice-daily" plan's meals genuinely differ by mealType now, matching the real menu). Called
+ * once, eagerly, at subscribe time (and again when extending a subscription after a pause) —
+ * there's no scheduler process to generate these day-by-day, so the full set has to exist up front.
  */
 export function computeMealsForRange(
   dietType: TiffinDietType,
   mealTypes: TiffinMealType[],
   startDate: Date,
-  durationDays: number,
-  sundayVegChoice?: SundayVegChoice
+  durationDays: number
 ): ScheduledMealDraft[] {
   const meals: ScheduledMealDraft[] = [];
   for (let i = 0; i < durationDays; i++) {
     const date = new Date(startDate);
     date.setUTCDate(date.getUTCDate() + i);
     const dayName = DAY_NAMES[date.getUTCDay()];
-    const dishName = dishForDay(dietType, dayName, sundayVegChoice);
     for (const mealType of mealTypes) {
-      meals.push({ date: toIsoDate(date), mealType, dishName });
+      meals.push({ date: toIsoDate(date), mealType, dishName: dishForDay(dietType, dayName, mealType) });
     }
   }
   return meals;

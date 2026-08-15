@@ -1,11 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
-  SUNDAY_VEG_CHOICES,
   TIFFIN_NONVEG_CURRY_DAYS,
   TIFFIN_NONVEG_SUNDAY_DISH,
-  TIFFIN_WEEKLY_VEG_ROTATION,
-  type SundayVegChoice,
+  TIFFIN_REGULAR_VEG_MENU,
+  type TiffinDietType,
   type TiffinMealType,
+  type TiffinPlanStyle,
 } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -18,26 +18,40 @@ type Props = NativeStackScreenProps<RootStackParamList, "TiffinPlanSelect">;
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-const SUNDAY_VEG_LABELS: Record<SundayVegChoice, string> = { paneer: "Paneer Sabzi", chole: "Chole" };
+const MEAL_TYPE_CHOICES: TiffinMealType[] = ["breakfast", "lunch", "dinner"];
+const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
-const MEAL_TYPE_CHOICES: TiffinMealType[] = ["lunch", "dinner"];
-const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { lunch: "Lunch", dinner: "Dinner" };
-
-function dishForPreview(dietType: "veg" | "non-veg", day: string, sundayVegChoice: SundayVegChoice): string {
-  if (day === "Sunday") {
-    return dietType === "non-veg" ? TIFFIN_NONVEG_SUNDAY_DISH : `${SUNDAY_VEG_LABELS[sundayVegChoice]} (Sunday Special)`;
-  }
-  if (dietType === "non-veg" && TIFFIN_NONVEG_CURRY_DAYS[day]) return TIFFIN_NONVEG_CURRY_DAYS[day];
-  return TIFFIN_WEEKLY_VEG_ROTATION[day];
+function styleMetaLabel(style: TiffinPlanStyle): string {
+  if (style === "twice-daily") return "Lunch & Dinner";
+  if (style === "thrice-daily") return "Breakfast, Lunch & Dinner";
+  return "Breakfast, Lunch, or Dinner";
 }
 
-/** Pick the Sunday special (veg only) and preview the fixed weekly schedule before subscribing. */
+/** What meal types this plan actually schedules, given the customer's "single" choice (if any) —
+ * mirrors the backend's resolveMealTypes exactly, so the preview below never lies. */
+function resolveMealTypesForPreview(style: TiffinPlanStyle, mealType: TiffinMealType): TiffinMealType[] {
+  if (style === "twice-daily") return ["lunch", "dinner"];
+  if (style === "thrice-daily") return ["breakfast", "lunch", "dinner"];
+  return [mealType];
+}
+
+/** Mirrors the backend's tiffinSchedule.ts#dishForDay exactly — subscriptions are always Regular
+ * tier, sourced from the real curated menu, Sunday fixed (no customer choice). */
+function dishForPreview(dietType: TiffinDietType, day: string, mealType: TiffinMealType): string {
+  if (mealType === "breakfast") return TIFFIN_REGULAR_VEG_MENU[day].breakfast;
+  if (dietType === "non-veg") {
+    if (day === "Sunday") return TIFFIN_NONVEG_SUNDAY_DISH;
+    if (TIFFIN_NONVEG_CURRY_DAYS[day]) return TIFFIN_NONVEG_CURRY_DAYS[day];
+  }
+  return TIFFIN_REGULAR_VEG_MENU[day][mealType];
+}
+
+/** Choose a meal type for "single" style plans, then preview the fixed weekly schedule before subscribing. */
 export function TiffinPlanSelectScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: plans, isLoading } = useTiffinPlans();
   const plan = plans?.find((p) => p.id === route.params.planId);
-  const [sundayVegChoice, setSundayVegChoice] = useState<SundayVegChoice>("paneer");
   const [mealType, setMealType] = useState<TiffinMealType>("lunch");
 
   if (isLoading) {
@@ -56,11 +70,12 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
     );
   }
 
+  const scheduledMealTypes = resolveMealTypesForPreview(plan.style, mealType);
+
   function handleContinue() {
     navigation.navigate("TiffinCheckout", {
       planId: route.params.planId,
       mealType: plan!.style === "single" ? mealType : undefined,
-      sundayVegChoice: plan!.dietType === "veg" ? sundayVegChoice : undefined,
     });
   }
 
@@ -68,14 +83,13 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{plan.name}</Text>
       <Text style={styles.meta}>
-        {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days ·{" "}
-        {plan.style === "twice-daily" ? "Lunch & Dinner" : "Lunch or Dinner"}
+        {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style)}
       </Text>
       <Text style={styles.price}>₹{plan.price}</Text>
 
       {plan.style === "single" && (
         <>
-          <Text style={styles.sectionTitle}>Choose Lunch or Dinner</Text>
+          <Text style={styles.sectionTitle}>Choose Breakfast, Lunch, or Dinner</Text>
           <View style={styles.choiceRow}>
             {MEAL_TYPE_CHOICES.map((choice) => (
               <Pressable
@@ -92,30 +106,16 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
         </>
       )}
 
-      {plan.dietType === "veg" && (
-        <>
-          <Text style={styles.sectionTitle}>Sunday Special — choose one</Text>
-          <View style={styles.choiceRow}>
-            {SUNDAY_VEG_CHOICES.map((choice) => (
-              <Pressable
-                key={choice}
-                onPress={() => setSundayVegChoice(choice)}
-                style={[styles.choiceChip, sundayVegChoice === choice && styles.choiceChipActive]}
-              >
-                <Text style={[styles.choiceChipText, sundayVegChoice === choice && styles.choiceChipTextActive]}>
-                  {SUNDAY_VEG_LABELS[choice]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
-      )}
-
       <Text style={styles.sectionTitle}>This Week's Schedule</Text>
       {WEEK_DAYS.map((day) => (
-        <View key={day} style={styles.scheduleRow}>
+        <View key={day} style={styles.scheduleDayGroup}>
           <Text style={styles.scheduleDay}>{day}</Text>
-          <Text style={styles.scheduleDish}>{dishForPreview(plan.dietType, day, sundayVegChoice)}</Text>
+          {scheduledMealTypes.map((type) => (
+            <View key={type} style={styles.scheduleRow}>
+              <Text style={styles.scheduleMealType}>{scheduledMealTypes.length > 1 ? MEAL_TYPE_LABELS[type] : ""}</Text>
+              <Text style={styles.scheduleDish}>{dishForPreview(plan.dietType, day, type)}</Text>
+            </View>
+          ))}
         </View>
       ))}
 
@@ -141,15 +141,11 @@ const makeStyles = (colors: ColorPalette) =>
     choiceChipActive: { backgroundColor: colors.primary },
     choiceChipText: { fontSize: 13, color: colors.text, fontWeight: "700" },
     choiceChipTextActive: { color: "#fff" },
-    scheduleRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
+    scheduleDayGroup: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
     scheduleDay: { fontSize: 13, fontWeight: "700", color: colors.text },
-    scheduleDish: { fontSize: 13, color: colors.muted },
+    scheduleRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
+    scheduleMealType: { fontSize: 12, color: colors.muted, width: 80 },
+    scheduleDish: { fontSize: 13, color: colors.muted, flex: 1, textAlign: "right" },
     continueButton: {
       backgroundColor: colors.primary,
       borderRadius: theme.radius,

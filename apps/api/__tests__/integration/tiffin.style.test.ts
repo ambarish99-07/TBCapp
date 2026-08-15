@@ -5,7 +5,7 @@ import { TiffinPlanModel } from "../../src/db/models/TiffinPlan.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 // Split into its own file (separate from tiffin.test.ts / tiffin.lifecycle.test.ts) so this
-// file gets its own signup rate-limit budget (5 per 15min) — it only needs 2.
+// file gets its own signup rate-limit budget (5 per 15min) — it needs 4.
 const env = testEnv();
 const app = createApp(env);
 
@@ -52,7 +52,7 @@ describe("plan style", () => {
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
       // mealType is irrelevant for a twice-daily plan — omitted deliberately.
-      .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.mealTypes).toEqual(["lunch", "dinner"]);
@@ -64,11 +64,59 @@ describe("plan style", () => {
     expect(meals.body.meals).toHaveLength(14);
     const day1 = meals.body.meals.filter((meal: { date: string }) => meal.date === meals.body.meals[0].date);
     expect(day1.map((meal: { mealType: string }) => meal.mealType).sort()).toEqual(["dinner", "lunch"]);
-    // Both meals that day share the same dish.
-    expect(new Set(day1.map((meal: { dishName: string }) => meal.dishName)).size).toBe(1);
+    // Lunch and dinner genuinely differ every day in the real curated menu — no longer sharing one dish.
+    expect(new Set(day1.map((meal: { dishName: string }) => meal.dishName)).size).toBe(2);
   });
 
-  it("rejects subscribing to a single-style plan without choosing lunch or dinner", async () => {
+  it("schedules breakfast, lunch, and dinner every day for a thrice-daily plan", async () => {
+    const plan = await TiffinPlanModel.create({
+      name: "Weekly Veg Plan — Thrice Daily",
+      dietType: "veg",
+      style: "thrice-daily",
+      durationDays: 7,
+      price: 2399,
+      active: true,
+    });
+    const token = await signup("thrice-daily@example.com", "9812400022");
+
+    const response = await request(app)
+      .post("/tiffin/subscriptions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "cod" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.subscription.mealTypes).toEqual(["breakfast", "lunch", "dinner"]);
+
+    const meals = await request(app)
+      .get(`/tiffin/subscriptions/${response.body.subscription.id}/meals`)
+      .set("Authorization", `Bearer ${token}`);
+    // 7 days x 3 meals/day.
+    expect(meals.body.meals).toHaveLength(21);
+    const day1 = meals.body.meals.filter((meal: { date: string }) => meal.date === meals.body.meals[0].date);
+    expect(day1.map((meal: { mealType: string }) => meal.mealType).sort()).toEqual(["breakfast", "dinner", "lunch"]);
+  });
+
+  it("lets a single-style plan choose breakfast", async () => {
+    const plan = await TiffinPlanModel.create({
+      name: "Weekly Veg Plan",
+      dietType: "veg",
+      style: "single",
+      durationDays: 7,
+      price: 899,
+      active: true,
+    });
+    const token = await signup("single-breakfast@example.com", "9812400023");
+
+    const response = await request(app)
+      .post("/tiffin/subscriptions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ planId: plan.id, mealType: "breakfast", delivery: validDelivery, paymentMethod: "cod" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.subscription.mealTypes).toEqual(["breakfast"]);
+  });
+
+  it("rejects subscribing to a single-style plan without choosing a meal type", async () => {
     const plan = await TiffinPlanModel.create({
       name: "Weekly Veg Plan",
       dietType: "veg",
@@ -82,7 +130,7 @@ describe("plan style", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, sundayVegChoice: "paneer", delivery: validDelivery });
+      .send({ planId: plan.id, delivery: validDelivery });
 
     expect(response.status).toBe(400);
   });
