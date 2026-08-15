@@ -48,6 +48,9 @@ export const TiffinPlanSchema = z.object({
   durationDays: z.number().int().positive(),
   /** Flat price for the whole plan duration — never hardcoded in application code, always admin-editable. */
   price: z.number().positive(),
+  /** Thumbnail shown on the plan card — same veg/non-veg tiffin photo shared across every plan
+   * of that diet, not a per-plan photo (there's no per-plan dish to photograph). */
+  imageUrl: z.string().optional(),
   active: z.boolean(),
   createdAt: z.string(),
 });
@@ -59,6 +62,7 @@ export const CreateTiffinPlanRequestSchema = z.object({
   style: TiffinPlanStyleSchema,
   durationDays: z.number().int().positive(),
   price: z.number().positive(),
+  imageUrl: z.string().optional(),
   active: z.boolean().default(true),
 });
 export type CreateTiffinPlanRequest = z.infer<typeof CreateTiffinPlanRequestSchema>;

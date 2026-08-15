@@ -49,6 +49,8 @@ export function MenuScreen({ navigation }: Props) {
   const [isBrandPickerOpen, setIsBrandPickerOpen] = useState(false);
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
+  const ggTiffinBrand = brands?.find((brand) => brand.id === "gg-tiffin");
+
   function handleOpenRestaurant(brand: Brand) {
     // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
     // own dedicated flow instead of the shake/mocktail RestaurantMenu tab+list UI.
@@ -183,7 +185,7 @@ export function MenuScreen({ navigation }: Props) {
       case "content":
         return (
           <View>
-            <BrandCarousel colors={colors} navigation={navigation} paused={isBrandPickerOpen} />
+            <BrandCarousel colors={colors} navigation={navigation} onOpenRestaurant={handleOpenRestaurant} paused={isBrandPickerOpen} />
 
             {items && items.length > 0 && (
               <HomeCollections
@@ -249,8 +251,15 @@ export function MenuScreen({ navigation }: Props) {
           </View>
 
           <Pressable style={styles.ggTiffinTab} onPress={() => navigation.navigate("TiffinLanding")}>
-            <Text style={styles.bottomIconEmoji}>🍱</Text>
-            <Text style={styles.bottomIconLabel}>GG Tiffin</Text>
+            {ggTiffinBrand?.logoUrl ? (
+              <Image source={{ uri: ggTiffinBrand.logoUrl }} style={styles.ggTiffinLogo} resizeMode="cover" />
+            ) : (
+              <Text style={styles.bottomIconEmoji}>🍱</Text>
+            )}
+            <View>
+              <Text style={styles.ggTiffinLabelLine}>GG</Text>
+              <Text style={styles.ggTiffinLabelLine}>Tiffin</Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -356,16 +365,22 @@ const makeStyles = (colors: ColorPalette) =>
     bottomDivider: { width: 1, backgroundColor: colors.border },
     bottomIconEmoji: { fontSize: 20 },
     bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
-    // Its own separate boundary, distinct from the left pill's shared border.
+    // Its own separate boundary, distinct from the left pill's shared border — logo on the left,
+    // "GG" / "Tiffin" stacked on the right, wider (not taller) than the left pill, and a distinct
+    // accent background so it reads as its own destination rather than another menu tab.
     ggTiffinTab: {
+      flexDirection: "row",
       alignItems: "center",
       paddingVertical: theme.spacing(1),
-      paddingHorizontal: theme.spacing(2),
+      paddingHorizontal: theme.spacing(3.5),
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.accent,
       borderRadius: theme.radius,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.accent,
+      gap: theme.spacing(1),
     },
+    ggTiffinLogo: { width: 42, height: 42, borderRadius: 21 },
+    ggTiffinLabelLine: { fontSize: 15, fontWeight: "800", color: "#fff", lineHeight: 17 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
     modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2) },

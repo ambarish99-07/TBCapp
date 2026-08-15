@@ -33,6 +33,7 @@ export function createApp(env: Env): Express {
   app.use(securityHeaders(env));
   app.use("/menu-images", express.static(path.join(PUBLIC_DIR, "menu-images")));
   app.use("/brand-images", express.static(path.join(PUBLIC_DIR, "brand-images")));
+  app.use("/tiffin-images", express.static(path.join(PUBLIC_DIR, "tiffin-images")));
   app.use(
     cors({
       origin: env.CORS_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean),

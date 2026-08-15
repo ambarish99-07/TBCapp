@@ -11,13 +11,23 @@ import { useBrandStore } from "../state/brandStore";
 
 const ROTATE_INTERVAL_MS = 4000;
 
+/** A distinct, brand-flavored line instead of a generic "Tap to explore" — falls back to that
+ * generic line for any brand not listed here, so a newly-added brand still shows something. */
+const BRAND_HERO_TAGLINES: Record<string, string> = {
+  tbc: "Every sip, a little celebration.",
+  "alchemy-tails": "Where mixology turns into magic.",
+  "gg-tiffin": "Ghar se door, par swaad ghar jaisa.",
+};
+
 interface Props {
   colors: ColorPalette;
   // Deliberately just the one method this component calls — same minimal-structural-type
   // convention as CartSummaryBar, not the full NativeStackNavigationProp.
   navigation: { navigate: (screen: "PremiumMembership" | "Login") => void };
-  /** Called after a brand is selected (e.g. so the host screen can scroll to top). */
-  onSelect?: (brand: Brand) => void;
+  /** Tapping anywhere on the hero (photo, tagline, all of it) opens that brand's own page —
+   * same handler MenuScreen already uses for the Restaurants row and brand picker, so GG Tiffin
+   * correctly lands on TiffinLanding while every other brand lands on RestaurantMenu. */
+  onOpenRestaurant: (brand: Brand) => void;
   /** True while something on top of Home (e.g. the "Choose a Brand" popup) needs the
    * selected brand to hold still — pauses rotation without unmounting anything. */
   paused?: boolean;
@@ -25,15 +35,13 @@ interface Props {
 
 /**
  * Streaming-app-style "burst photo" hero, auto-rotating through every live brand every few
- * seconds — tapping it switches the active brand in-place (no navigation away from this
- * screen). Below it, a real Premium Membership promo card (free delivery, ₹39/30 days —
- * genuinely purchasable, not a mockup) instead of the old row of brand "PIP" thumbnails —
- * brand switching is still reachable via the hero itself, the Menu footer button's brand
- * picker, and the Restaurants row further down Home.
+ * seconds — tapping it opens that brand's own page. Below it, a real Premium Membership promo
+ * card (free delivery, ₹39/30 days — genuinely purchasable, not a mockup) instead of the old row
+ * of brand "PIP" thumbnails — brand switching is still reachable via the Menu footer button's
+ * brand picker and the Restaurants row further down Home.
  */
-export function BrandCarousel({ colors, navigation, onSelect, paused }: Props) {
+export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: Props) {
   const { data: brands, isLoading, error } = useBrands();
-  const selectBrand = useBrandStore((state) => state.selectBrand);
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const isLoggedIn = useAuthStore((state) => !!state.user);
@@ -74,14 +82,22 @@ export function BrandCarousel({ colors, navigation, onSelect, paused }: Props) {
   // photo automatically. restoreBrand rather than selectBrand deliberately, so this ambient
   // rotation never silently clears whatever's already in the cart. Only runs at all while
   // Home is focused and nothing (like the brand picker) needs the selection to hold still.
+  // A ref, not the updater-function form of setActiveIndex, tracks the current index here —
+  // restoreBrand touches a different store, and calling it from inside a setState updater runs
+  // it during React's render/reconciliation phase, which is exactly what triggers "Cannot update
+  // a component while rendering a different component" once another screen (e.g. TiffinLanding)
+  // is also subscribed to brand state at the same time.
+  const activeIndexRef = useRef(0);
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
   useEffect(() => {
     if (!brands || brands.length <= 1 || !isRotating) return;
     const timer = setInterval(() => {
-      setActiveIndex((i) => {
-        const next = (i + 1) % brands.length;
-        restoreBrand(brands[next]);
-        return next;
-      });
+      const next = (activeIndexRef.current + 1) % brands.length;
+      setActiveIndex(next);
+      restoreBrand(brands[next]);
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [brands, restoreBrand, isRotating]);
@@ -95,8 +111,7 @@ export function BrandCarousel({ colors, navigation, onSelect, paused }: Props) {
 
   function handleSelect(brand: Brand, index: number) {
     setActiveIndex(index);
-    selectBrand(brand);
-    onSelect?.(brand);
+    onOpenRestaurant(brand);
   }
 
   if (isLoading) return null;
@@ -124,7 +139,7 @@ export function BrandCarousel({ colors, navigation, onSelect, paused }: Props) {
                 {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}
               </>
             )}
-            <Text style={styles.heroCta}>Tap to explore →</Text>
+            <Text style={styles.heroCta}>{BRAND_HERO_TAGLINES[activeBrand.id] ?? "Tap to explore →"}</Text>
           </View>
         </ImageBackground>
       </Pressable>

@@ -34,6 +34,11 @@ function brandHeroUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
   return `http://localhost:${env.PORT}/brand-images/${slug}-hero.png?v=${HERO_IMAGE_VERSION}`;
 }
 
+/** Tiffin plan-card thumbnail, served at /tiffin-images/<slug>.png. */
+function tiffinImageUrl(env: ReturnType<typeof loadEnv>, slug: string): string {
+  return `http://localhost:${env.PORT}/tiffin-images/${slug}.png`;
+}
+
 function buildBrands(env: ReturnType<typeof loadEnv>) {
   return [
     {
@@ -542,8 +547,8 @@ function buildCrossBrandCombos(allItemIds: string[]) {
  * breakfast/lunch/dinner; twice-daily, lunch and dinner; thrice-daily, all three) × two diets ×
  * two durations. Placeholder prices, fully editable afterward via the admin Tiffin Plans page
  * (never hardcoded anywhere else in the application). */
-function buildTiffinPlans() {
-  return [
+function buildTiffinPlans(env: ReturnType<typeof loadEnv>) {
+  const plans = [
     // Single — one meal a day, breakfast/lunch/dinner chosen at subscribe time.
     { name: "Weekly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
     { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
@@ -560,6 +565,9 @@ function buildTiffinPlans() {
     { name: "Monthly Veg Plan — Thrice Daily", dietType: "veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 8999, active: true },
     { name: "Monthly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 13999, active: true },
   ];
+  // Same shared veg/non-veg tiffin photo across every plan of that diet — there's no per-plan
+  // dish to photograph, unlike a MenuItem.
+  return plans.map((plan) => ({ ...plan, imageUrl: tiffinImageUrl(env, plan.dietType === "veg" ? "veg-tiffin" : "non-veg-tiffin") }));
 }
 
 /** One-off single-meal purchase prices, per (tier, mealType) — Mini deliberately has no
@@ -626,7 +634,7 @@ async function seed() {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
 
-  const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans());
+  const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans(env));
   const tiffinMealPrices = await TiffinMealPriceModel.insertMany(buildTiffinMealPrices());
 
   console.log(

@@ -9,6 +9,7 @@ const TiffinPlanSchema = new Schema(
     style: { type: String, enum: ["single", "twice-daily", "thrice-daily"], required: true },
     durationDays: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
+    imageUrl: { type: String },
     active: { type: Boolean, required: true, default: true },
   },
   {
