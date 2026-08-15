@@ -13,29 +13,24 @@ import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { getSingleMealDish } from "./singleMealMenu.js";
+import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
-/** Single meals are always delivered the day after ordering, same as a fresh subscription's
- * start — there's no way to have a meal ready within minutes of ordering. */
-function tomorrowIsoDate(): string {
-  const date = new Date();
-  date.setUTCHours(0, 0, 0, 0);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
 
-/** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish differs. */
+/** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish
+ * differs. Each meal type resolves its own target date (see mealOrderingWindow.ts) — lunch/dinner
+ * can be today or tomorrow depending on the ordering cutoff, breakfast is always tomorrow. */
 export async function getSingleMealMenu(): Promise<SingleMealMenuItem[]> {
-  const date = tomorrowIsoDate();
+  const now = new Date();
   const prices = await TiffinMealPriceModel.find({ active: true }).sort({ tier: 1, mealType: 1 });
 
   const items: SingleMealMenuItem[] = [];
   for (const price of prices) {
     const tier = price.tier as SingleMealMenuItem["tier"];
     const mealType = price.mealType as SingleMealMenuItem["mealType"];
+    const date = resolveSingleMealTargetDate(mealType, now);
     for (const dietType of DIET_TYPES) {
       const dishName = getSingleMealDish(tier, dietType, mealType, date);
       if (!dishName) continue;
@@ -54,7 +49,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     throw new TiffinValidationError("Please choose rice or roti");
   }
 
-  const date = tomorrowIsoDate();
+  const date = resolveSingleMealTargetDate(request.mealType, new Date());
   const dishName = getSingleMealDish(request.tier, request.dietType, request.mealType, date);
   if (!dishName) {
     throw new TiffinValidationError("This meal isn't available right now");
@@ -168,11 +163,9 @@ export function listMySingleMealOrders(userId: string) {
 
 // --- Admin-only ---
 
-/** Scoped to today, same as listTodaysScheduledMeals — a single-meal order is always placed for
- * "tomorrow" delivery, so by the time it needs prepping it's today's order. */
+/** Scoped to today (IST) — same day-boundary the orders themselves were dated under. */
 export function listTodaysSingleMealOrders() {
-  const today = new Date().toISOString().slice(0, 10);
-  return TiffinSingleMealOrderModel.find({ date: today }).sort({ dishName: 1 });
+  return TiffinSingleMealOrderModel.find({ date: todayIsoInIst() }).sort({ dishName: 1 });
 }
 
 export async function updateSingleMealOrderStatus(orderId: string, status: string) {

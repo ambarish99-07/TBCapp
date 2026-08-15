@@ -26,6 +26,8 @@ export type RootStackParamList = {
     price: number;
     carbChoice?: "rice" | "roti";
   };
+  // ₹39/30-day free-delivery membership — reached from the Home carousel's promo card.
+  PremiumMembership: undefined;
   Cart: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.

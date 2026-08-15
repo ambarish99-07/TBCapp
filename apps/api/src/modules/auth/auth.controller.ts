@@ -19,13 +19,14 @@ const MOCK_OTP_CODE = "123456";
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 
-function toPublicUser(doc: {
+export function toPublicUser(doc: {
   _id: unknown;
   email?: string | null;
   fullName: string;
   phone?: string | null;
   role: "customer" | "admin";
   loyalty: { completedOrderCount: number; isPremiumMemberOverride: boolean };
+  premiumMembershipExpiresAt?: Date | null;
   houseNumber?: string | null;
   area?: string | null;
   address?: string | null;
@@ -40,6 +41,7 @@ function toPublicUser(doc: {
     phone: doc.phone ?? undefined,
     role: doc.role,
     loyalty: doc.loyalty,
+    premiumMembershipExpiresAt: doc.premiumMembershipExpiresAt?.toISOString(),
     houseNumber: doc.houseNumber ?? undefined,
     area: doc.area ?? undefined,
     address: doc.address ?? undefined,

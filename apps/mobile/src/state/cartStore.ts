@@ -31,6 +31,7 @@ interface AuthContext {
   isLoggedIn: boolean;
   loyalty: LoyaltyState;
   distanceFromShopKm?: number | null;
+  hasFreeDeliveryMembership?: boolean;
 }
 
 interface CartState {
@@ -112,6 +113,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       isLoggedIn: auth.isLoggedIn,
       loyalty: auth.loyalty,
       distanceFromShopKm: auth.distanceFromShopKm,
+      hasFreeDeliveryMembership: auth.hasFreeDeliveryMembership,
     });
   },
 }));

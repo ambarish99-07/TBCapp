@@ -183,7 +183,7 @@ export function MenuScreen({ navigation }: Props) {
       case "content":
         return (
           <View>
-            <BrandCarousel colors={colors} paused={isBrandPickerOpen} />
+            <BrandCarousel colors={colors} navigation={navigation} paused={isBrandPickerOpen} />
 
             {items && items.length > 0 && (
               <HomeCollections

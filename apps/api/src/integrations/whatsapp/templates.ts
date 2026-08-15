@@ -10,4 +10,5 @@ export const WHATSAPP_TEMPLATES = {
   BULK_ORDER_INQUIRY: "tbc_bulk_order_inquiry",
   NEW_TIFFIN_SUBSCRIPTION_ALERT: "tbc_new_tiffin_subscription_alert",
   NEW_SINGLE_MEAL_ORDER_ALERT: "tbc_new_single_meal_order_alert",
+  NEW_PREMIUM_MEMBERSHIP_ALERT: "tbc_new_premium_membership_alert",
 } as const;

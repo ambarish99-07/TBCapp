@@ -22,6 +22,9 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   // Snapshot the account's own identity at order time — independent of
   // `delivery`, which may belong to someone else entirely (see deliveryFor).
   let customer: { name: string; phone?: string } | undefined;
+  // Independent of `loyalty` above — a purchased Premium Membership (see modules/premiumMembership),
+  // not the earned 15-order tier. Only ever waives the delivery fee, never the loyalty discount.
+  let hasFreeDeliveryMembership = false;
 
   if (userId) {
     const user = await UserModel.findById(userId);
@@ -29,6 +32,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     loyalty.completedOrderCount = user.loyalty.completedOrderCount;
     loyalty.isPremiumMemberOverride = user.loyalty.isPremiumMemberOverride;
     customer = { name: user.fullName, phone: user.phone ?? undefined };
+    hasFreeDeliveryMembership = !!user.premiumMembershipExpiresAt && user.premiumMembershipExpiresAt > new Date();
   }
 
   const pricingResult = computePricing({
@@ -36,6 +40,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     isLoggedIn: userId !== null,
     loyalty,
     distanceFromShopKm: request.delivery.distanceFromShopKm ?? null,
+    hasFreeDeliveryMembership,
   });
 
   const order = await OrderModel.create({

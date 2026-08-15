@@ -7,3 +7,4 @@ export * from "./bulkOrder.js";
 export * from "./brand.js";
 export * from "./browseCategory.js";
 export * from "./tiffin.js";
+export * from "./premiumMembership.js";

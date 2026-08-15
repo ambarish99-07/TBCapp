@@ -45,6 +45,9 @@ export function PriceBreakdown({ result }: { result: PricingResult }) {
       <View style={styles.divider} />
       <Row label="Total" value={`₹${result.total}`} />
       {result.isPremiumMember && <Text style={styles.premiumNote}>✨ Premium member pricing applied</Text>}
+      {result.hasFreeDeliveryMembership && result.deliveryFee === 0 && (
+        <Text style={styles.premiumNote}>👑 Free delivery — Premium Membership</Text>
+      )}
     </View>
   );
 }

@@ -26,6 +26,7 @@ import { TiffinCheckoutScreen } from "../screens/Tiffin/TiffinCheckoutScreen";
 import { TiffinLandingScreen } from "../screens/Tiffin/TiffinLandingScreen";
 import { TiffinPlanSelectScreen } from "../screens/Tiffin/TiffinPlanSelectScreen";
 import { TiffinSingleMealCheckoutScreen } from "../screens/Tiffin/TiffinSingleMealCheckoutScreen";
+import { PremiumMembershipScreen } from "../screens/PremiumMembership/PremiumMembershipScreen";
 import { TiffinSingleMealScreen } from "../screens/Tiffin/TiffinSingleMealScreen";
 import { useAuthStore } from "../state/authStore";
 import { useTheme } from "../state/themeStore";
@@ -97,6 +98,7 @@ export function RootNavigator() {
               component={TiffinSingleMealCheckoutScreen}
               options={{ title: "Checkout" }}
             />
+            <Stack.Screen name="PremiumMembership" component={PremiumMembershipScreen} options={{ title: "Premium Membership" }} />
             <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
             <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />

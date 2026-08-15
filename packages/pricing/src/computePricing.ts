@@ -38,7 +38,8 @@ export function computePricing(input: PricingInput): PricingResult {
 
   const isWithinFreeDeliveryRadius =
     isPremiumMember && input.distanceFromShopKm != null && input.distanceFromShopKm <= FREE_DELIVERY_RADIUS_KM;
-  const deliveryFee = isWithinFreeDeliveryRadius || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const hasFreeDeliveryMembership = input.hasFreeDeliveryMembership ?? false;
+  const deliveryFee = isWithinFreeDeliveryRadius || hasFreeDeliveryMembership || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
 
   const taxableAmount = subtotal - discountAmount - milestoneReward.amount;
   const tax = round(taxableAmount * TAX_PCT);
@@ -52,6 +53,7 @@ export function computePricing(input: PricingInput): PricingResult {
     discountReason,
     rewardAmount: milestoneReward.amount,
     rewardReason: milestoneReward.reason,
+    hasFreeDeliveryMembership,
     deliveryFee,
     tax,
     total,

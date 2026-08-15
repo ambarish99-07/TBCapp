@@ -21,6 +21,9 @@ const UserSchema = new Schema(
     fullName: { type: String, required: true },
     role: { type: String, enum: ["customer", "admin"], required: true, default: "customer" },
     loyalty: { type: LoyaltyStateSchema, required: true, default: () => ({}) },
+    // A purchased Premium Membership — distinct from the earned `loyalty` tier above.
+    // Undefined/past means no active membership. See modules/premiumMembership.
+    premiumMembershipExpiresAt: { type: Date },
     // The account's own address — separate from the multi-address "saved recipients" system
     // (SavedRecipient) used at checkout; this is the one place a customer's own locality lives.
     houseNumber: { type: String },

@@ -28,6 +28,13 @@ export interface PricingInput {
    * members; null/undefined means "unknown", never treated as in-range.
    */
   distanceFromShopKm?: number | null;
+  /**
+   * Resolved (already time-checked by the caller) flag for a purchased, active
+   * Premium Membership — independent of `loyalty`/`isPremiumMember`. Waives the
+   * delivery fee outright, regardless of distance or subtotal, but never affects
+   * the quantity-tier/premium discount.
+   */
+  hasFreeDeliveryMembership?: boolean;
 }
 
 export type DiscountReason = "none" | "quantity-tier" | "premium";
@@ -42,6 +49,8 @@ export interface PricingResult {
   /** The 6th/16th/26th... (50% off a cold coffee) or 10th/20th/30th... (one drink free) milestone reward amount, if this order qualifies. */
   rewardAmount: number;
   rewardReason: "none" | "sixth-order-cold-coffee" | "tenth-order-free-drink";
+  /** Whether the delivery fee was waived because of a purchased Premium Membership (not the loyalty-tier free-delivery radius). */
+  hasFreeDeliveryMembership: boolean;
   deliveryFee: number;
   tax: number;
   total: number;

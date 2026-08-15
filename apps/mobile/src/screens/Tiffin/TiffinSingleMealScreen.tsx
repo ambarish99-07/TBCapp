@@ -26,6 +26,18 @@ const MEAL_TYPE_ORDER: SingleMealMenuItem["mealType"][] = ["breakfast", "lunch",
 const CARB_CHOICES: TiffinCarbChoice[] = ["rice", "roti"];
 const CARB_CHOICE_LABELS: Record<TiffinCarbChoice, string> = { rice: "Rice", roti: "Roti" };
 
+/** Lunch/dinner can land on today or tomorrow depending on the ordering cutoff (see
+ * mealOrderingWindow.ts on the API) — breakfast is always tomorrow. Device-local time is fine
+ * here since it's just a display label, not the actual cutoff enforcement. */
+function deliveryDayLabel(isoDate: string): string {
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  const tomorrowIso = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (isoDate === todayIso) return "Today";
+  if (isoDate === tomorrowIso) return "Tomorrow";
+  return isoDate;
+}
+
 /** A one-off "buy tomorrow's tiffin" purchase — no subscription, picked from a Veg/Non-Veg
  * section, each with three curated tiers. Mini additionally needs a rice-or-roti choice before
  * it can be ordered (it serves only one carb, unlike Regular/Premium which include both). */
@@ -82,7 +94,11 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Order a Single Meal</Text>
-        <Text style={styles.subtitle}>No subscription needed — pick tomorrow's meal and pay once.</Text>
+        <Text style={styles.subtitle}>No subscription needed — pick a meal and pay once.</Text>
+        <Text style={styles.freshNote}>
+          🍳 Freshly prepared per order — no wastage. Lunch & dinner ordered in time are cooked and delivered the same
+          day; order after the cutoff and it moves to the next day.
+        </Text>
 
         <View style={styles.tabs}>
           {DIET_TABS.map((tab) => (
@@ -112,7 +128,9 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
               onPress={() => handleSelectItem(item)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.mealType}>{MEAL_TYPE_LABELS[item.mealType]}</Text>
+                <Text style={styles.mealType}>
+                  {MEAL_TYPE_LABELS[item.mealType]} · {deliveryDayLabel(item.date)}
+                </Text>
                 <Text style={styles.mealDish}>{item.dishName}</Text>
               </View>
               <Text style={styles.mealPrice}>₹{item.price}</Text>
@@ -156,7 +174,8 @@ const makeStyles = (colors: ColorPalette) =>
     screen: { flex: 1, backgroundColor: colors.background },
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
     title: { fontSize: 20, fontWeight: "800", color: colors.text },
-    subtitle: { fontSize: 13, color: colors.muted, marginTop: 4, marginBottom: theme.spacing(2) },
+    subtitle: { fontSize: 13, color: colors.muted, marginTop: 4 },
+    freshNote: { fontSize: 12, color: colors.muted, marginTop: theme.spacing(1), marginBottom: theme.spacing(2), lineHeight: 17 },
     tabs: { flexDirection: "row", gap: 8, marginBottom: theme.spacing(2) },
     tab: { flex: 1, paddingVertical: 8, borderRadius: 16, backgroundColor: colors.surface, alignItems: "center" },
     tabActive: { backgroundColor: colors.primary },

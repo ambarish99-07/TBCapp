@@ -148,6 +148,43 @@ describe("computePricing — premium membership", () => {
   });
 });
 
+describe("computePricing — paid Premium Membership (independent of the loyalty premium tier)", () => {
+  it("waives the delivery fee regardless of distance or subtotal, for a non-loyalty-premium customer", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: baseLoyalty,
+      distanceFromShopKm: 50,
+      hasFreeDeliveryMembership: true,
+    });
+    expect(result.deliveryFee).toBe(0);
+    expect(result.hasFreeDeliveryMembership).toBe(true);
+  });
+
+  it("does not grant the loyalty-tier 25% discount — only the delivery fee is affected", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 1000, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: baseLoyalty,
+      hasFreeDeliveryMembership: true,
+    });
+    expect(result.isPremiumMember).toBe(false);
+    expect(result.discountReason).toBe("none");
+    expect(result.discountAmount).toBe(0);
+    expect(result.deliveryFee).toBe(0);
+  });
+
+  it("defaults to false and charges the normal delivery fee when omitted", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: baseLoyalty,
+    });
+    expect(result.hasFreeDeliveryMembership).toBe(false);
+    expect(result.deliveryFee).toBe(39);
+  });
+});
+
 describe("computePricing — milestone rewards stack on top of the discount", () => {
   it("order #6 stacks the cold-coffee reward with whatever quantity discount applies", () => {
     const result = computePricing({

@@ -169,9 +169,17 @@ export function MyTiffinScreen({ navigation }: Props) {
     const isMonthly = subscription.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
     const daysElapsed = Math.floor((Date.now() - new Date(`${subscription.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24));
     const withinRefundWindow = isMonthly && daysElapsed < CANCELLATION_FULL_REFUND_WINDOW_DAYS;
-    const message = withinRefundWindow
-      ? `You'll get ${CANCELLATION_REFUND_PERCENT * 100}% of what you paid refunded since it's within the first ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days.`
-      : `It's been ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days or more since your subscription started, so no refund applies.`;
+
+    // Full policy, both points — not just whichever one currently applies — so the customer can
+    // see the whole picture before deciding whether to cancel now or wait.
+    const message = [
+      `• Within the first ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days: ${CANCELLATION_REFUND_PERCENT * 100}% refund.`,
+      `• Day ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} or later: no refund.`,
+      "",
+      withinRefundWindow
+        ? `You're within the first ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days, so you'll get a ${CANCELLATION_REFUND_PERCENT * 100}% refund.`
+        : `It's been ${CANCELLATION_FULL_REFUND_WINDOW_DAYS} days or more, so no refund applies.`,
+    ].join("\n");
 
     Alert.alert("Cancel subscription?", message, [
       { text: "Keep Subscription", style: "cancel" },
@@ -245,7 +253,25 @@ export function MyTiffinScreen({ navigation }: Props) {
           )}
       </View>
 
+      {(subscription.status === "active" || subscription.status === "paused") &&
+        subscription.durationDays !== TIFFIN_PLAN_DURATIONS.weekly && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Cancellation Policy</Text>
+            <Text style={styles.policyPoint}>
+              • Cancel within the first {CANCELLATION_FULL_REFUND_WINDOW_DAYS} days of your plan starting — get{" "}
+              {CANCELLATION_REFUND_PERCENT * 100}% of what you paid refunded.
+            </Text>
+            <Text style={styles.policyPoint}>
+              • Cancel on day {CANCELLATION_FULL_REFUND_WINDOW_DAYS} or later — no refund applies.
+            </Text>
+          </View>
+        )}
+
       <Text style={styles.sectionTitle}>Upcoming Meals</Text>
+      <Text style={styles.skipExplainer}>
+        Not going to be home for a meal? Skip it — that day won't be prepared or delivered. Changed your mind? Undo
+        brings it back, as long as it's still early enough before that day.
+      </Text>
       {(meals ?? []).map((meal) => (
         <View key={meal.id} style={styles.mealRow}>
           <View style={{ flex: 1 }}>
@@ -290,6 +316,8 @@ const makeStyles = (colors: ColorPalette) =>
     planName: { fontSize: 17, fontWeight: "800", color: colors.text },
     meta: { fontSize: 12, color: colors.muted, marginTop: 4 },
     sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: theme.spacing(1) },
+    policyPoint: { fontSize: 12, color: colors.muted, lineHeight: 18, marginTop: 4 },
+    skipExplainer: { fontSize: 12, color: colors.muted, lineHeight: 17, marginBottom: theme.spacing(1) },
     nextMealDish: { fontSize: 16, fontWeight: "700", color: colors.primary, marginTop: 4 },
     actionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: theme.spacing(2) },
     actionButton: { borderWidth: 1, borderColor: colors.border, borderRadius: theme.radius, paddingVertical: 10, paddingHorizontal: 16 },

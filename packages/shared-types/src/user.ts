@@ -40,6 +40,9 @@ export const UserSchema = UserAddressFieldsSchema.extend({
   phone: z.string().optional(),
   role: UserRoleSchema,
   loyalty: LoyaltyStateSchema,
+  /** A purchased Premium Membership (see tiffin.ts sibling `premiumMembership.ts`) — distinct
+   * from the earned `loyalty` tier above. Undefined/past means no active membership. */
+  premiumMembershipExpiresAt: z.string().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 

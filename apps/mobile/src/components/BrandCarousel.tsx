@@ -1,16 +1,21 @@
 import { useIsFocused } from "@react-navigation/native";
 import type { Brand } from "@tbc/shared-types";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
+import { usePremiumMembershipStatus } from "../api/premiumMembership.api";
 import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
+import { useAuthStore } from "../state/authStore";
 import { useBrandStore } from "../state/brandStore";
 
 const ROTATE_INTERVAL_MS = 4000;
 
 interface Props {
   colors: ColorPalette;
+  // Deliberately just the one method this component calls — same minimal-structural-type
+  // convention as CartSummaryBar, not the full NativeStackNavigationProp.
+  navigation: { navigate: (screen: "PremiumMembership" | "Login") => void };
   /** Called after a brand is selected (e.g. so the host screen can scroll to top). */
   onSelect?: (brand: Brand) => void;
   /** True while something on top of Home (e.g. the "Choose a Brand" popup) needs the
@@ -18,24 +23,46 @@ interface Props {
   paused?: boolean;
 }
 
-function handlePremiumPress() {
-  Alert.alert("Premium Membership", "Get free delivery on every order for just ₹39/month. Coming soon!");
-}
-
 /**
  * Streaming-app-style "burst photo" hero, auto-rotating through every live brand every few
  * seconds — tapping it switches the active brand in-place (no navigation away from this
- * screen). Below it, a Premium Membership promo card (free delivery, ₹39/month) instead of
- * the old row of brand "PIP" thumbnails — brand switching is still reachable via the hero
- * itself, the Menu footer button's brand picker, and the Restaurants row further down Home.
+ * screen). Below it, a real Premium Membership promo card (free delivery, ₹39/30 days —
+ * genuinely purchasable, not a mockup) instead of the old row of brand "PIP" thumbnails —
+ * brand switching is still reachable via the hero itself, the Menu footer button's brand
+ * picker, and the Restaurants row further down Home.
  */
-export function BrandCarousel({ colors, onSelect, paused }: Props) {
+export function BrandCarousel({ colors, navigation, onSelect, paused }: Props) {
   const { data: brands, isLoading, error } = useBrands();
   const selectBrand = useBrandStore((state) => state.selectBrand);
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
+  const isLoggedIn = useAuthStore((state) => !!state.user);
+  const { data: membershipStatus } = usePremiumMembershipStatus({ enabled: isLoggedIn });
   const [activeIndex, setActiveIndex] = useState(0);
   const styles = makeStyles(colors);
+  const isExpiredMember = !!membershipStatus && !membershipStatus.active && !!membershipStatus.expiresAt;
+
+  function handlePremiumPress() {
+    navigation.navigate(isLoggedIn ? "PremiumMembership" : "Login");
+  }
+
+  // Nudges the customer starting 2 days before expiry — fires once per mount (not on every
+  // status refetch) so it doesn't nag every time Home re-renders while it's still true.
+  const reminderShownRef = useRef(false);
+  useEffect(() => {
+    if (reminderShownRef.current) return;
+    if (!membershipStatus?.active || !membershipStatus.expiresAt) return;
+    const daysUntilExpiry = Math.ceil((new Date(membershipStatus.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (daysUntilExpiry > 2 || daysUntilExpiry < 0) return;
+    reminderShownRef.current = true;
+    Alert.alert(
+      "Membership expiring soon",
+      daysUntilExpiry === 0
+        ? "Your Premium Membership expires today. Renew now to keep free delivery."
+        : `Your Premium Membership expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"}. Renew now to keep free delivery.`,
+      [{ text: "Later", style: "cancel" }, { text: "Renew Now", onPress: () => navigation.navigate("PremiumMembership") }]
+    );
+  }, [membershipStatus, navigation]);
   // React Navigation keeps Home mounted underneath a pushed screen (e.g. RestaurantMenu) —
   // without this, rotation kept running in the background and silently swapped the brand
   // being viewed on that other screen out from under the customer.
@@ -119,12 +146,28 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
               <Text style={styles.premiumCrown}>👑</Text>
               <View>
                 <Text style={styles.premiumTitle}>Premium Membership</Text>
-                <Text style={styles.premiumSubtitle}>Free delivery · ₹39/month</Text>
+                <Text style={styles.premiumSubtitle}>
+                  {membershipStatus?.active
+                    ? `Active until ${membershipStatus.expiresAt?.slice(0, 10)}`
+                    : isExpiredMember
+                      ? `Expired on ${membershipStatus?.expiresAt?.slice(0, 10)}`
+                      : "Free delivery · ₹39/month"}
+                </Text>
               </View>
             </View>
-            <View style={styles.premiumCta}>
-              <Text style={styles.premiumCtaText}>Upgrade to Premium</Text>
-            </View>
+            {membershipStatus?.active ? (
+              <View style={styles.premiumStatusBadge}>
+                <Text style={styles.premiumStatusBadgeText}>✓ Active</Text>
+              </View>
+            ) : isExpiredMember ? (
+              <View style={styles.premiumRenewTab}>
+                <Text style={styles.premiumRenewTabText}>Renew Now!</Text>
+              </View>
+            ) : (
+              <View style={styles.premiumCta}>
+                <Text style={styles.premiumCtaText}>Upgrade to Premium</Text>
+              </View>
+            )}
           </View>
         </LinearGradient>
       </Pressable>
@@ -194,4 +237,25 @@ const makeStyles = (colors: ColorPalette) =>
       alignItems: "center",
     },
     premiumCtaText: { fontSize: 16, fontWeight: "800", color: "#171310" },
+    // Quiet status badge — nothing to do while active, so it deliberately doesn't look like a
+    // button the way the CTA pill above does.
+    premiumStatusBadge: {
+      marginTop: theme.spacing(1.5),
+      borderWidth: 1,
+      borderColor: "rgba(245,230,200,0.6)",
+      borderRadius: theme.radius,
+      paddingVertical: 6,
+      paddingHorizontal: theme.spacing(2),
+    },
+    premiumStatusBadgeText: { fontSize: 13, fontWeight: "700", color: "#F5E6C8" },
+    // Small and urgent — a distinct color from the gold CTA/badge above, on purpose, so an
+    // expired membership reads differently from "active" or "never purchased."
+    premiumRenewTab: {
+      marginTop: theme.spacing(1.5),
+      backgroundColor: "#E23B3B",
+      borderRadius: theme.radius,
+      paddingVertical: 6,
+      paddingHorizontal: theme.spacing(2),
+    },
+    premiumRenewTabText: { fontSize: 13, fontWeight: "800", color: "#fff" },
   });
