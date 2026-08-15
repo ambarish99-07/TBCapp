@@ -28,6 +28,7 @@ import { TiffinPlanSelectScreen } from "../screens/Tiffin/TiffinPlanSelectScreen
 import { TiffinSingleMealCheckoutScreen } from "../screens/Tiffin/TiffinSingleMealCheckoutScreen";
 import { PremiumMembershipScreen } from "../screens/PremiumMembership/PremiumMembershipScreen";
 import { TiffinSingleMealScreen } from "../screens/Tiffin/TiffinSingleMealScreen";
+import { TiffinWeeklyMenuScreen } from "../screens/Tiffin/TiffinWeeklyMenuScreen";
 import { useAuthStore } from "../state/authStore";
 import { useTheme } from "../state/themeStore";
 import type { RootStackParamList } from "./types";
@@ -89,6 +90,7 @@ export function RootNavigator() {
             />
             <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Deals" }} />
             <Stack.Screen name="TiffinLanding" component={TiffinLandingScreen} options={{ title: "GG Tiffin" }} />
+            <Stack.Screen name="TiffinWeeklyMenu" component={TiffinWeeklyMenuScreen} options={{ title: "Weekly Menu" }} />
             <Stack.Screen name="TiffinPlanSelect" component={TiffinPlanSelectScreen} options={{ title: "Choose Your Plan" }} />
             <Stack.Screen name="TiffinCheckout" component={TiffinCheckoutScreen} options={{ title: "Subscribe" }} />
             <Stack.Screen name="MyTiffin" component={MyTiffinScreen} options={{ title: "My Tiffin" }} />

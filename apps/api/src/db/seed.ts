@@ -552,8 +552,8 @@ function buildTiffinPlans(env: ReturnType<typeof loadEnv>) {
     // Single — one meal a day, breakfast/lunch/dinner chosen at subscribe time.
     { name: "Weekly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 899, active: true },
     { name: "Weekly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1399, active: true },
-    { name: "Monthly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, active: true },
-    { name: "Monthly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 5499, active: true },
+    { name: "Monthly Veg Plan", dietType: "veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 3499, salePercent: 20, active: true },
+    { name: "Monthly Non-Veg Plan", dietType: "non-veg" as const, style: "single" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 5499, salePercent: 25, active: true },
     // Twice-daily — both lunch and dinner, every day.
     { name: "Weekly Veg Plan — Twice Daily", dietType: "veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 1699, active: true },
     { name: "Weekly Non-Veg Plan — Twice Daily", dietType: "non-veg" as const, style: "twice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 2599, active: true },
@@ -563,7 +563,9 @@ function buildTiffinPlans(env: ReturnType<typeof loadEnv>) {
     { name: "Weekly Veg Plan — Thrice Daily", dietType: "veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 2399, active: true },
     { name: "Weekly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.weekly, price: 3599, active: true },
     { name: "Monthly Veg Plan — Thrice Daily", dietType: "veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 8999, active: true },
-    { name: "Monthly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 13999, active: true },
+    // "Premium" offer — the most complete non-veg subscription (all 3 meals/day), not a separate
+    // tier (subscriptions are always Regular tier; Premium/Mini only exist for single-meal orders).
+    { name: "Monthly Non-Veg Plan — Thrice Daily", dietType: "non-veg" as const, style: "thrice-daily" as const, durationDays: TIFFIN_PLAN_DURATIONS.monthly, price: 13999, salePercent: 30, active: true },
   ];
   // Same shared veg/non-veg tiffin photo across every plan of that diet — there's no per-plan
   // dish to photograph, unlike a MenuItem.

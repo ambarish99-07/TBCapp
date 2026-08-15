@@ -16,6 +16,7 @@ import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { hasCompleteAddress } from "../../utils/profile";
 import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
+import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinCheckout">;
@@ -136,7 +137,17 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
           <Text style={styles.planMeta}>
             {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style, route.params.mealType)}
           </Text>
-          <Text style={styles.priceRow}>Total: ₹{plan.price}</Text>
+          {plan.salePercent ? (
+            <View style={styles.priceRowWithSale}>
+              <Text style={styles.priceStrikethrough}>₹{plan.price}</Text>
+              <Text style={styles.priceRow}>Total: ₹{effectivePlanPrice(plan)}</Text>
+              <View style={styles.saleBadge}>
+                <Text style={styles.saleBadgeText}>{plan.salePercent}% OFF</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.priceRow}>Total: ₹{plan.price}</Text>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Delivery Address</Text>
@@ -179,7 +190,7 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
           onPress={handleSubscribe}
           disabled={submitting || (profileComplete && !canProceed)}
         >
-          <Text style={styles.subscribeButtonText}>{submitting ? "Subscribing…" : `Subscribe & Pay ₹${plan.price}`}</Text>
+          <Text style={styles.subscribeButtonText}>{submitting ? "Subscribing…" : `Subscribe & Pay ₹${effectivePlanPrice(plan)}`}</Text>
         </Pressable>
       </View>
 
@@ -239,6 +250,10 @@ const makeStyles = (colors: ColorPalette) =>
     planName: { fontSize: 17, fontWeight: "800", color: colors.text },
     planMeta: { fontSize: 12, color: colors.muted, marginTop: 4 },
     priceRow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginTop: theme.spacing(1) },
+    priceRowWithSale: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: theme.spacing(1) },
+    priceStrikethrough: { fontSize: 14, color: colors.muted, textDecorationLine: "line-through" },
+    saleBadge: { backgroundColor: colors.danger, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+    saleBadgeText: { fontSize: 11, fontWeight: "800", color: "#fff" },
     sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginTop: theme.spacing(2.5), marginBottom: theme.spacing(1) },
     addressCard: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(1.5) },
     addressText: { fontSize: 13, color: colors.text, marginTop: 2 },

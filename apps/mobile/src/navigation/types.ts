@@ -11,6 +11,8 @@ export type RootStackParamList = {
   BulkOrder: undefined;
   // GG Tiffin's own flow — reached from the GG Tiffin brand tile instead of RestaurantMenu.
   TiffinLanding: undefined;
+  // The real curated weekly menu, browsable by day — separate from any specific plan/order flow.
+  TiffinWeeklyMenu: undefined;
   TiffinPlanSelect: { planId: string };
   TiffinCheckout: { planId: string; mealType?: "breakfast" | "lunch" | "dinner" };
   MyTiffin: undefined;

@@ -11,6 +11,7 @@ import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { HomeCollections } from "../../components/HomeCollections";
+import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
@@ -187,21 +188,30 @@ export function MenuScreen({ navigation }: Props) {
           <View>
             <BrandCarousel colors={colors} navigation={navigation} onOpenRestaurant={handleOpenRestaurant} paused={isBrandPickerOpen} />
 
-            {items && items.length > 0 && (
-              <HomeCollections
-                items={items}
-                combos={brandCombos}
-                onItemPress={(item) => setAddingItem(item)}
-                onChooseCombo={(combo) => navigation.navigate("ChooseCombo", { comboId: combo.id })}
-                brands={brands ?? []}
-                allItems={allItems ?? []}
-                onOpenRestaurant={handleOpenRestaurant}
-                mostlyOrdered={mostlyOrdered}
+            {selectedBrandId === "gg-tiffin" ? (
+              <TiffinHomeCollections
+                onOpenSingleMeal={() => navigation.navigate("TiffinSingleMeal")}
+                onOpenPlan={(plan) => navigation.navigate("TiffinPlanSelect", { planId: plan.id })}
               />
-            )}
+            ) : (
+              <>
+                {items && items.length > 0 && (
+                  <HomeCollections
+                    items={items}
+                    combos={brandCombos}
+                    onItemPress={(item) => setAddingItem(item)}
+                    onChooseCombo={(combo) => navigation.navigate("ChooseCombo", { comboId: combo.id })}
+                    brands={brands ?? []}
+                    allItems={allItems ?? []}
+                    onOpenRestaurant={handleOpenRestaurant}
+                    mostlyOrdered={mostlyOrdered}
+                  />
+                )}
 
-            {items && items.length === 0 && (
-              <Text style={styles.info}>{`${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}</Text>
+                {items && items.length === 0 && (
+                  <Text style={styles.info}>{`${selectedBrand?.name ?? "This brand"}'s menu is coming soon — check back shortly!`}</Text>
+                )}
+              </>
             )}
           </View>
         );

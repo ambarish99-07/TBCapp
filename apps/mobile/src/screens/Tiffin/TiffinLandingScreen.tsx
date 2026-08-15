@@ -1,11 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { TiffinPlan, TiffinPlanStyle } from "@tbc/shared-types";
 import { useMemo } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useTiffinPlans } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
+import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
+import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinLanding">;
@@ -24,12 +26,25 @@ export function TiffinLandingScreen({ navigation }: Props) {
   const { data: plans, isLoading } = useTiffinPlans();
   const { data: brands } = useBrands();
   const ggTiffinLogoUrl = brands?.find((brand) => brand.id === "gg-tiffin")?.logoUrl;
+  const vegOnly = useTiffinPreferencesStore((state) => state.vegOnly);
+  const setVegOnly = useTiffinPreferencesStore((state) => state.setVegOnly);
   const vegPlans = (plans ?? []).filter((plan) => plan.dietType === "veg");
   const nonVegPlans = (plans ?? []).filter((plan) => plan.dietType === "non-veg");
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>GG Tiffin Service</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>GG Tiffin Service</Text>
+        <View style={styles.vegSwitchGroup}>
+          <Text style={styles.vegSwitchLabel}>Veg Only</Text>
+          <Switch
+            value={vegOnly}
+            onValueChange={setVegOnly}
+            trackColor={{ true: colors.primary }}
+            thumbColor="#fff"
+          />
+        </View>
+      </View>
       <Text style={styles.tagline}>Ghar jaise swad, roz ki yaad.</Text>
       <Text style={styles.description}>
         Home-style veg and non-veg meals, delivered daily — breakfast, lunch, dinner, or all three. Subscribe once
@@ -47,7 +62,12 @@ export function TiffinLandingScreen({ navigation }: Props) {
         <Text style={styles.singleMealBannerArrow}>→</Text>
       </Pressable>
 
-      <Text style={styles.sectionTitle}>Available Plans</Text>
+      <View style={styles.sectionTitleRow}>
+        <Text style={styles.sectionTitle}>Available Plans</Text>
+        <Pressable onPress={() => navigation.navigate("TiffinWeeklyMenu")}>
+          <Text style={styles.viewMenuLink}>View Menu →</Text>
+        </Pressable>
+      </View>
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: theme.spacing(2) }} />}
       {!isLoading && (!plans || plans.length === 0) && <Text style={styles.info}>No plans available right now — check back shortly!</Text>}
 
@@ -59,12 +79,14 @@ export function TiffinLandingScreen({ navigation }: Props) {
               <PlanCard key={plan.id} plan={plan} styles={styles} onPress={() => navigation.navigate("TiffinPlanSelect", { planId: plan.id })} />
             ))}
           </View>
-          <View style={styles.column}>
-            <Text style={styles.dietSectionTitle}>🔴 Non-Veg</Text>
-            {nonVegPlans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} styles={styles} onPress={() => navigation.navigate("TiffinPlanSelect", { planId: plan.id })} />
-            ))}
-          </View>
+          {!vegOnly && (
+            <View style={styles.column}>
+              <Text style={styles.dietSectionTitle}>🔴 Non-Veg</Text>
+              {nonVegPlans.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} styles={styles} onPress={() => navigation.navigate("TiffinPlanSelect", { planId: plan.id })} />
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -76,14 +98,27 @@ export function TiffinLandingScreen({ navigation }: Props) {
 }
 
 function PlanCard({ plan, styles, onPress }: { plan: TiffinPlan; styles: ReturnType<typeof makeStyles>; onPress: () => void }) {
+  const effectivePrice = effectivePlanPrice(plan);
   return (
     <Pressable style={styles.planCard} onPress={onPress}>
       {plan.imageUrl && <Image source={{ uri: plan.imageUrl }} style={styles.planImage} resizeMode="cover" />}
+      {plan.salePercent && (
+        <View style={styles.saleBadge}>
+          <Text style={styles.saleBadgeText}>{plan.salePercent}% OFF</Text>
+        </View>
+      )}
       <Text style={styles.planName}>{plan.name}</Text>
       <Text style={styles.planMeta}>
         {plan.durationDays} days · {styleMetaLabel(plan.style)}
       </Text>
-      <Text style={styles.planPrice}>₹{plan.price}</Text>
+      {plan.salePercent ? (
+        <View style={styles.priceRow}>
+          <Text style={styles.planPriceStrikethrough}>₹{plan.price}</Text>
+          <Text style={styles.planPrice}>₹{effectivePrice}</Text>
+        </View>
+      ) : (
+        <Text style={styles.planPrice}>₹{plan.price}</Text>
+      )}
     </Pressable>
   );
 }
@@ -92,7 +127,10 @@ const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
+    titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     title: { fontSize: 22, fontWeight: "800", color: colors.text },
+    vegSwitchGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
+    vegSwitchLabel: { fontSize: 12, fontWeight: "700", color: colors.muted },
     tagline: { fontSize: 13, color: colors.muted, marginTop: 4 },
     description: { fontSize: 13, color: colors.text, marginTop: theme.spacing(1.5), lineHeight: 19 },
     singleMealBanner: {
@@ -110,7 +148,15 @@ const makeStyles = (colors: ColorPalette) =>
     singleMealBannerEmoji: { fontSize: 18, marginRight: theme.spacing(1) },
     singleMealBannerText: { flex: 1, fontSize: 13, fontWeight: "700", color: colors.primary },
     singleMealBannerArrow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginLeft: 8 },
-    sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginTop: theme.spacing(2.5), marginBottom: theme.spacing(1) },
+    sectionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: theme.spacing(2.5),
+      marginBottom: theme.spacing(1),
+    },
+    sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    viewMenuLink: { fontSize: 13, fontWeight: "700", color: colors.primary, textDecorationLine: "underline" },
     dietSectionTitle: { fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: theme.spacing(1) },
     info: { fontSize: 13, color: colors.muted },
     columns: { flexDirection: "row", gap: theme.spacing(1.5) },
@@ -130,7 +176,19 @@ const makeStyles = (colors: ColorPalette) =>
     },
     planName: { fontSize: 13, fontWeight: "700", color: colors.text },
     planMeta: { fontSize: 11, color: colors.muted, marginTop: 3 },
-    planPrice: { fontSize: 15, fontWeight: "800", color: colors.primary, marginTop: theme.spacing(1) },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: theme.spacing(1) },
+    planPrice: { fontSize: 15, fontWeight: "800", color: colors.primary },
+    planPriceStrikethrough: { fontSize: 12, color: colors.muted, textDecorationLine: "line-through" },
+    saleBadge: {
+      position: "absolute",
+      top: theme.spacing(1),
+      right: theme.spacing(1),
+      backgroundColor: colors.danger,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    saleBadgeText: { fontSize: 10, fontWeight: "800", color: "#fff" },
     myTiffinLink: { marginTop: theme.spacing(2), alignItems: "center" },
     myTiffinLinkText: { fontSize: 13, fontWeight: "700", color: colors.primary },
   });

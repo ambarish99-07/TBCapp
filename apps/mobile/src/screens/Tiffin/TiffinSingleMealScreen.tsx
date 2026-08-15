@@ -1,10 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SingleMealMenuItem, TiffinCarbChoice, TiffinDietType, TiffinMealTier } from "@tbc/shared-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSingleMealMenu } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
+import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMeal">;
@@ -45,10 +46,18 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: menu, isLoading } = useSingleMealMenu();
+  const vegOnly = useTiffinPreferencesStore((state) => state.vegOnly);
   const [activeDiet, setActiveDiet] = useState<TiffinDietType>("veg");
   const [activeTier, setActiveTier] = useState<TiffinMealTier>("regular");
   const [selected, setSelected] = useState<SingleMealMenuItem | null>(null);
   const [carbChoice, setCarbChoice] = useState<TiffinCarbChoice | null>(null);
+  const visibleDietTabs = vegOnly ? DIET_TABS.filter((tab) => tab.key === "veg") : DIET_TABS;
+
+  // The landing page's "Veg Only" switch hides non-veg here too — force back to veg if it's
+  // switched on while Non-Veg happens to be selected.
+  useEffect(() => {
+    if (vegOnly) setActiveDiet("veg");
+  }, [vegOnly]);
 
   const tierItems = useMemo(
     () =>
@@ -101,7 +110,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
         </Text>
 
         <View style={styles.tabs}>
-          {DIET_TABS.map((tab) => (
+          {visibleDietTabs.map((tab) => (
             <Pressable key={tab.key} onPress={() => handleSelectDiet(tab.key)} style={[styles.tab, activeDiet === tab.key && styles.tabActive]}>
               <Text style={[styles.tabText, activeDiet === tab.key && styles.tabTextActive]}>{tab.label}</Text>
             </Pressable>

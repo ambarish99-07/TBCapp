@@ -1,23 +1,15 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import {
-  TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
-  TIFFIN_NONVEG_CURRY_DAYS,
-  TIFFIN_NONVEG_SUNDAY_DISH,
-  TIFFIN_REGULAR_VEG_MENU,
-  type TiffinDietType,
-  type TiffinMealType,
-  type TiffinPlanStyle,
-} from "@tbc/shared-types";
+import { type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTiffinPlans } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
+import { dishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
+import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinPlanSelect">;
-
-const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const MEAL_TYPE_CHOICES: TiffinMealType[] = ["breakfast", "lunch", "dinner"];
 const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
@@ -34,20 +26,6 @@ function resolveMealTypesForPreview(style: TiffinPlanStyle, mealType: TiffinMeal
   if (style === "twice-daily") return ["lunch", "dinner"];
   if (style === "thrice-daily") return ["breakfast", "lunch", "dinner"];
   return [mealType];
-}
-
-/** Mirrors the backend's tiffinSchedule.ts#dishForDay exactly — subscriptions are always Regular
- * tier, sourced from the real curated menu, Sunday fixed (no customer choice). */
-function dishForPreview(dietType: TiffinDietType, day: string, mealType: TiffinMealType): string {
-  if (mealType === "breakfast") {
-    if (dietType === "non-veg" && TIFFIN_NONVEG_BREAKFAST_OVERRIDES[day]) return TIFFIN_NONVEG_BREAKFAST_OVERRIDES[day];
-    return TIFFIN_REGULAR_VEG_MENU[day].breakfast;
-  }
-  if (dietType === "non-veg") {
-    if (day === "Sunday") return TIFFIN_NONVEG_SUNDAY_DISH;
-    if (TIFFIN_NONVEG_CURRY_DAYS[day]) return TIFFIN_NONVEG_CURRY_DAYS[day];
-  }
-  return TIFFIN_REGULAR_VEG_MENU[day][mealType];
 }
 
 /** Choose a meal type for "single" style plans, then preview the fixed weekly schedule before subscribing. */
@@ -89,7 +67,17 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
       <Text style={styles.meta}>
         {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style)}
       </Text>
-      <Text style={styles.price}>₹{plan.price}</Text>
+      {plan.salePercent ? (
+        <View style={styles.priceRow}>
+          <Text style={styles.priceStrikethrough}>₹{plan.price}</Text>
+          <Text style={styles.price}>₹{effectivePlanPrice(plan)}</Text>
+          <View style={styles.saleBadge}>
+            <Text style={styles.saleBadgeText}>{plan.salePercent}% OFF</Text>
+          </View>
+        </View>
+      ) : (
+        <Text style={styles.price}>₹{plan.price}</Text>
+      )}
 
       {plan.style === "single" && (
         <>
@@ -117,7 +105,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
           {scheduledMealTypes.map((type) => (
             <View key={type} style={styles.scheduleRow}>
               <Text style={styles.scheduleMealType}>{scheduledMealTypes.length > 1 ? MEAL_TYPE_LABELS[type] : ""}</Text>
-              <Text style={styles.scheduleDish}>{dishForPreview(plan.dietType, day, type)}</Text>
+              <Text style={styles.scheduleDish}>{dishForDay(plan.dietType, day, type)}</Text>
             </View>
           ))}
         </View>
@@ -139,6 +127,10 @@ const makeStyles = (colors: ColorPalette) =>
     title: { fontSize: 20, fontWeight: "800", color: colors.text },
     meta: { fontSize: 13, color: colors.muted, marginTop: 4 },
     price: { fontSize: 20, fontWeight: "800", color: colors.primary, marginTop: 8 },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+    priceStrikethrough: { fontSize: 15, color: colors.muted, textDecorationLine: "line-through" },
+    saleBadge: { backgroundColor: colors.danger, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+    saleBadgeText: { fontSize: 11, fontWeight: "800", color: "#fff" },
     sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginTop: theme.spacing(2.5), marginBottom: theme.spacing(1) },
     choiceRow: { flexDirection: "row", gap: 8 },
     choiceChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, backgroundColor: colors.surface },

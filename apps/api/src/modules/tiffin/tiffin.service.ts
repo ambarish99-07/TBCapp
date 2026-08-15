@@ -1,3 +1,4 @@
+import { round } from "@tbc/pricing";
 import {
   CANCELLATION_FULL_REFUND_WINDOW_DAYS,
   CANCELLATION_REFUND_PERCENT,
@@ -27,6 +28,13 @@ const SKIP_DEADLINE_HOURS = 12;
 
 export function listActivePlans() {
   return TiffinPlanModel.find({ active: true }).sort({ price: 1 });
+}
+
+/** A few plans may carry a discount — the charged price is the marked-down one, `price` stays
+ * the strikethrough display value. Mirrors priceResolver.ts#resolveUnitPrice exactly. */
+function resolvePlanPrice(plan: { price: number; salePercent?: number | null }): number {
+  if (!plan.salePercent) return plan.price;
+  return round(plan.price * (1 - plan.salePercent / 100));
 }
 
 /** "single" needs the customer's breakfast/lunch/dinner choice; "twice-daily"/"thrice-daily"
@@ -76,7 +84,8 @@ export async function createSubscription(env: Env, userId: string, request: Crea
     startDate: meals[0].date,
     endDate: meals[meals.length - 1].date,
     delivery: request.delivery,
-    price: plan.price,
+    // The discounted price, if the plan has a salePercent — never the raw list price.
+    price: resolvePlanPrice(plan),
     // A subscription is charged once, upfront, for the full price — the same one-time Razorpay
     // order/verify flow orders already use (see postTiffinRazorpayOrder/postTiffinRazorpayVerify
     // below), not a separate recurring-billing API. COD is trusted immediately, same as orders;

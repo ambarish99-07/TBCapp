@@ -1,7 +1,6 @@
 import {
   TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
-  TIFFIN_NONVEG_CURRY_DAYS,
-  TIFFIN_NONVEG_SUNDAY_DISH,
+  TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES,
   TIFFIN_REGULAR_VEG_MENU,
   type TiffinDietType,
   type TiffinMealType,
@@ -21,14 +20,19 @@ function toIsoDate(date: Date): string {
 
 /**
  * What GG Tiffin serves on a given day/meal, per the real curated Regular Tiffin menu
- * (subscriptions are always Regular tier — see `TIFFIN_REGULAR_VEG_MENU`):
+ * (subscriptions are always Regular tier — see `TIFFIN_REGULAR_VEG_MENU`). Matches
+ * singleMealMenu.ts#getSingleMealDish's Regular-tier behavior exactly, so a subscription and a
+ * one-off single-meal order for the same day/diet/meal never disagree:
  * - Breakfast is shared between diets except Wednesday, where non-veg keeps the old Bread
  *   Omelette instead of veg's Upma (`TIFFIN_NONVEG_BREAKFAST_OVERRIDES`).
  * - Veg lunch/dinner follows the curated menu directly, every day including Sunday (fixed, no
  *   customer choice).
- * - Non-veg Mon/Wed/Fri swap in a meat curry (`TIFFIN_NONVEG_CURRY_DAYS`) for the whole day,
- *   regardless of lunch or dinner; Sunday is always Mutton, also regardless of meal; every other
- *   day/meal falls back to the same curated veg dish.
+ * - Non-veg swaps in a meat curry at DINNER only, on Mon/Wed/Fri
+ *   (`TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES` — the same table singleMealMenu.ts uses for
+ *   Regular's dinner, so the two never drift apart) — the real menu only ever has one non-veg
+ *   item a day, never both lunch and dinner. Regular tier has no special Sunday non-veg dish
+ *   (Mutton is a Premium-only, single-meal-only upgrade) — every other day/meal falls back to the
+ *   same curated veg dish.
  */
 export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
   if (mealType === "breakfast") {
@@ -37,9 +41,8 @@ export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: 
     }
     return TIFFIN_REGULAR_VEG_MENU[dayName].breakfast;
   }
-  if (dietType === "non-veg") {
-    if (dayName === "Sunday") return TIFFIN_NONVEG_SUNDAY_DISH;
-    if (TIFFIN_NONVEG_CURRY_DAYS[dayName]) return TIFFIN_NONVEG_CURRY_DAYS[dayName];
+  if (dietType === "non-veg" && mealType === "dinner" && TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES[dayName]) {
+    return TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES[dayName];
   }
   return TIFFIN_REGULAR_VEG_MENU[dayName][mealType];
 }

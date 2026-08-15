@@ -23,11 +23,15 @@ describe("dishForDay", () => {
     expect(dishForDay("veg", "Sunday", "dinner")).toBe("Dum Aloo");
   });
 
-  it("gives the non-veg plan a meat curry all day on Monday/Wednesday/Friday, regardless of meal type", () => {
-    expect(dishForDay("non-veg", "Monday", "lunch")).toBe("Chicken Curry");
-    expect(dishForDay("non-veg", "Monday", "dinner")).toBe("Chicken Curry");
-    expect(dishForDay("non-veg", "Wednesday", "lunch")).toBe("Fish Curry");
-    expect(dishForDay("non-veg", "Friday", "dinner")).toBe("Egg Curry");
+  it("gives the non-veg plan a meat curry at DINNER ONLY on Monday/Wednesday/Friday — never both meals the same day", () => {
+    expect(dishForDay("non-veg", "Monday", "dinner")).toBe("Fish Curry");
+    expect(dishForDay("non-veg", "Wednesday", "dinner")).toBe("Egg Curry");
+    expect(dishForDay("non-veg", "Friday", "dinner")).toBe("Chicken Curry");
+    // Lunch on those same days falls back to the veg dish — the real menu never has a non-veg
+    // item at both lunch and dinner on the same day.
+    expect(dishForDay("non-veg", "Monday", "lunch")).toBe(dishForDay("veg", "Monday", "lunch"));
+    expect(dishForDay("non-veg", "Wednesday", "lunch")).toBe(dishForDay("veg", "Wednesday", "lunch"));
+    expect(dishForDay("non-veg", "Friday", "lunch")).toBe(dishForDay("veg", "Friday", "lunch"));
   });
 
   it("falls back to that day's real veg dish for the non-veg plan on Tuesday/Thursday/Saturday", () => {
@@ -36,9 +40,9 @@ describe("dishForDay", () => {
     expect(dishForDay("non-veg", "Saturday", "lunch")).toBe("Aloo Gobhi");
   });
 
-  it("always gives the non-veg plan Mutton on Sunday, regardless of meal type", () => {
-    expect(dishForDay("non-veg", "Sunday", "lunch")).toBe("Mutton Curry");
-    expect(dishForDay("non-veg", "Sunday", "dinner")).toBe("Mutton Curry");
+  it("has no special Sunday non-veg dish for Regular tier — Mutton is a Premium-only, single-meal-only upgrade", () => {
+    expect(dishForDay("non-veg", "Sunday", "lunch")).toBe(dishForDay("veg", "Sunday", "lunch"));
+    expect(dishForDay("non-veg", "Sunday", "dinner")).toBe(dishForDay("veg", "Sunday", "dinner"));
   });
 });
 
@@ -63,13 +67,14 @@ describe("computeMealsForRange", () => {
   it("generates a full Monday-Sunday week for a single-meal (dinner) non-veg plan", () => {
     const meals = computeMealsForRange("non-veg", ["dinner"], MONDAY, 7);
     expect(meals.map((meal) => meal.dishName)).toEqual([
-      "Chicken Curry",
-      "Lauki Masala",
       "Fish Curry",
-      "Dum Aloo",
+      "Lauki Masala",
       "Egg Curry",
+      "Dum Aloo",
+      "Chicken Curry",
       "Matar Mushroom",
-      "Mutton Curry",
+      // Sunday — no special non-veg dish for Regular tier, falls back to the veg dinner dish.
+      "Dum Aloo",
     ]);
     expect(meals.every((meal) => meal.mealType === "dinner")).toBe(true);
   });

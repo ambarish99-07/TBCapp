@@ -15,16 +15,6 @@ export type TiffinPlanStyle = z.infer<typeof TiffinPlanStyleSchema>;
 export const TiffinDietTypeSchema = z.enum(["veg", "non-veg"]);
 export type TiffinDietType = z.infer<typeof TiffinDietTypeSchema>;
 
-/** Days the non-veg plan swaps in a meat curry instead of that day's veg sabzi. Every other
- * weekday (Tue/Thu/Sat) falls back to that day's veg dish (see `TIFFIN_REGULAR_VEG_MENU`). */
-export const TIFFIN_NONVEG_CURRY_DAYS: Record<string, string> = {
-  Monday: "Chicken Curry",
-  Wednesday: "Fish Curry",
-  Friday: "Egg Curry",
-};
-/** Non-veg Sunday is always this — fixed, unlike the veg plan's paneer/chole choice. */
-export const TIFFIN_NONVEG_SUNDAY_DISH = "Mutton Curry";
-
 export const TIFFIN_PLAN_DURATIONS = { weekly: 7, monthly: 30 } as const;
 
 /** Tiffin's own payment shape — extends the generic order `PaymentInfoSchema` with a
@@ -48,6 +38,9 @@ export const TiffinPlanSchema = z.object({
   durationDays: z.number().int().positive(),
   /** Flat price for the whole plan duration — never hardcoded in application code, always admin-editable. */
   price: z.number().positive(),
+  /** A few plans may carry a discount — the charged price is the marked-down one, `price` stays
+   * the strikethrough display value. Mirrors MenuItem's salePercent exactly. */
+  salePercent: z.number().min(1).max(99).optional(),
   /** Thumbnail shown on the plan card — same veg/non-veg tiffin photo shared across every plan
    * of that diet, not a per-plan photo (there's no per-plan dish to photograph). */
   imageUrl: z.string().optional(),
@@ -62,6 +55,7 @@ export const CreateTiffinPlanRequestSchema = z.object({
   style: TiffinPlanStyleSchema,
   durationDays: z.number().int().positive(),
   price: z.number().positive(),
+  salePercent: z.number().min(1).max(99).optional(),
   imageUrl: z.string().optional(),
   active: z.boolean().default(true),
 });
@@ -200,8 +194,11 @@ export const TIFFIN_NONVEG_BREAKFAST_OVERRIDES: Record<string, string> = {
   Wednesday: "Bread Omelette",
 };
 
-/** Single-meal non-veg curation — Regular/Premium swap in a meat curry at dinner on these days
- * (both tiers share the same table); every other day/meal falls back to that tier's veg dish. */
+/** Regular/Premium single-meal tiers, and every non-veg subscription (always Regular tier), swap
+ * in a meat curry at dinner on these days — the real menu never has a non-veg item at both lunch
+ * and dinner the same day; every other day/meal falls back to that tier's veg dish. The one
+ * source of truth for this — don't duplicate it, two copies drifting apart is how "Monday = Fish"
+ * turned into "Monday = Chicken" in one of them before. */
 export const TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES: Record<string, string> = {
   Monday: "Fish Curry",
   Wednesday: "Egg Curry",

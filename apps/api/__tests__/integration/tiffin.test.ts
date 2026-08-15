@@ -117,4 +117,26 @@ describe("POST /tiffin/subscriptions", () => {
       .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
     expect(response.status).toBe(401);
   });
+
+  it("charges the discounted price, not the plan's listed price, when the plan carries a salePercent", async () => {
+    const plan = await TiffinPlanModel.create({
+      name: "Weekly Veg Plan — On Sale",
+      dietType: "veg",
+      style: "single",
+      durationDays: 7,
+      price: 1000,
+      salePercent: 20,
+      active: true,
+    });
+    const token = await signup("discounted-sub@example.com", "9812400006");
+
+    const response = await request(app)
+      .post("/tiffin/subscriptions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
+
+    expect(response.status).toBe(201);
+    // 1000 listed, 20% off — 800 actually charged and stored, not the raw 1000.
+    expect(response.body.subscription.price).toBe(800);
+  });
 });

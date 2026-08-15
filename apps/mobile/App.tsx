@@ -8,6 +8,7 @@ import { useBrandStore } from "./src/state/brandStore";
 import { useCartStore } from "./src/state/cartStore";
 import { usePaymentMethodStore } from "./src/state/paymentMethodStore";
 import { useThemeStore } from "./src/state/themeStore";
+import { useTiffinPreferencesStore } from "./src/state/tiffinPreferencesStore";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ export default function App() {
   const hydratePaymentMethod = usePaymentMethodStore((state) => state.hydrate);
   const hydrateCart = useCartStore((state) => state.hydrate);
   const hydrateBrand = useBrandStore((state) => state.hydrate);
+  const hydrateTiffinPreferences = useTiffinPreferencesStore((state) => state.hydrate);
   const resolvedScheme = useThemeStore((state) => state.resolvedScheme);
 
   useEffect(() => {
@@ -25,7 +27,8 @@ export default function App() {
     hydratePaymentMethod();
     hydrateCart();
     hydrateBrand();
-  }, [hydrateAuth, hydrateTheme, hydratePaymentMethod, hydrateCart, hydrateBrand]);
+    hydrateTiffinPreferences();
+  }, [hydrateAuth, hydrateTheme, hydratePaymentMethod, hydrateCart, hydrateBrand, hydrateTiffinPreferences]);
 
   return (
     <SafeAreaProvider>

@@ -7,7 +7,7 @@ import { useCartStore } from "../state/cartStore";
 import { useTheme } from "../state/themeStore";
 import { makeComboCartLine } from "../utils/comboCartLine";
 
-function Row<T>({ title, data, keyExtractor, renderItem }: { title: string; data: T[]; keyExtractor: (item: T) => string; renderItem: (item: T) => ReactElement }) {
+export function Row<T>({ title, data, keyExtractor, renderItem }: { title: string; data: T[]; keyExtractor: (item: T) => string; renderItem: (item: T) => ReactElement }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeRowStyles(colors), [colors]);
 
