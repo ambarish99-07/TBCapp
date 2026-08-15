@@ -1,5 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
+  TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
   TIFFIN_NONVEG_CURRY_DAYS,
   TIFFIN_NONVEG_SUNDAY_DISH,
   TIFFIN_REGULAR_VEG_MENU,
@@ -38,7 +39,10 @@ function resolveMealTypesForPreview(style: TiffinPlanStyle, mealType: TiffinMeal
 /** Mirrors the backend's tiffinSchedule.ts#dishForDay exactly — subscriptions are always Regular
  * tier, sourced from the real curated menu, Sunday fixed (no customer choice). */
 function dishForPreview(dietType: TiffinDietType, day: string, mealType: TiffinMealType): string {
-  if (mealType === "breakfast") return TIFFIN_REGULAR_VEG_MENU[day].breakfast;
+  if (mealType === "breakfast") {
+    if (dietType === "non-veg" && TIFFIN_NONVEG_BREAKFAST_OVERRIDES[day]) return TIFFIN_NONVEG_BREAKFAST_OVERRIDES[day];
+    return TIFFIN_REGULAR_VEG_MENU[day].breakfast;
+  }
   if (dietType === "non-veg") {
     if (day === "Sunday") return TIFFIN_NONVEG_SUNDAY_DISH;
     if (TIFFIN_NONVEG_CURRY_DAYS[day]) return TIFFIN_NONVEG_CURRY_DAYS[day];

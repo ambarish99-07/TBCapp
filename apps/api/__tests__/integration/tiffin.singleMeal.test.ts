@@ -68,8 +68,16 @@ describe("GET /tiffin/single-meal/menu", () => {
 
     expect(find("mini", "breakfast", "veg")).toBeUndefined();
     expect(find("mini", "breakfast", "non-veg")).toBeUndefined();
-    // Breakfast is diet-agnostic — same dish shown in both sections.
-    expect(find("regular", "breakfast", "veg").dishName).toBe(find("regular", "breakfast", "non-veg").dishName);
+    // Breakfast is diet-agnostic except Wednesday, where non-veg keeps the old Bread Omelette
+    // instead of veg's Upma — "tomorrow" could be any day when this test runs, so branch on it
+    // rather than assuming every day matches.
+    const vegBreakfast = find("regular", "breakfast", "veg").dishName;
+    const nonVegBreakfast = find("regular", "breakfast", "non-veg").dishName;
+    if (vegBreakfast === "Upma") {
+      expect(nonVegBreakfast).toBe("Bread Omelette");
+    } else {
+      expect(nonVegBreakfast).toBe(vegBreakfast);
+    }
   });
 });
 

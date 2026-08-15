@@ -5,10 +5,15 @@ import { computeMealsForRange, dishForDay } from "../../src/modules/tiffin/tiffi
 const MONDAY = new Date("2026-08-17T00:00:00Z");
 
 describe("dishForDay", () => {
-  it("breakfast is the same real curated dish regardless of diet type", () => {
+  it("breakfast is the same real curated dish regardless of diet type, except Wednesday", () => {
     expect(dishForDay("veg", "Monday", "breakfast")).toBe("Masala Pasta");
     expect(dishForDay("non-veg", "Monday", "breakfast")).toBe("Masala Pasta");
     expect(dishForDay("veg", "Sunday", "breakfast")).toBe("Puri with Chole & Achar");
+  });
+
+  it("keeps the old Bread Omelette for non-veg's Wednesday breakfast, while veg gets Upma", () => {
+    expect(dishForDay("veg", "Wednesday", "breakfast")).toBe("Upma");
+    expect(dishForDay("non-veg", "Wednesday", "breakfast")).toBe("Bread Omelette");
   });
 
   it("veg lunch/dinner follows the real curated Regular Tiffin menu, every day including Sunday", () => {

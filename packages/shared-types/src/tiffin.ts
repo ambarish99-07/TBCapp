@@ -175,9 +175,9 @@ export interface TiffinDailyMenu {
 export const TIFFIN_REGULAR_VEG_MENU: Record<string, TiffinDailyMenu> = {
   Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
   Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
-  Wednesday: { breakfast: "Bread Omelette", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
+  Wednesday: { breakfast: "Upma", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
   Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
-  Friday: { breakfast: "Besan Chilla with Chutney & Achar", lunch: "Rajma", dinner: "Matar Chole" },
+  Friday: { breakfast: "Poha", lunch: "Rajma", dinner: "Matar Chole" },
   Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
   Sunday: { breakfast: "Puri with Chole & Achar", lunch: "Lauki Masala", dinner: "Dum Aloo" },
 };
@@ -187,11 +187,17 @@ export const TIFFIN_REGULAR_VEG_MENU: Record<string, TiffinDailyMenu> = {
 export const TIFFIN_PREMIUM_VEG_MENU: Record<string, TiffinDailyMenu> = {
   Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
   Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
-  Wednesday: { breakfast: "Bread Omelette", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
+  Wednesday: { breakfast: "Upma", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
   Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
-  Friday: { breakfast: "Rice Chilla with Chutney & Achar", lunch: "Rajma", dinner: "Matar Chole" },
+  Friday: { breakfast: "Poha", lunch: "Rajma", dinner: "Matar Chole" },
   Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
   Sunday: { breakfast: "Idli / Dosa with Sambar & Chutney", lunch: "Paneer Butter Masala with Pulao", dinner: "Puri with Chole" },
+};
+
+/** Non-veg keeps the old Bread Omelette on Wednesday breakfast instead of veg's Upma — the one
+ * breakfast day where non-veg still diverges from veg; every other breakfast day stays shared. */
+export const TIFFIN_NONVEG_BREAKFAST_OVERRIDES: Record<string, string> = {
+  Wednesday: "Bread Omelette",
 };
 
 /** Single-meal non-veg curation — Regular/Premium swap in a meat curry at dinner on these days
@@ -243,6 +249,9 @@ export const SingleMealMenuItemSchema = z.object({
   dishName: z.string(),
   price: z.number().positive(),
   carbChoiceRequired: z.boolean(),
+  /** Real dish photography, added incrementally as photos become available — most dishes don't
+   * have one yet, so this is optional rather than every menu item needing a placeholder. */
+  imageUrl: z.string().optional(),
 });
 export type SingleMealMenuItem = z.infer<typeof SingleMealMenuItemSchema>;
 

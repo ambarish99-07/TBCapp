@@ -1,4 +1,5 @@
 import {
+  TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
   TIFFIN_NONVEG_CURRY_DAYS,
   TIFFIN_NONVEG_SUNDAY_DISH,
   TIFFIN_REGULAR_VEG_MENU,
@@ -21,7 +22,8 @@ function toIsoDate(date: Date): string {
 /**
  * What GG Tiffin serves on a given day/meal, per the real curated Regular Tiffin menu
  * (subscriptions are always Regular tier — see `TIFFIN_REGULAR_VEG_MENU`):
- * - Breakfast is the same dish regardless of diet type — no non-veg breakfast items exist.
+ * - Breakfast is shared between diets except Wednesday, where non-veg keeps the old Bread
+ *   Omelette instead of veg's Upma (`TIFFIN_NONVEG_BREAKFAST_OVERRIDES`).
  * - Veg lunch/dinner follows the curated menu directly, every day including Sunday (fixed, no
  *   customer choice).
  * - Non-veg Mon/Wed/Fri swap in a meat curry (`TIFFIN_NONVEG_CURRY_DAYS`) for the whole day,
@@ -30,6 +32,9 @@ function toIsoDate(date: Date): string {
  */
 export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
   if (mealType === "breakfast") {
+    if (dietType === "non-veg" && TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName]) {
+      return TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName];
+    }
     return TIFFIN_REGULAR_VEG_MENU[dayName].breakfast;
   }
   if (dietType === "non-veg") {

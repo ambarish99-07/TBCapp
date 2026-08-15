@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { SingleMealMenuItem, TiffinCarbChoice, TiffinDietType, TiffinMealTier } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSingleMealMenu } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
@@ -127,6 +127,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
               style={[styles.mealCard, isSelected && styles.mealCardActive]}
               onPress={() => handleSelectItem(item)}
             >
+              {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.mealImage} resizeMode="cover" />}
               <View style={{ flex: 1 }}>
                 <Text style={styles.mealType}>
                   {MEAL_TYPE_LABELS[item.mealType]} · {deliveryDayLabel(item.date)}
@@ -193,6 +194,7 @@ const makeStyles = (colors: ColorPalette) =>
       marginBottom: theme.spacing(1.25),
     },
     mealCardActive: { borderColor: colors.primary },
+    mealImage: { width: 56, height: 56, borderRadius: theme.radius - 4, marginRight: theme.spacing(1.25) },
     mealType: { fontSize: 12, fontWeight: "700", color: colors.muted },
     mealDish: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: 2 },
     mealPrice: { fontSize: 16, fontWeight: "800", color: colors.primary },

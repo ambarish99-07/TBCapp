@@ -1,5 +1,6 @@
 import {
   TIFFIN_MINI_NONVEG_DINNER_OVERRIDES,
+  TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
   TIFFIN_PREMIUM_NONVEG_LUNCH_OVERRIDES,
   TIFFIN_PREMIUM_VEG_MENU,
   TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES,
@@ -17,8 +18,9 @@ export function dayNameForDate(date: string): string {
 
 /**
  * Resolves the single-meal dish for a given tier/dietType/mealType/date.
- * - Breakfast is the same dish regardless of diet — no non-veg breakfast items exist — and Mini
- *   doesn't offer it at all.
+ * - Breakfast is shared between diets except Wednesday, where non-veg keeps the old Bread
+ *   Omelette instead of veg's Upma (`TIFFIN_NONVEG_BREAKFAST_OVERRIDES`) — and Mini doesn't offer
+ *   breakfast at all.
  * - Veg: Regular and Premium each have their own curated weekly menu; Mini reuses Regular's
  *   lunch/dinner dish for that day (same sabzi, just one carb).
  * - Non-veg: each tier swaps in a meat curry on its own specific days (see the
@@ -31,6 +33,9 @@ export function getSingleMealDish(tier: TiffinMealTier, dietType: TiffinDietType
 
   if (mealType === "breakfast") {
     if (tier === "mini") return null;
+    if (dietType === "non-veg" && TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName]) {
+      return TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName];
+    }
     const menu = tier === "premium" ? TIFFIN_PREMIUM_VEG_MENU : TIFFIN_REGULAR_VEG_MENU;
     return menu[dayName].breakfast;
   }

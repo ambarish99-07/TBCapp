@@ -28,10 +28,12 @@ function requireUserId(req: Request, res: Response): string | null {
   return req.user.userId;
 }
 
-export const getSingleMealMenu: RequestHandler = async (_req, res) => {
-  const menu = await singleMealService.getSingleMealMenu();
-  res.json({ menu });
-};
+export function getSingleMealMenu(env: Env): RequestHandler {
+  return async (_req, res) => {
+    const menu = await singleMealService.getSingleMealMenu(env);
+    res.json({ menu });
+  };
+}
 
 export function postSingleMealOrder(env: Env): RequestHandler {
   return async (req, res) => {

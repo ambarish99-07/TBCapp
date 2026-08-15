@@ -40,7 +40,7 @@ export function createTiffinRouter(env: Env): Router {
 
   // Single-meal purchase — a one-off tiffin, no subscription. The menu is public (same as /plans);
   // ordering requires an account, same as everything else.
-  router.get("/single-meal/menu", getSingleMealMenu);
+  router.get("/single-meal/menu", getSingleMealMenu(env));
   router.post("/single-meal/orders", requireAuth(env.JWT_SECRET), postSingleMealOrder(env));
   router.get("/single-meal/orders/mine", requireAuth(env.JWT_SECRET), getMySingleMealOrders);
   router.post("/single-meal/orders/:id/razorpay-order", requireAuth(env.JWT_SECRET), postSingleMealRazorpayOrder(env));

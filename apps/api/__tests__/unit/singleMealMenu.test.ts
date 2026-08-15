@@ -28,10 +28,10 @@ describe("getSingleMealDish — veg", () => {
     expect(getSingleMealDish("premium", "veg", "dinner", SUNDAY)).toBe("Puri with Chole");
   });
 
-  it("Premium matches Regular Monday-Saturday except Friday breakfast", () => {
+  it("Premium matches Regular Monday-Saturday — only Sunday is upgraded", () => {
     expect(getSingleMealDish("premium", "veg", "lunch", MONDAY)).toBe(getSingleMealDish("regular", "veg", "lunch", MONDAY));
-    expect(getSingleMealDish("premium", "veg", "breakfast", FRIDAY)).toBe("Rice Chilla with Chutney & Achar");
-    expect(getSingleMealDish("regular", "veg", "breakfast", FRIDAY)).toBe("Besan Chilla with Chutney & Achar");
+    expect(getSingleMealDish("premium", "veg", "breakfast", FRIDAY)).toBe("Poha");
+    expect(getSingleMealDish("regular", "veg", "breakfast", FRIDAY)).toBe("Poha");
   });
 
   it("Mini reuses Regular's lunch/dinner dish and offers no breakfast", () => {
@@ -52,6 +52,12 @@ describe("getSingleMealDish — non-veg", () => {
 
   it("Regular falls back to the veg dish on days with no non-veg override", () => {
     expect(getSingleMealDish("regular", "non-veg", "dinner", SUNDAY)).toBe(getSingleMealDish("regular", "veg", "dinner", SUNDAY));
+  });
+
+  it("keeps the old Bread Omelette for non-veg's Wednesday breakfast, while veg gets Upma", () => {
+    expect(getSingleMealDish("regular", "non-veg", "breakfast", WEDNESDAY)).toBe("Bread Omelette");
+    expect(getSingleMealDish("regular", "veg", "breakfast", WEDNESDAY)).toBe("Upma");
+    expect(getSingleMealDish("premium", "non-veg", "breakfast", WEDNESDAY)).toBe("Bread Omelette");
   });
 
   it("Premium shares Regular's Mon/Wed/Fri dinner swaps, plus Mutton at Sunday lunch", () => {

@@ -19,10 +19,22 @@ import { TiffinValidationError } from "./tiffin.errors.js";
 
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
 
+/** Real dish photography, added incrementally as photos become available (served from
+ * public/tiffin-images/, same static route the plan-card photos use) — keyed by exact dish name
+ * so the same photo follows a dish across tiers/days, not by tier/day/mealType. Dishes with no
+ * entry here simply render without a photo. */
+const TIFFIN_DISH_IMAGE_SLUGS: Record<string, string> = {
+  "Mutton Curry": "mutton-curry",
+};
+
+function tiffinDishImageUrl(env: Env, slug: string): string {
+  return `http://localhost:${env.PORT}/tiffin-images/${slug}.png`;
+}
+
 /** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish
  * differs. Each meal type resolves its own target date (see mealOrderingWindow.ts) — lunch/dinner
  * can be today or tomorrow depending on the ordering cutoff, breakfast is always tomorrow. */
-export async function getSingleMealMenu(): Promise<SingleMealMenuItem[]> {
+export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]> {
   const now = new Date();
   const prices = await TiffinMealPriceModel.find({ active: true }).sort({ tier: 1, mealType: 1 });
 
@@ -34,7 +46,17 @@ export async function getSingleMealMenu(): Promise<SingleMealMenuItem[]> {
     for (const dietType of DIET_TYPES) {
       const dishName = getSingleMealDish(tier, dietType, mealType, date);
       if (!dishName) continue;
-      items.push({ tier, mealType, dietType, date, dishName, price: price.price, carbChoiceRequired: tier === "mini" });
+      const imageSlug = TIFFIN_DISH_IMAGE_SLUGS[dishName];
+      items.push({
+        tier,
+        mealType,
+        dietType,
+        date,
+        dishName,
+        price: price.price,
+        carbChoiceRequired: tier === "mini",
+        imageUrl: imageSlug ? tiffinDishImageUrl(env, imageSlug) : undefined,
+      });
     }
   }
   return items;
