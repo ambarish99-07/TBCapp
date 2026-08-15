@@ -1,7 +1,8 @@
 import { useIsFocused } from "@react-navigation/native";
 import type { Brand } from "@tbc/shared-types";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useBrandStore } from "../state/brandStore";
@@ -17,12 +18,16 @@ interface Props {
   paused?: boolean;
 }
 
+function handlePremiumPress() {
+  Alert.alert("Premium Membership", "Get free delivery on every order for just ₹39/month. Coming soon!");
+}
+
 /**
- * Streaming-app-style "burst photo" hero (auto-rotates through every live brand every
- * few seconds) plus a row of small clickable "PIP" thumbnails — tapping either the hero
- * or a thumbnail switches the active brand in-place (no navigation away from this screen).
- * The auto-rotation is connected to the actually-selected brand, so as the hero shows TBC,
- * the PIPs highlight TBC and the rest of the Home page (Recommended/Offers/etc.) follows.
+ * Streaming-app-style "burst photo" hero, auto-rotating through every live brand every few
+ * seconds — tapping it switches the active brand in-place (no navigation away from this
+ * screen). Below it, a Premium Membership promo card (free delivery, ₹39/month) instead of
+ * the old row of brand "PIP" thumbnails — brand switching is still reachable via the hero
+ * itself, the Menu footer button's brand picker, and the Restaurants row further down Home.
  */
 export function BrandCarousel({ colors, onSelect, paused }: Props) {
   const { data: brands, isLoading, error } = useBrands();
@@ -97,31 +102,32 @@ export function BrandCarousel({ colors, onSelect, paused }: Props) {
         </ImageBackground>
       </Pressable>
 
-      {/* Fixed row, not a horizontal scroller — all tiles share the screen width equally
-          instead of overflowing off the edge. */}
-      <View style={styles.thumbRow}>
-        {brands.map((brand, index) => (
-          <Pressable
-            key={brand.id}
-            // Highlights the customer's actual chosen brand (drives the menu below) — now kept
-            // in sync with the auto-rotating hero photo above, not just manual taps.
-            style={[styles.thumb, brand.id === selectedBrandId && styles.thumbActive]}
-            onPress={() => handleSelect(brand, index)}
-          >
-            {brand.logoUrl && <Image source={{ uri: brand.logoUrl }} style={styles.thumbLogo} resizeMode="contain" />}
-            <Text style={styles.thumbName} numberOfLines={2}>
-              {brand.name}
-            </Text>
-          </Pressable>
-        ))}
-        {/* Not a real brand — no backend data, not tappable — just a preview of what's next. */}
-        <View style={styles.thumbComingSoon}>
-          <Text style={styles.thumbComingSoonIcon}>✨</Text>
-          <Text style={styles.thumbName} numberOfLines={2}>
-            Coming Soon
-          </Text>
-        </View>
-      </View>
+      <Pressable style={styles.premiumWrap} onPress={handlePremiumPress}>
+        <LinearGradient
+          colors={["#6E0F1F", "#B0202F", "#D4AF37"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.premiumCard}
+        >
+          {/* A dark scrim behind the text guarantees contrast regardless of where it lands on
+              the red-to-gold gradient — the gold end especially needs it. */}
+          <View style={styles.premiumScrim} />
+          {/* The gradient spans the full width (no bare background beside it), but this inner
+              group stays compact and centered rather than stretching to fill it. */}
+          <View style={styles.premiumContent}>
+            <View style={styles.premiumTopRow}>
+              <Text style={styles.premiumCrown}>👑</Text>
+              <View>
+                <Text style={styles.premiumTitle}>Premium Membership</Text>
+                <Text style={styles.premiumSubtitle}>Free delivery · ₹39/month</Text>
+              </View>
+            </View>
+            <View style={styles.premiumCta}>
+              <Text style={styles.premiumCtaText}>Upgrade to Premium</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </Pressable>
     </View>
   );
 }
@@ -151,34 +157,41 @@ const makeStyles = (colors: ColorPalette) =>
     heroName: { fontSize: 22, fontWeight: "800", color: "#fff" },
     heroTagline: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: theme.spacing(0.5) },
     heroCta: { fontSize: 12, fontWeight: "700", color: "#fff", marginTop: theme.spacing(1) },
-    // flex: 1 on every tile (real brands + the Coming Soon placeholder) — four equal shares
-    // of the row's width instead of a fixed px width, so all four always fit on screen.
-    thumbRow: { flexDirection: "row", gap: 8, paddingTop: theme.spacing(1.5) },
-    thumb: {
-      flex: 1,
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: theme.radius,
-      paddingVertical: theme.spacing(1),
-      paddingHorizontal: theme.spacing(0.5),
-    },
-    thumbActive: { borderColor: colors.primary },
-    thumbLogo: { width: 36, height: 36, marginBottom: theme.spacing(0.5) },
-    thumbName: { fontSize: 9.5, color: colors.text, textAlign: "center", lineHeight: 12 },
-    thumbComingSoon: {
-      flex: 1,
-      alignItems: "center",
+    premiumWrap: { marginTop: theme.spacing(1.5) },
+    // Deliberately fixed red-to-gold gradient, independent of the app's light/dark theme — a
+    // premium membership card reads as its own consistent brand, like a credit/status card.
+    // Spans the full width (no bare background beside it), short rather than tall.
+    premiumCard: {
+      minHeight: 150,
       justifyContent: "center",
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderStyle: "dashed",
-      borderColor: colors.border,
+      paddingVertical: theme.spacing(1.5),
+      paddingHorizontal: theme.spacing(2),
       borderRadius: theme.radius,
-      paddingVertical: theme.spacing(1),
-      paddingHorizontal: theme.spacing(0.5),
-      opacity: 0.6,
+      borderWidth: 1.5,
+      borderColor: "#F2C94C",
+      overflow: "hidden",
     },
-    thumbComingSoonIcon: { fontSize: 20, marginBottom: theme.spacing(0.5) },
+    premiumScrim: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.22)",
+    },
+    // The compact group that stays centered within the full-width gradient instead of stretching.
+    premiumContent: { alignItems: "center" },
+    premiumTopRow: { flexDirection: "row", alignItems: "center" },
+    premiumCrown: { fontSize: 40, marginRight: theme.spacing(1.5) },
+    premiumTitle: { fontSize: 19, fontWeight: "800", color: "#F5E6C8", letterSpacing: 0.3 },
+    premiumSubtitle: { fontSize: 15, color: "#E8D5A8", marginTop: 4 },
+    premiumCta: {
+      marginTop: theme.spacing(2),
+      backgroundColor: "#D4AF37",
+      borderRadius: theme.radius,
+      paddingVertical: theme.spacing(1.25),
+      paddingHorizontal: theme.spacing(4),
+      alignItems: "center",
+    },
+    premiumCtaText: { fontSize: 16, fontWeight: "800", color: "#171310" },
   });

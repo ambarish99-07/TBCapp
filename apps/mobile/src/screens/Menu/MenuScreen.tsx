@@ -223,26 +223,34 @@ export function MenuScreen({ navigation }: Props) {
       <View pointerEvents="box-none" style={[styles.floatingFooter, { paddingBottom: insets.bottom + theme.spacing(1) }]}>
         <CartSummaryBar navigation={navigation} />
 
-        {/* Single pill, sized to its content and centered — a shared top-to-bottom border
-            wraps the whole group, with thin vertical dividers separating each icon+label. */}
-        <View style={styles.bottomBar}>
-          <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
-            <Text style={styles.bottomIconEmoji}>📋</Text>
-            <Text style={styles.bottomIconLabel}>Menu</Text>
-          </Pressable>
-          <View style={styles.bottomDivider} />
-          {showCombosBanner && (
-            <>
-              <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
-                <Text style={styles.bottomIconEmoji}>🎁</Text>
-                <Text style={styles.bottomIconLabel}>Combos</Text>
-              </Pressable>
-              <View style={styles.bottomDivider} />
-            </>
-          )}
-          <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
-            <Text style={styles.bottomIconEmoji}>🎉</Text>
-            <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
+        {/* Two separate pills, pinned to opposite corners — Menu/Combos/Bulk Deals on the left
+            (a shared top-to-bottom border wraps that group, with thin vertical dividers between
+            each icon+label), GG Tiffin on the right with its own boundary. */}
+        <View style={styles.bottomRow}>
+          <View style={styles.bottomBar}>
+            <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
+              <Text style={styles.bottomIconEmoji}>📋</Text>
+              <Text style={styles.bottomIconLabel}>Menu</Text>
+            </Pressable>
+            <View style={styles.bottomDivider} />
+            {showCombosBanner && (
+              <>
+                <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
+                  <Text style={styles.bottomIconEmoji}>🎁</Text>
+                  <Text style={styles.bottomIconLabel}>Combos</Text>
+                </Pressable>
+                <View style={styles.bottomDivider} />
+              </>
+            )}
+            <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
+              <Text style={styles.bottomIconEmoji}>🎉</Text>
+              <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={styles.ggTiffinTab} onPress={() => navigation.navigate("TiffinLanding")}>
+            <Text style={styles.bottomIconEmoji}>🍱</Text>
+            <Text style={styles.bottomIconLabel}>GG Tiffin</Text>
           </Pressable>
         </View>
       </View>
@@ -331,10 +339,10 @@ const makeStyles = (colors: ColorPalette) =>
     // Absolute positioning is relative to the screen's border box, not its padding box — restate
     // the screen's own horizontal padding here so the floating cart bar isn't flush against the edges.
     floatingFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: theme.spacing(2) },
+    // Left pill (Menu/Combos/Bulk Deals) and the right GG Tiffin pill, pinned to opposite ends.
+    bottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: theme.spacing(1) },
     bottomBar: {
       flexDirection: "row",
-      alignSelf: "center",
-      marginTop: theme.spacing(1),
       paddingVertical: theme.spacing(1),
       borderWidth: 1,
       borderColor: colors.border,
@@ -348,6 +356,16 @@ const makeStyles = (colors: ColorPalette) =>
     bottomDivider: { width: 1, backgroundColor: colors.border },
     bottomIconEmoji: { fontSize: 20 },
     bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
+    // Its own separate boundary, distinct from the left pill's shared border.
+    ggTiffinTab: {
+      alignItems: "center",
+      paddingVertical: theme.spacing(1),
+      paddingHorizontal: theme.spacing(2),
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius,
+      backgroundColor: colors.surface,
+    },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
     modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2) },
