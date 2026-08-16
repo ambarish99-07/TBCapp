@@ -25,9 +25,17 @@ export type RootStackParamList = {
     dietType: "veg" | "non-veg";
     date: string;
     dishName: string;
+    // Per-unit price — multiply by quantity for the amount actually charged.
     price: number;
+    quantity: number;
     carbChoice?: "rice" | "roti";
+    // The add-ons the customer actually selected in the customize pop-up, each with its price —
+    // not what's included, real optional extras. See SingleMealAddOn.
+    addOns: { name: string; price: number }[];
   };
+  // Live-ish tracking for one single-meal order — status timeline, delivery map, rider contact,
+  // and cancellation. Reached from MyTiffin's order list or the app-wide "Track Order" pill.
+  TiffinSingleMealOrderTracking: { orderId: string };
   // ₹21/60-day free-delivery membership — reached from the Home carousel's promo card.
   PremiumMembership: undefined;
   Cart: undefined;

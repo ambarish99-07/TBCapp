@@ -4,7 +4,7 @@ import { createApp } from "../../src/app.js";
 import { TiffinMealPriceModel } from "../../src/db/models/TiffinMealPrice.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
-// Own file so it gets its own signup rate-limit budget — needs 3 fresh signups.
+// Own file so it gets its own signup rate-limit budget — needs 5 fresh signups (the limit is 5/15min).
 const env = testEnv();
 const app = createApp(env);
 
@@ -56,30 +56,45 @@ describe("GET /tiffin/single-meal/menu", () => {
     expect(response.status).toBe(200);
     // 6 active rows seeded above, veg + non-veg each — the inactive premium dinner row is excluded.
     expect(response.body.menu).toHaveLength(12);
-    type MenuItem = { tier: string; mealType: string; dietType: string; dishName: string; carbChoiceRequired: boolean };
+    type MenuItem = {
+      tier: string;
+      mealType: string;
+      dietType: string;
+      dishName: string;
+      carbChoiceRequired: boolean;
+      addOns: { name: string; price: number }[];
+    };
     const find = (tier: string, mealType: string, dietType: string) =>
       response.body.menu.find((item: MenuItem) => item.tier === tier && item.mealType === mealType && item.dietType === dietType);
 
-    const miniVegLunch = find("mini", "lunch", "veg");
+    const miniVegLunch: MenuItem = find("mini", "lunch", "veg");
     expect(miniVegLunch.carbChoiceRequired).toBe(true);
     expect(miniVegLunch.dishName).toBeTruthy();
-    // Mini reuses Regular's veg lunch sabzi for the same day, but composes its own full name —
-    // "Roti {sabzi}" (no rice/daal), vs Regular's "Rice Roti Daal {sabzi}".
-    const regularVegLunch: string = find("regular", "lunch", "veg").dishName;
-    const sabzi = regularVegLunch.replace(/^Rice Roti Daal /, "");
-    expect(miniVegLunch.dishName).toBe(`Roti ${sabzi}`);
+    // Mini reuses Regular's veg lunch sabzi for the same day — the dish name is now always just
+    // the bare sabzi, so both tiers show the exact same name; only the offered add-ons differ.
+    const regularVegLunch: MenuItem = find("regular", "lunch", "veg");
+    expect(miniVegLunch.dishName).toBe(regularVegLunch.dishName);
+    expect(miniVegLunch.addOns).toEqual([{ name: "Roti", price: 10 }, { name: `Extra ${miniVegLunch.dishName}`, price: 30 }]);
+    expect(regularVegLunch.addOns).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
+      { name: `Extra ${regularVegLunch.dishName}`, price: 30 },
+    ]);
 
     expect(find("mini", "breakfast", "veg")).toBeUndefined();
     expect(find("mini", "breakfast", "non-veg")).toBeUndefined();
     // Breakfast is diet-agnostic except Wednesday, where non-veg keeps the old Bread Omelette
     // instead of veg's Upma — "tomorrow" could be any day when this test runs, so branch on it
-    // rather than assuming every day matches.
-    const vegBreakfast = find("regular", "breakfast", "veg").dishName;
-    const nonVegBreakfast = find("regular", "breakfast", "non-veg").dishName;
-    if (vegBreakfast === "Upma") {
-      expect(nonVegBreakfast).toBe("Bread Omelette");
+    // rather than assuming every day matches. Breakfast never offers add-ons either way.
+    const vegBreakfast: MenuItem = find("regular", "breakfast", "veg");
+    const nonVegBreakfast: MenuItem = find("regular", "breakfast", "non-veg");
+    expect(vegBreakfast.addOns).toEqual([]);
+    expect(nonVegBreakfast.addOns).toEqual([]);
+    if (vegBreakfast.dishName === "Upma") {
+      expect(nonVegBreakfast.dishName).toBe("Bread Omelette");
     } else {
-      expect(nonVegBreakfast).toBe(vegBreakfast);
+      expect(nonVegBreakfast.dishName).toBe(vegBreakfast.dishName);
     }
   });
 });
@@ -92,11 +107,14 @@ describe("POST /tiffin/single-meal/orders", () => {
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
-      .send({ tier: "regular", mealType: "lunch", dietType: "veg", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ tier: "regular", mealType: "lunch", dietType: "veg", quantity: 1, delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
     expect(response.body.order.orderNumber).toMatch(/^GTM-/);
     expect(response.body.order.price).toBe(129);
+    expect(response.body.order.quantity).toBe(1);
+    // No selectedAddOns sent — nothing gets added on by default.
+    expect(response.body.order.addOns).toEqual([]);
     expect(response.body.order.status).toBe("placed");
 
     const mine = await request(app).get("/tiffin/single-meal/orders/mine").set("Authorization", `Bearer ${token}`);
@@ -105,18 +123,51 @@ describe("POST /tiffin/single-meal/orders", () => {
     expect(mine.body.orders[0].orderNumber).toBe(response.body.order.orderNumber);
   });
 
-  it("places a non-veg order and snapshots the resolved dish", async () => {
+  it("places a non-veg order and snapshots the resolved dish, keeping only the add-ons actually selected — re-priced from the server catalog, unknown names ignored", async () => {
     await seedPrices();
     const token = await signup("nonveg-order@example.com", "9812400053");
 
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
-      .send({ tier: "regular", mealType: "dinner", dietType: "non-veg", delivery: validDelivery, paymentMethod: "cod" });
+      .send({
+        tier: "regular",
+        mealType: "dinner",
+        dietType: "non-veg",
+        quantity: 1,
+        selectedAddOns: ["Rice", "Daal", "Not A Real AddOn"],
+        delivery: validDelivery,
+        paymentMethod: "cod",
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.order.dietType).toBe("non-veg");
     expect(response.body.order.dishName).toBeTruthy();
+    expect(response.body.order.addOns).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Daal", price: 20 },
+    ]);
+  });
+
+  it("orders more than one of the same meal — price stays per-unit, quantity is snapshotted — and rejects going over the max", async () => {
+    await seedPrices();
+    const token = await signup("quantity-order@example.com", "9812400054");
+
+    const response = await request(app)
+      .post("/tiffin/single-meal/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tier: "regular", mealType: "lunch", dietType: "veg", quantity: 3, delivery: validDelivery, paymentMethod: "cod" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.order.price).toBe(129);
+    expect(response.body.order.quantity).toBe(3);
+
+    const tooMany = await request(app)
+      .post("/tiffin/single-meal/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tier: "regular", mealType: "lunch", dietType: "veg", quantity: 11, delivery: validDelivery, paymentMethod: "cod" });
+
+    expect(tooMany.status).toBe(400);
   });
 
   it("rejects a mini order without a rice/roti choice", async () => {
@@ -126,7 +177,7 @@ describe("POST /tiffin/single-meal/orders", () => {
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
-      .send({ tier: "mini", mealType: "lunch", dietType: "veg", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ tier: "mini", mealType: "lunch", dietType: "veg", quantity: 1, delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -138,7 +189,7 @@ describe("POST /tiffin/single-meal/orders", () => {
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
-      .send({ tier: "premium", mealType: "dinner", dietType: "veg", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ tier: "premium", mealType: "dinner", dietType: "veg", quantity: 1, delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(400);
   });
@@ -147,7 +198,7 @@ describe("POST /tiffin/single-meal/orders", () => {
     await seedPrices();
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
-      .send({ tier: "regular", mealType: "lunch", dietType: "veg", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ tier: "regular", mealType: "lunch", dietType: "veg", quantity: 1, delivery: validDelivery, paymentMethod: "cod" });
     expect(response.status).toBe(401);
   });
 });

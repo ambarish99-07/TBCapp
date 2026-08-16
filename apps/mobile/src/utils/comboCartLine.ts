@@ -13,6 +13,7 @@ import type { CartLine } from "../state/cartStore";
  */
 export function makeComboCartLine(params: {
   comboId: string;
+  brandId: string;
   name: string;
   description: string;
   image?: string;
@@ -32,6 +33,7 @@ export function makeComboCartLine(params: {
 
   return {
     lineId,
+    brandId: params.brandId,
     menuItemId,
     signatureName: params.name,
     commonName: params.description,

@@ -52,18 +52,3 @@ export function dishForDay(dietType: TiffinDietType, day: string, mealType: Tiff
   if (dish === null) throw new Error("unreachable: Regular tier always has a dish for every meal type");
   return dish;
 }
-
-/** Mirrors the backend's singleMealMenu.ts#composeFullDishName exactly — see there for why. Used
- * by the Weekly Menu browser (which is tier-aware, unlike the subscription schedule preview
- * above) so it shows the same full dish names the single-meal ordering screen does. */
-const ALREADY_COMPOSED_DISHES = new Set(["Paneer Butter Masala with Pulao", "Puri with Chole"]);
-
-export function composeFullDishName(tier: TiffinMealTier, mealType: TiffinMealType, dishName: string): string {
-  if (mealType === "breakfast" || ALREADY_COMPOSED_DISHES.has(dishName)) return dishName;
-  if (tier === "mini") return `Roti ${dishName}`;
-  if (tier === "premium") {
-    const staple = dishName === "Mutton Curry" ? "Pulao" : "Rice";
-    return `${staple} Paratha Daal ${dishName}`;
-  }
-  return `Rice Roti Daal ${dishName}`;
-}

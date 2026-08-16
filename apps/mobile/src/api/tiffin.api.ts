@@ -112,11 +112,19 @@ export function useMySingleMealOrders() {
       const { data } = await apiClient.get<{ orders: TiffinSingleMealOrder[] }>("/tiffin/single-meal/orders/mine");
       return data.orders;
     },
+    // Keeps the order-tracking screen (and the app-wide "Track Order" pill) reasonably fresh
+    // without the customer having to manually reload — same interval OrderStatusScreen uses.
+    refetchInterval: 15000,
   });
 }
 
 export async function createSingleMealOrderRequest(payload: CreateSingleMealOrderRequest): Promise<TiffinSingleMealOrder> {
   const { data } = await apiClient.post<{ order: TiffinSingleMealOrder }>("/tiffin/single-meal/orders", payload);
+  return data.order;
+}
+
+export async function cancelSingleMealOrderRequest(orderId: string): Promise<TiffinSingleMealOrder> {
+  const { data } = await apiClient.post<{ order: TiffinSingleMealOrder }>(`/tiffin/single-meal/orders/${orderId}/cancel`);
   return data.order;
 }
 

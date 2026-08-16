@@ -150,6 +150,9 @@ export const SINGLE_MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 export const SingleMealTypeSchema = z.enum(SINGLE_MEAL_TYPES);
 export type SingleMealType = z.infer<typeof SingleMealTypeSchema>;
 
+/** How many of the same meal a customer can add in one order from the customize pop-up. */
+export const MAX_SINGLE_MEAL_QUANTITY = 10;
+
 /** Only meaningful for the Mini tier — Regular includes both rice and roti, Premium substitutes
  * paratha for roti (also included alongside rice), only Mini serves a single carb of the
  * customer's choice. */
@@ -185,7 +188,7 @@ export const TIFFIN_PREMIUM_VEG_MENU: Record<string, TiffinDailyMenu> = {
   Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
   Friday: { breakfast: "Poha", lunch: "Rajma", dinner: "Matar Chole" },
   Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
-  Sunday: { breakfast: "Idli / Dosa with Sambar & Chutney", lunch: "Paneer Butter Masala with Pulao", dinner: "Puri with Chole" },
+  Sunday: { breakfast: "Idli / Dosa with Sambar & Chutney", lunch: "Paneer Butter Masala", dinner: "Puri with Chole" },
 };
 
 /** Non-veg keeps the old Bread Omelette on Wednesday breakfast instead of veg's Upma — the one
@@ -236,6 +239,14 @@ export type CreateTiffinMealPriceRequest = z.infer<typeof CreateTiffinMealPriceR
 export const UpdateTiffinMealPriceRequestSchema = CreateTiffinMealPriceRequestSchema.partial();
 export type UpdateTiffinMealPriceRequest = z.infer<typeof UpdateTiffinMealPriceRequestSchema>;
 
+/** A real, individually-priced extra the customer can choose to add to a meal — never included
+ * automatically. */
+export const SingleMealAddOnSchema = z.object({
+  name: z.string(),
+  price: z.number().nonnegative(),
+});
+export type SingleMealAddOn = z.infer<typeof SingleMealAddOnSchema>;
+
 /** What "tomorrow's menu" returns — two rows (veg + non-veg) per active (tier, mealType) price.
  * Price is shared across diets — only the dish differs. */
 export const SingleMealMenuItemSchema = z.object({
@@ -249,6 +260,10 @@ export const SingleMealMenuItemSchema = z.object({
   /** Real dish photography, added incrementally as photos become available — most dishes don't
    * have one yet, so this is optional rather than every menu item needing a placeholder. */
   imageUrl: z.string().optional(),
+  /** The optional extras offered for this meal (e.g. Rice, Roti, Daal, an extra piece of the
+   * protein) — a catalog to choose from in the customize pop-up, not what's included by default.
+   * Empty for breakfast and Premium's already-complete Sunday dinner, which have nothing to add. */
+  addOns: z.array(SingleMealAddOnSchema),
 });
 export type SingleMealMenuItem = z.infer<typeof SingleMealMenuItemSchema>;
 
@@ -257,6 +272,10 @@ export const CreateSingleMealOrderRequestSchema = z.object({
   mealType: SingleMealTypeSchema,
   dietType: TiffinDietTypeSchema,
   carbChoice: TiffinCarbChoiceSchema.optional(),
+  quantity: z.number().int().min(1).max(MAX_SINGLE_MEAL_QUANTITY),
+  /** Names of add-ons the customer chose from the catalog — re-priced server-side against the
+   * resolved catalog for this meal, never trusted from the client. */
+  selectedAddOns: z.array(z.string()).default([]),
   delivery: DeliveryDetailsSchema,
   paymentMethod: PaymentMethodSchema,
 });
@@ -264,6 +283,26 @@ export type CreateSingleMealOrderRequest = z.infer<typeof CreateSingleMealOrderR
 
 export const TiffinSingleMealOrderStatusSchema = z.enum(["placed", "preparing", "out-for-delivery", "delivered", "cancelled"]);
 export type TiffinSingleMealOrderStatus = z.infer<typeof TiffinSingleMealOrderStatusSchema>;
+
+export const TiffinSingleMealStatusHistoryEntrySchema = z.object({
+  status: TiffinSingleMealOrderStatusSchema,
+  at: z.string(), // ISO timestamp
+});
+export type TiffinSingleMealStatusHistoryEntry = z.infer<typeof TiffinSingleMealStatusHistoryEntrySchema>;
+
+/** The rider handling this order — assigned once it moves to "out-for-delivery" (there's no real
+ * rider app in this system, so this is picked from a fixed demo pool, not live dispatch). */
+export const DeliveryPartnerSchema = z.object({
+  name: z.string(),
+  phone: z.string(),
+});
+export type DeliveryPartner = z.infer<typeof DeliveryPartnerSchema>;
+
+/** A single-meal order cancelled within this many minutes of being placed gets a full refund
+ * (only meaningful for an already-paid Razorpay order — COD never charged anything upfront);
+ * on or after it, no refund. Unlike subscriptions' CANCELLATION_REFUND_PERCENT, this is all-or-
+ * nothing — a single meal is a same-day, already-in-motion order, not a multi-week commitment. */
+export const SINGLE_MEAL_CANCELLATION_WINDOW_MINUTES = 15;
 
 /** Full persisted/returned single-meal order shape. */
 export const TiffinSingleMealOrderSchema = z.object({
@@ -278,9 +317,17 @@ export const TiffinSingleMealOrderSchema = z.object({
   date: z.string(),
   /** Snapshotted at order time — a later menu/price edit shouldn't retroactively rewrite what was ordered. */
   dishName: z.string(),
+  /** The add-ons the customer actually chose, snapshotted with their price at order time — add to
+   * price × quantity for the amount actually charged. */
+  addOns: z.array(SingleMealAddOnSchema),
   status: TiffinSingleMealOrderStatusSchema,
+  statusHistory: z.array(TiffinSingleMealStatusHistoryEntrySchema),
+  deliveryPartner: DeliveryPartnerSchema.optional(),
   delivery: DeliveryDetailsSchema,
+  /** Per-unit BASE price (add-ons are priced separately) — multiply by quantity for the meal's
+   * share of the total charged. */
   price: z.number().positive(),
+  quantity: z.number().int().min(1),
   payment: TiffinPaymentInfoSchema,
   createdAt: z.string(),
 });

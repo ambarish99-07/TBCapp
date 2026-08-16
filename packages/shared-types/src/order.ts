@@ -67,6 +67,7 @@ export const PaymentInfoSchema = z.object({
   status: PaymentStatusSchema,
   razorpayOrderId: z.string().optional(),
   razorpayPaymentId: z.string().optional(),
+  refundAmount: z.number().min(0).optional(),
 });
 export type PaymentInfo = z.infer<typeof PaymentInfoSchema>;
 
@@ -76,6 +77,35 @@ export const StatusHistoryEntrySchema = z.object({
   note: z.string().optional(),
 });
 export type StatusHistoryEntry = z.infer<typeof StatusHistoryEntrySchema>;
+
+/** The rider handling this order — assigned once it moves to "out-for-delivery". There's no real
+ * rider app/dispatch system in this project, so this is picked from a fixed demo pool rather than
+ * live dispatch (see TiffinSingleMealOrder's own, separate DeliveryPartnerSchema — the two order
+ * systems are kept independent, same reasoning as their other duplicated small schemas — hence
+ * the "Order" prefix here to avoid colliding with that export). */
+export const OrderDeliveryPartnerSchema = z.object({
+  name: z.string(),
+  phone: z.string(),
+});
+export type OrderDeliveryPartner = z.infer<typeof OrderDeliveryPartnerSchema>;
+
+/**
+ * Three-tier cancellation refund, keyed off the order's status at the moment it's cancelled:
+ * still "received" (nothing started yet) → full refund; "preparing" or "out-for-delivery" (already
+ * in progress or on the way) → ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT; "delivered" (a
+ * post-delivery complaint — spilled, never arrived, etc.) → ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT.
+ * Only meaningful for an order actually paid via Razorpay already — COD never charged anything
+ * upfront, so there's nothing to refund through the system regardless of tier.
+ */
+export const ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT = 0.5;
+export const ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT = 0.3;
+
+export const CancelOrderRequestSchema = z.object({
+  /** Why the customer is cancelling — most relevant for a post-delivery cancellation (spilled,
+   * never arrived), optional otherwise. Shown to admins, never affects the refund tier itself. */
+  reason: z.string().max(300).optional(),
+});
+export type CancelOrderRequest = z.infer<typeof CancelOrderRequestSchema>;
 
 /** What the client POSTs to create an order — no prices, no totals, server derives everything. */
 export const CreateOrderRequestSchema = z.object({
@@ -107,6 +137,9 @@ export const OrderSchema = z.object({
   estimatedMinutes: z.number().int().positive(),
   status: OrderStatusSchema,
   statusHistory: z.array(StatusHistoryEntrySchema),
+  deliveryPartner: OrderDeliveryPartnerSchema.optional(),
+  /** Set only when cancelled with a reason attached — see CancelOrderRequestSchema. */
+  cancellationReason: z.string().optional(),
   payment: PaymentInfoSchema,
   createdAt: z.string(),
   updatedAt: z.string(),

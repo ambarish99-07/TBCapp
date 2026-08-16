@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeFullDishName, dayNameForDate, getSingleMealDish } from "../../src/modules/tiffin/singleMealMenu.js";
+import { dayNameForDate, getSingleMealDish, resolveAddOns } from "../../src/modules/tiffin/singleMealMenu.js";
 
 // 2026-08-17 is a Monday, 2026-08-19 is Wednesday, 2026-08-21 is Friday, 2026-08-23 is the
 // following Sunday (same fixed week tiffinSchedule.test.ts uses).
@@ -24,7 +24,7 @@ describe("getSingleMealDish — veg", () => {
 
   it("resolves Premium's upgraded Sunday menu", () => {
     expect(getSingleMealDish("premium", "veg", "breakfast", SUNDAY)).toBe("Idli / Dosa with Sambar & Chutney");
-    expect(getSingleMealDish("premium", "veg", "lunch", SUNDAY)).toBe("Paneer Butter Masala with Pulao");
+    expect(getSingleMealDish("premium", "veg", "lunch", SUNDAY)).toBe("Paneer Butter Masala");
     expect(getSingleMealDish("premium", "veg", "dinner", SUNDAY)).toBe("Puri with Chole");
   });
 
@@ -77,26 +77,63 @@ describe("getSingleMealDish — non-veg", () => {
   });
 });
 
-describe("composeFullDishName", () => {
-  it("gives Regular the real rice + roti + daal staples ahead of the sabzi", () => {
-    expect(composeFullDishName("regular", "lunch", "Dum Aloo")).toBe("Rice Roti Daal Dum Aloo");
-    expect(composeFullDishName("regular", "dinner", "Fish Curry")).toBe("Rice Roti Daal Fish Curry");
+describe("resolveAddOns", () => {
+  it("gives Regular rice, roti, daal, and an extra portion of the sabzi itself — each individually priced", () => {
+    expect(resolveAddOns("regular", "lunch", "Dum Aloo")).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
+      { name: "Extra Dum Aloo", price: 30 },
+    ]);
   });
 
-  it("gives Premium paratha instead of roti, and Pulao instead of rice for Mutton Curry specifically", () => {
-    expect(composeFullDishName("premium", "lunch", "Aloo Matar")).toBe("Rice Paratha Daal Aloo Matar");
-    expect(composeFullDishName("premium", "lunch", "Mutton Curry")).toBe("Pulao Paratha Daal Mutton Curry");
+  it("gives Premium pulao instead of rice for Mutton Curry and Paneer Butter Masala, and maps protein curries to a priced '{Protein} piece' add-on", () => {
+    expect(resolveAddOns("premium", "lunch", "Mutton Curry")).toEqual([
+      { name: "Pulao", price: 25 },
+      { name: "Paratha", price: 15 },
+      { name: "Daal", price: 20 },
+      { name: "Mutton piece", price: 60 },
+    ]);
+    expect(resolveAddOns("premium", "lunch", "Paneer Butter Masala")).toEqual([
+      { name: "Pulao", price: 25 },
+      { name: "Paratha", price: 15 },
+      { name: "Daal", price: 20 },
+      { name: "Extra Paneer Butter Masala", price: 30 },
+    ]);
+    expect(resolveAddOns("premium", "dinner", "Chicken Curry")).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Paratha", price: 15 },
+      { name: "Daal", price: 20 },
+      { name: "Chicken piece", price: 40 },
+    ]);
+    expect(resolveAddOns("regular", "dinner", "Egg Curry")).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
+      { name: "Egg piece", price: 15 },
+    ]);
+    expect(resolveAddOns("regular", "dinner", "Fish Curry")).toEqual([
+      { name: "Rice", price: 20 },
+      { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
+      { name: "Fish piece", price: 45 },
+    ]);
   });
 
-  it("drops rice and daal for Mini — just roti and the day's sabzi", () => {
-    expect(composeFullDishName("mini", "lunch", "Aloo Matar")).toBe("Roti Aloo Matar");
-    expect(composeFullDishName("mini", "dinner", "Chicken Curry")).toBe("Roti Chicken Curry");
+  it("drops rice and daal for Mini — just roti and the sabzi/protein add-on", () => {
+    expect(resolveAddOns("mini", "lunch", "Aloo Matar")).toEqual([
+      { name: "Roti", price: 10 },
+      { name: "Extra Aloo Matar", price: 30 },
+    ]);
+    expect(resolveAddOns("mini", "dinner", "Chicken Curry")).toEqual([
+      { name: "Roti", price: 10 },
+      { name: "Chicken piece", price: 40 },
+    ]);
   });
 
-  it("leaves breakfast dishes and the already-composed Premium Sunday veg dishes untouched", () => {
-    expect(composeFullDishName("regular", "breakfast", "Masala Pasta")).toBe("Masala Pasta");
-    expect(composeFullDishName("premium", "breakfast", "Bread Omelette")).toBe("Bread Omelette");
-    expect(composeFullDishName("premium", "lunch", "Paneer Butter Masala with Pulao")).toBe("Paneer Butter Masala with Pulao");
-    expect(composeFullDishName("premium", "dinner", "Puri with Chole")).toBe("Puri with Chole");
+  it("returns no add-ons for breakfast or Premium's already-complete Sunday dinner", () => {
+    expect(resolveAddOns("regular", "breakfast", "Masala Pasta")).toEqual([]);
+    expect(resolveAddOns("premium", "breakfast", "Bread Omelette")).toEqual([]);
+    expect(resolveAddOns("premium", "dinner", "Puri with Chole")).toEqual([]);
   });
 });

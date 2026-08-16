@@ -17,6 +17,7 @@ import {
 import {
   getMySingleMealOrders,
   getSingleMealMenu,
+  postCancelSingleMealOrder,
   postSingleMealOrder,
   postSingleMealRazorpayOrder,
   postSingleMealRazorpayVerify,
@@ -43,6 +44,7 @@ export function createTiffinRouter(env: Env): Router {
   router.get("/single-meal/menu", getSingleMealMenu(env));
   router.post("/single-meal/orders", requireAuth(env.JWT_SECRET), postSingleMealOrder(env));
   router.get("/single-meal/orders/mine", requireAuth(env.JWT_SECRET), getMySingleMealOrders);
+  router.post("/single-meal/orders/:id/cancel", requireAuth(env.JWT_SECRET), postCancelSingleMealOrder);
   router.post("/single-meal/orders/:id/razorpay-order", requireAuth(env.JWT_SECRET), postSingleMealRazorpayOrder(env));
   router.post("/single-meal/orders/:id/razorpay-verify", requireAuth(env.JWT_SECRET), postSingleMealRazorpayVerify(env));
 

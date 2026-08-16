@@ -17,6 +17,14 @@ const DeliveryDetailsSchema = new Schema(
   { _id: false }
 );
 
+const AddOnSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
 const PaymentInfoSchema = new Schema(
   {
     method: { type: String, enum: ["cod", "razorpay"], required: true },
@@ -24,6 +32,22 @@ const PaymentInfoSchema = new Schema(
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
     refundAmount: { type: Number, min: 0 },
+  },
+  { _id: false }
+);
+
+const StatusHistoryEntrySchema = new Schema(
+  {
+    status: { type: String, enum: ["placed", "preparing", "out-for-delivery", "delivered", "cancelled"], required: true },
+    at: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const DeliveryPartnerSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
   },
   { _id: false }
 );
@@ -42,9 +66,14 @@ const TiffinSingleMealOrderSchema = new Schema(
     date: { type: String, required: true },
     // Snapshotted at order time — a later menu/price edit shouldn't retroactively rewrite what was ordered.
     dishName: { type: String, required: true },
+    addOns: { type: [AddOnSchema], required: true, default: [] },
     status: { type: String, enum: ["placed", "preparing", "out-for-delivery", "delivered", "cancelled"], required: true, default: "placed" },
+    statusHistory: { type: [StatusHistoryEntrySchema], required: true, default: [] },
+    deliveryPartner: { type: DeliveryPartnerSchema },
     delivery: { type: DeliveryDetailsSchema, required: true },
+    // Per-unit price — multiply by quantity for the amount actually charged.
     price: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1, default: 1 },
     payment: { type: PaymentInfoSchema, required: true },
   },
   {

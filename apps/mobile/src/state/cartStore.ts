@@ -7,6 +7,10 @@ const CART_STORAGE_KEY = "tbc_cart_lines";
 
 export interface CartLine {
   lineId: string;
+  /** Which brand this item was added under — checkout sends this to the server, never whichever
+   * brand happens to be ambiently "selected" at the moment of checkout (that can drift, e.g. the
+   * Home carousel auto-rotating in the background, well after the item was actually added). */
+  brandId: string;
   menuItemId: string;
   signatureName: string;
   commonName: string;
@@ -65,7 +69,13 @@ export const useCartStore = create<CartState>((set, get) => ({
   hydrate: async () => {
     try {
       const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
-      if (raw) set({ lines: JSON.parse(raw) as CartLine[] });
+      if (raw) {
+        const lines = JSON.parse(raw) as CartLine[];
+        // Lines saved before `brandId` was added to CartLine can never check out correctly (the
+        // order's brandId falls back to whatever's ambiently selected, which is the exact bug
+        // this field exists to avoid) — drop them rather than leave a cart stuck failing checkout.
+        set({ lines: lines.filter((line) => !!line.brandId) });
+      }
     } catch {
       // Corrupt/unreadable storage — start with an empty cart rather than crashing.
     } finally {

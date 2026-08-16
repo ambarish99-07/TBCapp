@@ -1,8 +1,11 @@
-import type {
-  CreateSingleMealOrderRequest,
-  CreateTiffinMealPriceRequest,
-  SingleMealMenuItem,
-  UpdateTiffinMealPriceRequest,
+import {
+  SINGLE_MEAL_CANCELLATION_WINDOW_MINUTES,
+  type CreateSingleMealOrderRequest,
+  type CreateTiffinMealPriceRequest,
+  type DeliveryPartner,
+  type SingleMealMenuItem,
+  type TiffinSingleMealOrderStatus,
+  type UpdateTiffinMealPriceRequest,
 } from "@tbc/shared-types";
 import type { Env } from "../../config/env.js";
 import { TiffinMealPriceModel } from "../../db/models/TiffinMealPrice.model.js";
@@ -12,7 +15,7 @@ import { sendNewSingleMealOrderAlert } from "../../integrations/whatsapp/sendNew
 import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
-import { composeFullDishName, getSingleMealDish } from "./singleMealMenu.js";
+import { getSingleMealDish, resolveAddOns } from "./singleMealMenu.js";
 import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
@@ -20,9 +23,8 @@ import { TiffinValidationError } from "./tiffin.errors.js";
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
 
 /** Real dish photography (served from public/tiffin-images/, same static route the plan-card
- * photos use), keyed by the *bare* dish name (before composeFullDishName's rice/roti/daal prefix
- * is added) — shared by Regular and Premium, which serve the same sabzi/curry. Mini gets its own
- * distinct photos below (different box/portioning), checked first. */
+ * photos use), keyed by the bare dish name — shared by Regular and Premium, which serve the same
+ * sabzi/curry. Mini gets its own distinct photos below (different box/portioning), checked first. */
 const DISH_IMAGE_SLUGS: Record<string, string> = {
   "Masala Pasta": "masala-pasta",
   Sandwich: "sandwich",
@@ -44,7 +46,7 @@ const DISH_IMAGE_SLUGS: Record<string, string> = {
   "Fish Curry": "fish-curry",
   "Egg Curry": "egg-curry",
   "Mutton Curry": "mutton-and-pulao",
-  "Paneer Butter Masala with Pulao": "paneer-butter-masala-and-pulao",
+  "Paneer Butter Masala": "paneer-butter-masala-and-pulao",
 };
 
 /** Mini's own photos (smaller box, single carb) — checked before the shared table above. Not
@@ -64,6 +66,20 @@ const MINI_DISH_IMAGE_SLUGS: Record<string, string> = {
 
 function tiffinDishImageUrl(env: Env, slug: string): string {
   return `http://localhost:${env.PORT}/tiffin-images/${slug}.png`;
+}
+
+/** There's no real rider app/dispatch system in this project — a rider is picked from this fixed
+ * demo pool, deterministically by order id, once an order moves to "out-for-delivery". */
+const DELIVERY_PARTNER_POOL: DeliveryPartner[] = [
+  { name: "Ravi Shankar", phone: "9835012345" },
+  { name: "Amit Verma", phone: "9835023456" },
+  { name: "Suresh Yadav", phone: "9835034567" },
+  { name: "Manoj Kumar", phone: "9835045678" },
+];
+
+function pickDeliveryPartner(orderId: string): DeliveryPartner {
+  const seed = [...orderId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return DELIVERY_PARTNER_POOL[seed % DELIVERY_PARTNER_POOL.length];
 }
 
 /**
@@ -101,10 +117,11 @@ export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]>
         mealType,
         dietType,
         date,
-        dishName: composeFullDishName(tier, mealType, bareDishName),
+        dishName: bareDishName,
         price: price.price,
         carbChoiceRequired: tier === "mini",
         imageUrl: imageSlug ? tiffinDishImageUrl(env, imageSlug) : undefined,
+        addOns: resolveAddOns(tier, mealType, bareDishName),
       });
     }
   }
@@ -126,6 +143,11 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     throw new TiffinValidationError("This meal isn't available right now");
   }
 
+  // Re-resolve the add-on catalog server-side and keep only what the customer actually picked —
+  // names and prices are never trusted from the client.
+  const availableAddOns = resolveAddOns(request.tier, request.mealType, bareDishName);
+  const selectedAddOns = availableAddOns.filter((addOn) => request.selectedAddOns.includes(addOn.name));
+
   // Same zone check every TBC/TAT order and tiffin subscription already goes through.
   assertWithinDeliveryZone(request.delivery);
 
@@ -140,10 +162,13 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     dietType: request.dietType,
     carbChoice: request.tier === "mini" ? request.carbChoice : undefined,
     date,
-    dishName: composeFullDishName(request.tier, request.mealType, bareDishName),
+    dishName: bareDishName,
+    addOns: selectedAddOns,
     status: "placed",
+    statusHistory: [{ status: "placed", at: new Date().toISOString() }],
     delivery: request.delivery,
     price: price.price,
+    quantity: request.quantity,
     // Charged once, upfront — same one-time Razorpay order/verify flow as subscriptions and
     // regular orders, not a separate API. COD is trusted immediately; razorpay only becomes
     // "paid" after signature verification succeeds.
@@ -175,7 +200,8 @@ export async function createSingleMealRazorpayOrder(env: Env, userId: string, or
     throw new TiffinValidationError("This order is not awaiting a Razorpay payment");
   }
 
-  const razorpayOrder = await createRazorpayOrder(env, order.price, order.orderNumber);
+  const addOnsTotal = order.addOns.reduce((sum, addOn) => sum + addOn.price, 0);
+  const razorpayOrder = await createRazorpayOrder(env, (order.price + addOnsTotal) * order.quantity, order.orderNumber);
   order.payment.razorpayOrderId = razorpayOrder.id;
   await order.save();
 
@@ -232,6 +258,36 @@ export function listMySingleMealOrders(userId: string) {
   return TiffinSingleMealOrderModel.find({ userId }).sort({ createdAt: -1 });
 }
 
+/**
+ * Cancelling within SINGLE_MEAL_CANCELLATION_WINDOW_MINUTES of placing the order refunds the full
+ * amount (only meaningful if it was actually paid via Razorpay already — COD never charged
+ * anything upfront); on or after that window, no refund. Nothing is charged back through
+ * Razorpay here — same "record the entitled refund for the business to settle manually" approach
+ * tiffin.service.ts's subscription cancellation already uses.
+ */
+export async function cancelSingleMealOrder(userId: string, orderId: string) {
+  const order = await findOwnedOrder(userId, orderId);
+  if (order.status === "cancelled" || order.status === "delivered") {
+    throw new TiffinValidationError("This order can't be cancelled");
+  }
+
+  const minutesElapsed = (Date.now() - order.createdAt.getTime()) / (1000 * 60);
+  const addOnsTotal = order.addOns.reduce((sum, addOn) => sum + addOn.price, 0);
+  const refundAmount =
+    order.payment.status === "paid" && minutesElapsed < SINGLE_MEAL_CANCELLATION_WINDOW_MINUTES
+      ? (order.price + addOnsTotal) * order.quantity
+      : 0;
+
+  order.status = "cancelled";
+  order.statusHistory.push({ status: "cancelled", at: new Date().toISOString() });
+  if (refundAmount > 0) {
+    order.payment.status = "refunded";
+    order.payment.refundAmount = refundAmount;
+  }
+  await order.save();
+  return order;
+}
+
 // --- Admin-only ---
 
 /** Scoped to today (IST) — same day-boundary the orders themselves were dated under. */
@@ -239,9 +295,16 @@ export function listTodaysSingleMealOrders() {
   return TiffinSingleMealOrderModel.find({ date: todayIsoInIst() }).sort({ dishName: 1 });
 }
 
-export async function updateSingleMealOrderStatus(orderId: string, status: string) {
-  const order = await TiffinSingleMealOrderModel.findByIdAndUpdate(orderId, { status }, { new: true });
+export async function updateSingleMealOrderStatus(orderId: string, status: TiffinSingleMealOrderStatus) {
+  const order = await TiffinSingleMealOrderModel.findById(orderId);
   if (!order) throw new TiffinValidationError("Order not found");
+
+  order.status = status;
+  order.statusHistory.push({ status, at: new Date().toISOString() });
+  if (status === "out-for-delivery" && !order.deliveryPartner) {
+    order.deliveryPartner = pickDeliveryPartner(String(order._id));
+  }
+  await order.save();
   return order;
 }
 

@@ -63,6 +63,18 @@ export const getMySingleMealOrders: RequestHandler = async (req, res) => {
   res.json({ orders });
 };
 
+export const postCancelSingleMealOrder: RequestHandler = async (req, res) => {
+  const userId = requireUserId(req, res);
+  if (!userId) return;
+  try {
+    const order = await singleMealService.cancelSingleMealOrder(userId, req.params.id);
+    res.json({ order });
+  } catch (err) {
+    if (handleSingleMealError(err, res)) return;
+    throw err;
+  }
+};
+
 export function postSingleMealRazorpayOrder(env: Env): RequestHandler {
   return async (req, res) => {
     const userId = requireUserId(req, res);

@@ -5,6 +5,7 @@ import {
   TIFFIN_PREMIUM_VEG_MENU,
   TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES,
   TIFFIN_REGULAR_VEG_MENU,
+  type SingleMealAddOn,
   type SingleMealType,
   type TiffinDietType,
   type TiffinMealTier,
@@ -60,25 +61,66 @@ export function getSingleMealDish(tier: TiffinMealTier, dietType: TiffinDietType
   return menu[dayName][mealType];
 }
 
-/** Sunday's two Premium veg dishes are already fully composed in the curated menu itself
- * ("...with Pulao" / "...with Chole") — every other lunch/dinner dish is just the bare sabzi or
- * curry name, and needs the tier's real staple components spelled out so the customer knows
- * exactly what's in the box, not just the sabzi. */
-const ALREADY_COMPOSED_DISHES = new Set(["Paneer Butter Masala with Pulao", "Puri with Chole"]);
+/** Dishes with no separate staple components to offer as add-ons — Premium's Sunday dinner
+ * ("Puri with Chole") is already a complete two-part dish, and breakfast items are single-serve
+ * as-is. */
+const NO_ADDONS_DISHES = new Set(["Puri with Chole"]);
+
+/** Dishes that pair with Pulao instead of plain Rice as their rice-based add-on — Mutton Curry
+ * (Premium's one Sunday non-veg upgrade) and Paneer Butter Masala (its one Sunday veg upgrade). */
+const PULAO_STAPLE_DISHES = new Set(["Mutton Curry", "Paneer Butter Masala"]);
+
+/** Meat/egg curries offer "{Protein} piece" as their extra-portion add-on instead of "Extra
+ * {dish}" — every other (veg) dish offers an extra helping of the sabzi itself. */
+const PROTEIN_PIECE_NAMES: Record<string, string> = {
+  "Fish Curry": "Fish piece",
+  "Egg Curry": "Egg piece",
+  "Chicken Curry": "Chicken piece",
+  "Mutton Curry": "Mutton piece",
+};
+
+/** Flat prices for the staple add-ons, shared across every dish that offers them. */
+const STAPLE_ADDON_PRICES: Record<string, number> = {
+  Rice: 20,
+  Roti: 10,
+  Daal: 20,
+  Paratha: 15,
+  Pulao: 25,
+};
+
+/** Extra-piece prices for meat/egg curries — varies by protein, unlike the flat staple prices. */
+const PROTEIN_PIECE_PRICES: Record<string, number> = {
+  "Fish piece": 45,
+  "Egg piece": 15,
+  "Chicken piece": 40,
+  "Mutton piece": 60,
+};
+
+/** Flat price for an extra helping of the day's veg sabzi itself. */
+const EXTRA_VEG_PORTION_PRICE = 30;
 
 /**
- * Turns a bare sabzi/curry name (from getSingleMealDish) into the full description of what's
- * actually in the box: Regular gets rice + roti + daal; Premium swaps roti for paratha (and rice
- * for pulao on its one Sunday non-veg dish, Mutton Curry); Mini drops rice and daal entirely —
- * it's just roti + the day's sabzi. Breakfast dishes and the two already-composed Premium Sunday
- * veg dishes are returned unchanged.
+ * The real, individually-priced extras a customer can choose to add to this meal in the
+ * customize pop-up — never included automatically. Regular offers rice/roti/daal plus an extra
+ * portion of the day's dish; Premium swaps roti for paratha (and rice for pulao on its two Sunday
+ * upgrades, Mutton Curry and Paneer Butter Masala); Mini, the single-carb tier, only offers roti
+ * plus the extra-portion add-on. Breakfast and Premium's already-complete Sunday dinner have
+ * nothing to add, so they return no add-ons at all.
  */
-export function composeFullDishName(tier: TiffinMealTier, mealType: SingleMealType, dishName: string): string {
-  if (mealType === "breakfast" || ALREADY_COMPOSED_DISHES.has(dishName)) return dishName;
-  if (tier === "mini") return `Roti ${dishName}`;
-  if (tier === "premium") {
-    const staple = dishName === "Mutton Curry" ? "Pulao" : "Rice";
-    return `${staple} Paratha Daal ${dishName}`;
-  }
-  return `Rice Roti Daal ${dishName}`;
+export function resolveAddOns(tier: TiffinMealTier, mealType: SingleMealType, dishName: string): SingleMealAddOn[] {
+  if (mealType === "breakfast" || NO_ADDONS_DISHES.has(dishName)) return [];
+
+  const proteinPiece = PROTEIN_PIECE_NAMES[dishName];
+  const lastAddOn: SingleMealAddOn = proteinPiece
+    ? { name: proteinPiece, price: PROTEIN_PIECE_PRICES[proteinPiece] }
+    : { name: `Extra ${dishName}`, price: EXTRA_VEG_PORTION_PRICE };
+
+  const stapleNames =
+    tier === "mini"
+      ? ["Roti"]
+      : tier === "premium"
+        ? [PULAO_STAPLE_DISHES.has(dishName) ? "Pulao" : "Rice", "Paratha", "Daal"]
+        : ["Rice", "Roti", "Daal"];
+
+  return [...stapleNames.map((name) => ({ name, price: STAPLE_ADDON_PRICES[name] })), lastAddOn];
 }

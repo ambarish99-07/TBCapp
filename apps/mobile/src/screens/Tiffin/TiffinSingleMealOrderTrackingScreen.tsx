@@ -1,58 +1,52 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { OrderStatus } from "@tbc/shared-types";
+import { useQueryClient } from "@tanstack/react-query";
+import type { TiffinSingleMealOrder, TiffinSingleMealOrderStatus } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
-import { cancelOrderRequest, fetchOrderByAccessToken } from "../../api/orders.api";
-import { StatusTimeline } from "../../components/StatusTimeline";
+import { cancelSingleMealOrderRequest, useMySingleMealOrders } from "../../api/tiffin.api";
+import { TiffinSubscriptionAndOrders } from "../../components/TiffinSubscriptionAndOrders";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
 import { mapEmbedHtml } from "../../utils/mapEmbed";
 import type { RootStackParamList } from "../../navigation/types";
 
-type Props = NativeStackScreenProps<RootStackParamList, "OrderStatus">;
+type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealOrderTracking">;
 
-function cancellationPolicyText(status: OrderStatus): string {
-  if (status === "received") {
-    return "Cancel now for a full refund — your order hasn't started preparing yet.";
-  }
-  if (status === "delivered") {
-    return "This order has already been delivered. If something went wrong (spilled, wrong item, never arrived), cancelling now refunds 30% of the total.";
-  }
-  return "Your order is already being prepared or is on its way — cancelling now refunds 50% of the total.";
-}
+const STATUS_STEPS: TiffinSingleMealOrderStatus[] = ["placed", "preparing", "out-for-delivery", "delivered"];
+const STATUS_LABELS: Record<TiffinSingleMealOrderStatus, string> = {
+  placed: "Placed",
+  preparing: "Preparing",
+  "out-for-delivery": "Out for delivery",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
 
-function deliveryAddressLine(order: { delivery: { houseNumber?: string; area?: string; address: string; city: string; pincode: string } }): string {
+/** Cancellable any time before it's actually delivered (or already cancelled) — refund
+ * eligibility, not cancellability, is what the 15-minute window gates. */
+const CANCELLABLE_STATUSES: TiffinSingleMealOrderStatus[] = ["placed", "preparing", "out-for-delivery"];
+
+function deliveryAddressLine(order: TiffinSingleMealOrder): string {
   const line1 = [order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ");
   return `${line1}, ${order.delivery.city} ${order.delivery.pincode}`;
 }
 
-export function OrderStatusScreen({ route }: Props) {
+export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
-  const {
-    data: order,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["order", route.params.accessToken],
-    queryFn: () => fetchOrderByAccessToken(route.params.accessToken),
-    refetchInterval: 15000,
-  });
+  const { data: orders, isLoading } = useMySingleMealOrders();
+  const order = orders?.find((item) => item.id === route.params.orderId);
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
   async function handleConfirmCancel() {
+    if (!order) return;
     setCancelling(true);
     try {
-      await cancelOrderRequest(route.params.accessToken, cancelReason.trim() || undefined);
-      await queryClient.invalidateQueries({ queryKey: ["order", route.params.accessToken] });
-      await queryClient.invalidateQueries({ queryKey: ["my-orders"] });
+      await cancelSingleMealOrderRequest(order.id);
+      await queryClient.invalidateQueries({ queryKey: ["tiffin-single-meal-orders-mine"] });
       setShowCancelPolicy(false);
-      setCancelReason("");
     } catch (err) {
       Alert.alert("Couldn't cancel order", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -60,41 +54,55 @@ export function OrderStatusScreen({ route }: Props) {
     }
   }
 
-  if (error) {
+  if (isLoading) {
     return (
-      <View style={styles.screen}>
-        <Text style={styles.errorText}>Couldn't load this order. Check your connection and try again.</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
-  if (isLoading || !order) {
+  if (!order) {
     return (
-      <View style={styles.screen}>
-        <Text style={styles.summaryText}>Loading order…</Text>
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Couldn't find this order.</Text>
       </View>
     );
   }
+
+  const addOnsTotal = order.addOns.reduce((sum, addOn) => sum + addOn.price, 0);
+  const total = (order.price + addOnsTotal) * order.quantity;
+  const currentIndex = STATUS_STEPS.indexOf(order.status);
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.orderNumber}>{order.orderNumber}</Text>
-        <Text style={styles.eta}>Estimated delivery: {order.estimatedMinutes} minutes</Text>
+        <Text style={styles.dishName}>
+          {order.dishName}
+          {order.quantity > 1 ? ` × ${order.quantity}` : ""}
+        </Text>
 
-        {order.deliveryFor === "recipient" && (
-          <Text style={styles.recipientBanner}>
-            Your order has been placed successfully and will be delivered to {order.delivery.fullName} at {order.delivery.address},{" "}
-            {order.delivery.city}.
-          </Text>
-        )}
-
-        <StatusTimeline status={order.status} history={order.statusHistory} />
-
-        {order.status === "cancelled" && order.payment.refundAmount !== undefined && (
+        {order.status === "cancelled" ? (
           <View style={styles.card}>
-            <Text style={styles.refundText}>₹{order.payment.refundAmount} refunded.</Text>
-            {order.cancellationReason && <Text style={styles.refundReasonText}>Reason: {order.cancellationReason}</Text>}
+            <Text style={styles.cancelledText}>This order was cancelled.</Text>
+            {order.payment.refundAmount ? (
+              <Text style={styles.refundText}>₹{order.payment.refundAmount} refunded.</Text>
+            ) : (
+              <Text style={styles.refundText}>No refund — it was cancelled outside the 15-minute window.</Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            {STATUS_STEPS.map((step, index) => {
+              const isDone = index <= currentIndex;
+              return (
+                <View key={step} style={styles.step}>
+                  <View style={[styles.dot, isDone && styles.dotDone]} />
+                  <Text style={[styles.stepLabel, isDone && styles.stepLabelDone]}>{STATUS_LABELS[step]}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -113,43 +121,43 @@ export function OrderStatusScreen({ route }: Props) {
           </View>
         )}
 
-        <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>{order.deliveryFor === "recipient" ? "Delivering to" : "Delivering to (you)"}</Text>
-          <Text style={styles.summaryText}>{order.delivery.fullName}</Text>
-          <Text style={styles.summaryText}>{deliveryAddressLine(order)}</Text>
-          {order.delivery.landmark && <Text style={styles.summaryText}>Landmark: {order.delivery.landmark}</Text>}
-          <Text style={styles.summaryText}>{order.delivery.phone}</Text>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Delivering To</Text>
+          <Text style={styles.addressText}>{order.delivery.fullName}</Text>
+          <Text style={styles.addressText}>{deliveryAddressLine(order)}</Text>
           <View style={styles.mapWrap}>
             <WebView source={{ html: mapEmbedHtml(deliveryAddressLine(order)) }} style={styles.map} />
           </View>
-          <Text style={styles.summaryTitle}>Payment</Text>
-          <Text style={styles.summaryText}>
-            {order.payment.method === "cod" ? "Pay on Delivery" : "Paid Online"} · {order.payment.status}
-          </Text>
-          <Text style={styles.summaryTitle}>Total</Text>
-          <Text style={styles.summaryText}>₹{order.totals.total}</Text>
         </View>
 
-        {order.status !== "cancelled" && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Total</Text>
+          <Text style={styles.totalText}>₹{total}</Text>
+          <Text style={styles.paymentText}>
+            {order.payment.method === "cod" ? "Cash on Delivery" : "Paid Online"} · {order.payment.status}
+          </Text>
+        </View>
+
+        {CANCELLABLE_STATUSES.includes(order.status) && (
           <Pressable style={styles.cancelButton} onPress={() => setShowCancelPolicy(true)}>
             <Text style={styles.cancelButtonText}>Cancel Order</Text>
           </Pressable>
         )}
+
+        <View style={styles.myTiffinDivider}>
+          <Text style={styles.myTiffinDividerText}>My Tiffin</Text>
+        </View>
+        <TiffinSubscriptionAndOrders navigation={navigation} />
       </ScrollView>
 
       <Modal visible={showCancelPolicy} animationType="fade" transparent onRequestClose={() => setShowCancelPolicy(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowCancelPolicy(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Cancellation Policy</Text>
-            <Text style={styles.modalBody}>{cancellationPolicyText(order.status)}</Text>
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="What happened? (optional)"
-              placeholderTextColor={colors.muted}
-              value={cancelReason}
-              onChangeText={setCancelReason}
-              multiline
-            />
+            <Text style={styles.modalBody}>
+              Cancel within 15 minutes of placing your order for a full refund. After 15 minutes, no refund will be
+              issued.
+            </Text>
             <View style={styles.modalActions}>
               <Pressable style={styles.modalKeepButton} onPress={() => setShowCancelPolicy(false)} disabled={cancelling}>
                 <Text style={styles.modalKeepButtonText}>Keep Order</Text>
@@ -169,20 +177,23 @@ const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background },
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
-    orderNumber: { fontSize: 18, fontWeight: "800", color: colors.primary },
-    eta: { fontSize: 13, color: colors.muted, marginBottom: theme.spacing(2) },
-    recipientBanner: {
+    centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
+    errorText: { color: colors.danger, fontSize: 14 },
+    orderNumber: { fontSize: 13, fontWeight: "700", color: colors.muted },
+    dishName: { fontSize: 20, fontWeight: "800", color: colors.text, marginTop: 2, marginBottom: theme.spacing(2) },
+    card: {
       backgroundColor: colors.surface,
       borderRadius: theme.radius,
-      padding: theme.spacing(1.5),
-      marginBottom: theme.spacing(2),
-      fontSize: 13,
-      color: colors.text,
-      fontWeight: "600",
+      padding: theme.spacing(2),
+      marginBottom: theme.spacing(1.5),
     },
-    card: { marginTop: theme.spacing(2), backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-    refundText: { color: colors.primary, fontWeight: "800", fontSize: 15 },
-    refundReasonText: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    step: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
+    dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border },
+    dotDone: { backgroundColor: colors.primary },
+    stepLabel: { fontSize: 14, color: colors.muted },
+    stepLabelDone: { color: colors.text, fontWeight: "700" },
+    cancelledText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+    refundText: { color: colors.muted, fontSize: 13, marginTop: 4 },
     sectionTitle: { fontSize: 12, fontWeight: "700", color: colors.muted, marginBottom: 6 },
     partnerName: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     partnerActions: { flexDirection: "row", gap: 8 },
@@ -194,36 +205,32 @@ const makeStyles = (colors: ColorPalette) =>
       alignItems: "center",
     },
     partnerButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-    summary: { marginTop: theme.spacing(2), backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-    summaryTitle: { fontSize: 12, color: colors.muted, marginTop: 8 },
-    summaryText: { fontSize: 14, color: colors.text, fontWeight: "600" },
+    addressText: { fontSize: 14, color: colors.text, fontWeight: "600", marginBottom: 2 },
     mapWrap: { height: 180, borderRadius: theme.radius, overflow: "hidden", marginTop: theme.spacing(1.5) },
     map: { flex: 1 },
-    errorText: { color: colors.danger, textAlign: "center", marginTop: theme.spacing(4) },
+    totalText: { fontSize: 18, fontWeight: "800", color: colors.primary },
+    paymentText: { fontSize: 12, color: colors.muted, marginTop: 2 },
     cancelButton: {
       borderWidth: 1,
       borderColor: colors.danger,
       borderRadius: theme.radius,
       paddingVertical: theme.spacing(1.5),
       alignItems: "center",
-      marginTop: theme.spacing(2),
+      marginTop: theme.spacing(1),
     },
     cancelButtonText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+    myTiffinDivider: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: theme.spacing(3),
+      paddingTop: theme.spacing(2),
+      marginBottom: theme.spacing(1.5),
+    },
+    myTiffinDividerText: { fontSize: 16, fontWeight: "800", color: colors.text },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
     modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2.5) },
     modalTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
-    modalBody: { fontSize: 13, color: colors.muted, lineHeight: 19, marginBottom: theme.spacing(1.5) },
-    reasonInput: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: theme.radius,
-      padding: theme.spacing(1.25),
-      color: colors.text,
-      fontSize: 13,
-      minHeight: 60,
-      textAlignVertical: "top",
-      marginBottom: theme.spacing(2),
-    },
+    modalBody: { fontSize: 13, color: colors.muted, lineHeight: 19, marginBottom: theme.spacing(2) },
     modalActions: { flexDirection: "row", gap: 8 },
     modalKeepButton: {
       flex: 1,

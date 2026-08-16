@@ -42,6 +42,7 @@ function CuratedComboRow({ combo, itemPrice, styles }: { combo: Extract<Combo, {
     addLine(
       makeComboCartLine({
         comboId: combo.id,
+        brandId: combo.brandId,
         name: combo.name,
         description: combo.description,
         image: combo.image,

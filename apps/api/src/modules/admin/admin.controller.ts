@@ -1,5 +1,5 @@
 import { getRecommendations } from "@tbc/pricing";
-import { isComboLineId } from "@tbc/shared-types";
+import { isComboLineId, type OrderDeliveryPartner } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
@@ -18,6 +18,22 @@ export const listOrders: RequestHandler = async (req, res) => {
 
 const ADVANCEABLE_STATUSES = ["received", "preparing", "out-for-delivery", "delivered", "cancelled"];
 
+/** There's no real rider app/dispatch system in this project — a rider is picked from this fixed
+ * demo pool, deterministically by order id, once an order moves to "out-for-delivery" (same
+ * pattern GG Tiffin's single-meal orders use, kept as a separate pool since the two order systems
+ * are independent). */
+const DELIVERY_PARTNER_POOL: OrderDeliveryPartner[] = [
+  { name: "Ajay Singh", phone: "9835067890" },
+  { name: "Deepak Prasad", phone: "9835078901" },
+  { name: "Vikas Kumar", phone: "9835089012" },
+  { name: "Rohit Sharma", phone: "9835090123" },
+];
+
+function pickDeliveryPartner(orderId: string): OrderDeliveryPartner {
+  const seed = [...orderId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return DELIVERY_PARTNER_POOL[seed % DELIVERY_PARTNER_POOL.length];
+}
+
 export const advanceOrderStatus: RequestHandler = async (req, res) => {
   const { status, note } = req.body as { status?: string; note?: string };
   if (!status || !ADVANCEABLE_STATUSES.includes(status)) {
@@ -33,6 +49,9 @@ export const advanceOrderStatus: RequestHandler = async (req, res) => {
 
   order.status = status as (typeof ADVANCEABLE_STATUSES)[number] as typeof order.status;
   order.statusHistory.push({ status: order.status, at: new Date(), note });
+  if (order.status === "out-for-delivery" && !order.deliveryPartner) {
+    order.deliveryPartner = pickDeliveryPartner(String(order._id));
+  }
   await order.save();
   res.json({ order });
 };

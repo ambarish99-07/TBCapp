@@ -5,7 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
 import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
-import { composeFullDishName, singleMealDishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
+import { singleMealDishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinWeeklyMenu">;
@@ -85,7 +85,7 @@ export function TiffinWeeklyMenuScreen(_props: Props) {
             <View key={mealType} style={styles.mealRow}>
               <Text style={styles.mealType}>{MEAL_TYPE_LABELS[mealType]}</Text>
               {dish ? (
-                <Text style={styles.mealDish}>{composeFullDishName(tier, mealType, dish)}</Text>
+                <Text style={styles.mealDish}>{dish}</Text>
               ) : (
                 <Text style={styles.mealUnavailable}>Not available for Mini Meal</Text>
               )}

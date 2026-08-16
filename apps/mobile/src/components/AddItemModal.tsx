@@ -43,6 +43,7 @@ export function AddItemModal({ item, onClose }: Props) {
     const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
     addLine({
       lineId: `${item.id}-${Date.now()}`,
+      brandId: item.brandId,
       menuItemId: item.id,
       signatureName: item.signatureName,
       commonName: item.commonName,

@@ -56,6 +56,7 @@ export function ChooseComboScreen({ route, navigation }: Props) {
     addLine(
       makeComboCartLine({
         comboId: combo!.id,
+        brandId: combo!.brandId,
         name: combo!.name,
         description: selectedIds.map((id) => menuItems?.find((item) => item.id === id)?.signatureName ?? id).join(" + "),
         image: combo!.image ?? menuItems?.find((item) => item.id === selectedIds[0])?.image,

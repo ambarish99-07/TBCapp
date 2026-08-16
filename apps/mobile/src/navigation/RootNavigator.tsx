@@ -26,11 +26,14 @@ import { TiffinCheckoutScreen } from "../screens/Tiffin/TiffinCheckoutScreen";
 import { TiffinLandingScreen } from "../screens/Tiffin/TiffinLandingScreen";
 import { TiffinPlanSelectScreen } from "../screens/Tiffin/TiffinPlanSelectScreen";
 import { TiffinSingleMealCheckoutScreen } from "../screens/Tiffin/TiffinSingleMealCheckoutScreen";
+import { TiffinSingleMealOrderTrackingScreen } from "../screens/Tiffin/TiffinSingleMealOrderTrackingScreen";
 import { PremiumMembershipScreen } from "../screens/PremiumMembership/PremiumMembershipScreen";
 import { TiffinSingleMealScreen } from "../screens/Tiffin/TiffinSingleMealScreen";
 import { TiffinWeeklyMenuScreen } from "../screens/Tiffin/TiffinWeeklyMenuScreen";
+import { ActiveOrderPills } from "../components/ActiveOrderPills";
 import { useAuthStore } from "../state/authStore";
 import { useTheme } from "../state/themeStore";
+import { navigationRef } from "./navigationRef";
 import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,56 +63,64 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <View style={{ flex: 1 }}>
         {user ? (
-          <Stack.Navigator initialRouteName="Menu">
-            <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
-            <Stack.Screen
-              name="RestaurantMenu"
-              component={RestaurantMenuScreen}
-              options={{ title: "Menu", headerRight: () => <CartHeaderButton /> }}
-            />
-            <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
-            <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
-            <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
-            <Stack.Screen
-              name="CategoryResults"
-              component={CategoryResultsScreen}
-              options={{ title: "Search Results", headerRight: () => <CartHeaderButton /> }}
-            />
-            <Stack.Screen
-              name="Combos"
-              component={CombosScreen}
-              options={{ title: "Combos", headerRight: () => <CartHeaderButton /> }}
-            />
-            <Stack.Screen
-              name="ChooseCombo"
-              component={ChooseComboScreen}
-              options={{ title: "Build Your Combo", headerRight: () => <CartHeaderButton /> }}
-            />
-            <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Deals" }} />
-            <Stack.Screen name="TiffinLanding" component={TiffinLandingScreen} options={{ title: "GG Tiffin" }} />
-            <Stack.Screen name="TiffinWeeklyMenu" component={TiffinWeeklyMenuScreen} options={{ title: "Weekly Menu" }} />
-            <Stack.Screen name="TiffinPlanSelect" component={TiffinPlanSelectScreen} options={{ title: "Choose Your Plan" }} />
-            <Stack.Screen name="TiffinCheckout" component={TiffinCheckoutScreen} options={{ title: "Subscribe" }} />
-            <Stack.Screen name="MyTiffin" component={MyTiffinScreen} options={{ title: "My Tiffin" }} />
-            <Stack.Screen name="TiffinSingleMeal" component={TiffinSingleMealScreen} options={{ title: "Order a Single Meal" }} />
-            <Stack.Screen
-              name="TiffinSingleMealCheckout"
-              component={TiffinSingleMealCheckoutScreen}
-              options={{ title: "Checkout" }}
-            />
-            <Stack.Screen name="PremiumMembership" component={PremiumMembershipScreen} options={{ title: "Premium Membership" }} />
-            <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
-            <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
-            <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />
-            <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />
-            <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
-            <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
-            <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: "Order History" }} />
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
-          </Stack.Navigator>
+          <>
+            <Stack.Navigator initialRouteName="Menu">
+              <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
+              <Stack.Screen
+                name="RestaurantMenu"
+                component={RestaurantMenuScreen}
+                options={{ title: "Menu", headerRight: () => <CartHeaderButton /> }}
+              />
+              <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
+              <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
+              <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
+              <Stack.Screen
+                name="CategoryResults"
+                component={CategoryResultsScreen}
+                options={{ title: "Search Results", headerRight: () => <CartHeaderButton /> }}
+              />
+              <Stack.Screen
+                name="Combos"
+                component={CombosScreen}
+                options={{ title: "Combos", headerRight: () => <CartHeaderButton /> }}
+              />
+              <Stack.Screen
+                name="ChooseCombo"
+                component={ChooseComboScreen}
+                options={{ title: "Build Your Combo", headerRight: () => <CartHeaderButton /> }}
+              />
+              <Stack.Screen name="BulkOrder" component={BulkOrderScreen} options={{ title: "Bulk Deals" }} />
+              <Stack.Screen name="TiffinLanding" component={TiffinLandingScreen} options={{ title: "GG Tiffin" }} />
+              <Stack.Screen name="TiffinWeeklyMenu" component={TiffinWeeklyMenuScreen} options={{ title: "Weekly Menu" }} />
+              <Stack.Screen name="TiffinPlanSelect" component={TiffinPlanSelectScreen} options={{ title: "Choose Your Plan" }} />
+              <Stack.Screen name="TiffinCheckout" component={TiffinCheckoutScreen} options={{ title: "Subscribe" }} />
+              <Stack.Screen name="MyTiffin" component={MyTiffinScreen} options={{ title: "My Tiffin" }} />
+              <Stack.Screen name="TiffinSingleMeal" component={TiffinSingleMealScreen} options={{ title: "Order a Single Meal" }} />
+              <Stack.Screen
+                name="TiffinSingleMealCheckout"
+                component={TiffinSingleMealCheckoutScreen}
+                options={{ title: "Checkout" }}
+              />
+              <Stack.Screen
+                name="TiffinSingleMealOrderTracking"
+                component={TiffinSingleMealOrderTrackingScreen}
+                options={{ title: "Track Order" }}
+              />
+              <Stack.Screen name="PremiumMembership" component={PremiumMembershipScreen} options={{ title: "Premium Membership" }} />
+              <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
+              <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
+              <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />
+              <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />
+              <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
+              <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
+              <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: "Order History" }} />
+              <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
+            </Stack.Navigator>
+            <ActiveOrderPills />
+          </>
         ) : (
           // Logging in/out swaps this whole group for the one above (and back) —
           // an account is required before any part of the menu/ordering flow is reachable.

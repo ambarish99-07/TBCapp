@@ -69,6 +69,7 @@ function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; item
       addLine(
         makeComboCartLine({
           comboId: combo.id,
+          brandId: combo.brandId,
           name: combo.name,
           description: combo.description,
           image: combo.image,

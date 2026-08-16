@@ -1,8 +1,9 @@
-import { CreateOrderRequestSchema } from "@tbc/shared-types";
+import { CancelOrderRequestSchema, CreateOrderRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
 import { PriceResolutionError } from "../pricing/priceResolver.js";
 import {
+  cancelOrderByAccessToken,
   createOrder,
   findOrderByAccessToken,
   findOrderById,
@@ -62,4 +63,23 @@ export const getMyOrders: RequestHandler = async (req, res) => {
   }
   const orders = await listOrdersForUser(req.user.userId);
   res.json({ orders });
+};
+
+export const postCancelOrderByAccessToken: RequestHandler = async (req, res) => {
+  const parsed = CancelOrderRequestSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid cancellation payload", details: parsed.error.flatten() });
+    return;
+  }
+
+  try {
+    const order = await cancelOrderByAccessToken(req.params.accessToken, parsed.data.reason);
+    res.json({ order });
+  } catch (err) {
+    if (err instanceof OrderValidationError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
 };

@@ -18,8 +18,6 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealCheckout">;
 
-const BELL_RING_DURATION_MS = 1000;
-
 const TIER_LABELS: Record<Props["route"]["params"]["tier"], string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
 const MEAL_TYPE_LABELS: Record<Props["route"]["params"]["mealType"], string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 const DIET_LABELS: Record<Props["route"]["params"]["dietType"], string> = { veg: "Veg", "non-veg": "Non-Veg" };
@@ -29,7 +27,9 @@ const CARB_CHOICE_LABELS: Record<"rice" | "roti", string> = { rice: "Rice", roti
  * treatment as TiffinCheckoutScreen (that screen isn't factored into shared components, so this
  * mirrors its structure rather than importing it), adapted for a single meal instead of a plan. */
 export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
-  const { tier, mealType, dietType, date, dishName, price, carbChoice } = route.params;
+  const { tier, mealType, dietType, date, dishName, price, quantity, carbChoice, addOns } = route.params;
+  const addOnsTotal = addOns.reduce((sum, addOn) => sum + addOn.price, 0);
+  const totalPrice = (price + addOnsTotal) * quantity;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const user = useAuthStore((state) => state.user);
@@ -39,15 +39,12 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
   const [showProfileNudge, setShowProfileNudge] = useState(false);
   const nudgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const [showViewOrders, setShowViewOrders] = useState(false);
   const bellRotate = useRef(new Animated.Value(0)).current;
-  const viewOrdersTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption;
 
   useEffect(() => () => {
     if (nudgeTimeoutRef.current) clearTimeout(nudgeTimeoutRef.current);
-    if (viewOrdersTimeoutRef.current) clearTimeout(viewOrdersTimeoutRef.current);
   }, []);
 
   async function handleOrder() {
@@ -66,6 +63,8 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
         mealType,
         dietType,
         carbChoice,
+        quantity,
+        selectedAddOns: addOns.map((addOn) => addOn.name),
         delivery: {
           fullName: user.fullName,
           phone: user.phone!,
@@ -100,7 +99,6 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
         Animated.timing(bellRotate, { toValue: -1, duration: 100, useNativeDriver: true }),
         Animated.timing(bellRotate, { toValue: 0, duration: 100, useNativeDriver: true }),
       ]).start();
-      viewOrdersTimeoutRef.current = setTimeout(() => setShowViewOrders(true), BELL_RING_DURATION_MS);
     } catch (err) {
       Alert.alert("Couldn't place order", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -117,7 +115,23 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
             {DIET_LABELS[dietType]} · {TIER_LABELS[tier]} · {MEAL_TYPE_LABELS[mealType]} · {date}
             {carbChoice ? ` · ${CARB_CHOICE_LABELS[carbChoice]}` : ""}
           </Text>
-          <Text style={styles.priceRow}>Total: ₹{price}</Text>
+          {addOns.length > 0 && (
+            <View style={styles.addOnsRow}>
+              {addOns.map((addOn) => (
+                <View key={addOn.name} style={styles.addOnChip}>
+                  <Text style={styles.addOnChipText}>
+                    {addOn.name} +₹{addOn.price}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {quantity > 1 && (
+            <Text style={styles.quantityLine}>
+              Qty: {quantity} × ₹{price + addOnsTotal}
+            </Text>
+          )}
+          <Text style={styles.priceRow}>Total: ₹{totalPrice}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Delivery Address</Text>
@@ -156,7 +170,7 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
           onPress={handleOrder}
           disabled={submitting || (profileComplete && !canProceed)}
         >
-          <Text style={styles.orderButtonText}>{submitting ? "Placing order…" : `Order Now & Pay ₹${price}`}</Text>
+          <Text style={styles.orderButtonText}>{submitting ? "Placing order…" : `Order Now & Pay ₹${totalPrice}`}</Text>
         </Pressable>
       </View>
 
@@ -178,13 +192,6 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
             <Text style={styles.confirmedEmoji}>🔔</Text>
           </Animated.View>
           <Text style={styles.confirmedText}>Meal Ordered</Text>
-
-          {showViewOrders && (
-            <Pressable style={styles.viewOrdersTab} onPress={() => navigation.replace("MyTiffin")}>
-              <Text style={styles.viewOrdersText}>View My Orders</Text>
-              <Text style={styles.viewOrdersArrow}>→</Text>
-            </Pressable>
-          )}
         </View>
       )}
 
@@ -210,7 +217,11 @@ const makeStyles = (colors: ColorPalette) =>
     summaryCard: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
     dishName: { fontSize: 17, fontWeight: "800", color: colors.text },
     planMeta: { fontSize: 12, color: colors.muted, marginTop: 4 },
-    priceRow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginTop: theme.spacing(1) },
+    addOnsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: theme.spacing(1) },
+    addOnChip: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+    addOnChipText: { fontSize: 12, fontWeight: "700", color: colors.text },
+    quantityLine: { fontSize: 13, color: colors.muted, marginTop: theme.spacing(1) },
+    priceRow: { fontSize: 16, fontWeight: "800", color: colors.primary, marginTop: 4 },
     sectionTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginTop: theme.spacing(2.5), marginBottom: theme.spacing(1) },
     addressCard: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(1.5) },
     addressText: { fontSize: 13, color: colors.text, marginTop: 2 },
@@ -285,18 +296,6 @@ const makeStyles = (colors: ColorPalette) =>
     },
     confirmedEmoji: { fontSize: 72, marginBottom: theme.spacing(1.5) },
     confirmedText: { fontSize: 24, fontWeight: "800", color: colors.primary },
-    viewOrdersTab: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: colors.primary,
-      borderRadius: theme.radius,
-      paddingVertical: theme.spacing(1.5),
-      paddingHorizontal: theme.spacing(3),
-      marginTop: theme.spacing(3),
-    },
-    viewOrdersText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-    viewOrdersArrow: { color: "#fff", fontWeight: "800", fontSize: 16 },
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
     sheet: {
       backgroundColor: colors.background,

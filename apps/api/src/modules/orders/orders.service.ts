@@ -1,5 +1,9 @@
 import { computePricing } from "@tbc/pricing";
-import type { CreateOrderRequest } from "@tbc/shared-types";
+import {
+  ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT,
+  ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT,
+  type CreateOrderRequest,
+} from "@tbc/shared-types";
 import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
@@ -100,4 +104,38 @@ export function findOrderById(id: string) {
 
 export function listOrdersForUser(userId: string) {
   return OrderModel.find({ userId }).sort({ createdAt: -1 });
+}
+
+/**
+ * Three-tier cancellation refund keyed off the order's status at the moment it's cancelled — see
+ * ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT/ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT for the
+ * exact tiers. Works via accessToken rather than a userId+auth check, same trust model
+ * getOrderByAccessToken already uses — the token itself is the capability, for guest and
+ * logged-in orders alike. Nothing is charged back through Razorpay here — same "record the
+ * entitled refund for the business to settle manually" approach tiffin cancellation uses.
+ */
+export async function cancelOrderByAccessToken(accessToken: string, reason: string | undefined) {
+  const order = await OrderModel.findOne({ accessToken });
+  if (!order) throw new OrderValidationError("Order not found");
+  if (order.status === "cancelled") {
+    throw new OrderValidationError("This order has already been cancelled");
+  }
+
+  const refundPercent =
+    order.status === "received"
+      ? 1
+      : order.status === "delivered"
+        ? ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT
+        : ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT; // "preparing" or "out-for-delivery"
+  const refundAmount = order.payment.status === "paid" ? Math.round(order.totals.total * refundPercent) : 0;
+
+  order.status = "cancelled";
+  order.statusHistory.push({ status: "cancelled", at: new Date(), note: reason });
+  if (reason) order.cancellationReason = reason;
+  if (refundAmount > 0) {
+    order.payment.status = "refunded";
+    order.payment.refundAmount = refundAmount;
+  }
+  await order.save();
+  return order;
 }

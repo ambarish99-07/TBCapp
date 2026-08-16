@@ -91,6 +91,15 @@ const PaymentInfoSchema = new Schema(
     status: { type: String, enum: ["pending", "paid", "failed", "refunded"], required: true, default: "pending" },
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
+    refundAmount: { type: Number, min: 0 },
+  },
+  { _id: false }
+);
+
+const DeliveryPartnerSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
   },
   { _id: false }
 );
@@ -117,6 +126,8 @@ const OrderSchema = new Schema(
       default: "received",
     },
     statusHistory: { type: [StatusHistoryEntrySchema], default: [] },
+    deliveryPartner: { type: DeliveryPartnerSchema },
+    cancellationReason: { type: String },
     payment: { type: PaymentInfoSchema, required: true },
   },
   {
