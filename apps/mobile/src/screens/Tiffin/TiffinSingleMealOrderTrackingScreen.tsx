@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TiffinSingleMealOrder, TiffinSingleMealOrderStatus } from "@tbc/shared-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelSingleMealOrderRequest, useMySingleMealOrders } from "../../api/tiffin.api";
@@ -26,6 +26,12 @@ const STATUS_LABELS: Record<TiffinSingleMealOrderStatus, string> = {
  * eligibility, not cancellability, is what the 15-minute window gates. */
 const CANCELLABLE_STATUSES: TiffinSingleMealOrderStatus[] = ["placed", "preparing", "out-for-delivery"];
 
+/** COD orders never had a payment actually go through, so there's nothing left to review
+ * (no refund confirmation to read) — cancelling one bounces straight home instead of leaving the
+ * customer stranded on a now-dead order's page. Razorpay orders stay put so the refund amount is
+ * visible. */
+const HOME_REDIRECT_DELAY_MS = 3000;
+
 function deliveryAddressLine(order: TiffinSingleMealOrder): string {
   const line1 = [order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ");
   return `${line1}, ${order.delivery.city} ${order.delivery.pincode}`;
@@ -39,6 +45,12 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
   const order = orders?.find((item) => item.id === route.params.orderId);
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [redirectingHome, setRedirectingHome] = useState(false);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
+  }, []);
 
   async function handleConfirmCancel() {
     if (!order) return;
@@ -47,6 +59,10 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
       await cancelSingleMealOrderRequest(order.id);
       await queryClient.invalidateQueries({ queryKey: ["tiffin-single-meal-orders-mine"] });
       setShowCancelPolicy(false);
+      if (order.payment.method === "cod") {
+        setRedirectingHome(true);
+        redirectTimeoutRef.current = setTimeout(() => navigation.navigate("Menu"), HOME_REDIRECT_DELAY_MS);
+      }
     } catch (err) {
       Alert.alert("Couldn't cancel order", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -91,6 +107,7 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
             ) : (
               <Text style={styles.refundText}>No refund — it was cancelled outside the 15-minute window.</Text>
             )}
+            {redirectingHome && <Text style={styles.redirectText}>Redirecting to home page in 3 seconds…</Text>}
           </View>
         ) : (
           <View style={styles.card}>
@@ -194,6 +211,7 @@ const makeStyles = (colors: ColorPalette) =>
     stepLabelDone: { color: colors.text, fontWeight: "700" },
     cancelledText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
     refundText: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    redirectText: { color: colors.muted, fontSize: 12, fontStyle: "italic", marginTop: theme.spacing(1) },
     sectionTitle: { fontSize: 12, fontWeight: "700", color: colors.muted, marginBottom: 6 },
     partnerName: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     partnerActions: { flexDirection: "row", gap: 8 },

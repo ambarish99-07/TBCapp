@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OrderStatus } from "@tbc/shared-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelOrderRequest, fetchOrderByAccessToken } from "../../api/orders.api";
@@ -28,7 +28,13 @@ function deliveryAddressLine(order: { delivery: { houseNumber?: string; area?: s
   return `${line1}, ${order.delivery.city} ${order.delivery.pincode}`;
 }
 
-export function OrderStatusScreen({ route }: Props) {
+/** COD orders never had a payment actually go through, so there's nothing left to review (no
+ * refund confirmation to read) — cancelling one bounces straight home instead of leaving the
+ * customer stranded on a now-dead order's page. Razorpay orders stay put so the refund amount is
+ * visible. */
+const HOME_REDIRECT_DELAY_MS = 3000;
+
+export function OrderStatusScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
@@ -44,8 +50,15 @@ export function OrderStatusScreen({ route }: Props) {
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [redirectingHome, setRedirectingHome] = useState(false);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
+  }, []);
 
   async function handleConfirmCancel() {
+    if (!order) return;
     setCancelling(true);
     try {
       await cancelOrderRequest(route.params.accessToken, cancelReason.trim() || undefined);
@@ -53,6 +66,10 @@ export function OrderStatusScreen({ route }: Props) {
       await queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       setShowCancelPolicy(false);
       setCancelReason("");
+      if (order.payment.method === "cod") {
+        setRedirectingHome(true);
+        redirectTimeoutRef.current = setTimeout(() => navigation.navigate("Menu"), HOME_REDIRECT_DELAY_MS);
+      }
     } catch (err) {
       Alert.alert("Couldn't cancel order", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -91,10 +108,16 @@ export function OrderStatusScreen({ route }: Props) {
 
         <StatusTimeline status={order.status} history={order.statusHistory} />
 
-        {order.status === "cancelled" && order.payment.refundAmount !== undefined && (
+        {order.status === "cancelled" && (
           <View style={styles.card}>
-            <Text style={styles.refundText}>₹{order.payment.refundAmount} refunded.</Text>
+            <Text style={styles.cancelledText}>This order was cancelled.</Text>
+            {order.payment.refundAmount !== undefined ? (
+              <Text style={styles.refundText}>₹{order.payment.refundAmount} refunded.</Text>
+            ) : (
+              <Text style={styles.refundText}>No refund applies to this cancellation.</Text>
+            )}
             {order.cancellationReason && <Text style={styles.refundReasonText}>Reason: {order.cancellationReason}</Text>}
+            {redirectingHome && <Text style={styles.redirectText}>Redirecting to home page in 3 seconds…</Text>}
           </View>
         )}
 
@@ -181,8 +204,10 @@ const makeStyles = (colors: ColorPalette) =>
       fontWeight: "600",
     },
     card: { marginTop: theme.spacing(2), backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-    refundText: { color: colors.primary, fontWeight: "800", fontSize: 15 },
+    cancelledText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
+    refundText: { color: colors.primary, fontWeight: "800", fontSize: 15, marginTop: 4 },
     refundReasonText: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    redirectText: { color: colors.muted, fontSize: 12, fontStyle: "italic", marginTop: theme.spacing(1) },
     sectionTitle: { fontSize: 12, fontWeight: "700", color: colors.muted, marginBottom: 6 },
     partnerName: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     partnerActions: { flexDirection: "row", gap: 8 },
