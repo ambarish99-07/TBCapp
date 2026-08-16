@@ -2,8 +2,8 @@ import { z } from "zod";
 import { PaymentInfoSchema, PaymentMethodSchema } from "./order.js";
 
 /** Flat price and duration — never hardcoded anywhere else in the application. */
-export const PREMIUM_MEMBERSHIP_PRICE = 39;
-export const PREMIUM_MEMBERSHIP_DURATION_DAYS = 30;
+export const PREMIUM_MEMBERSHIP_PRICE = 21;
+export const PREMIUM_MEMBERSHIP_DURATION_DAYS = 60;
 
 /** Own payment shape — extends the generic order `PaymentInfoSchema` with a `refundAmount`,
  * same convention as tiffin.ts's `TiffinPaymentInfoSchema`, kept as its own named schema rather

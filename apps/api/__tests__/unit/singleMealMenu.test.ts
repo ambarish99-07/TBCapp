@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayNameForDate, getSingleMealDish } from "../../src/modules/tiffin/singleMealMenu.js";
+import { composeFullDishName, dayNameForDate, getSingleMealDish } from "../../src/modules/tiffin/singleMealMenu.js";
 
 // 2026-08-17 is a Monday, 2026-08-19 is Wednesday, 2026-08-21 is Friday, 2026-08-23 is the
 // following Sunday (same fixed week tiffinSchedule.test.ts uses).
@@ -74,5 +74,29 @@ describe("getSingleMealDish — non-veg", () => {
     expect(getSingleMealDish("mini", "non-veg", "dinner", SUNDAY)).toBe("Chicken Curry");
     expect(getSingleMealDish("mini", "non-veg", "dinner", MONDAY)).toBe(getSingleMealDish("regular", "veg", "dinner", MONDAY));
     expect(getSingleMealDish("mini", "non-veg", "breakfast", FRIDAY)).toBeNull();
+  });
+});
+
+describe("composeFullDishName", () => {
+  it("gives Regular the real rice + roti + daal staples ahead of the sabzi", () => {
+    expect(composeFullDishName("regular", "lunch", "Dum Aloo")).toBe("Rice Roti Daal Dum Aloo");
+    expect(composeFullDishName("regular", "dinner", "Fish Curry")).toBe("Rice Roti Daal Fish Curry");
+  });
+
+  it("gives Premium paratha instead of roti, and Pulao instead of rice for Mutton Curry specifically", () => {
+    expect(composeFullDishName("premium", "lunch", "Aloo Matar")).toBe("Rice Paratha Daal Aloo Matar");
+    expect(composeFullDishName("premium", "lunch", "Mutton Curry")).toBe("Pulao Paratha Daal Mutton Curry");
+  });
+
+  it("drops rice and daal for Mini — just roti and the day's sabzi", () => {
+    expect(composeFullDishName("mini", "lunch", "Aloo Matar")).toBe("Roti Aloo Matar");
+    expect(composeFullDishName("mini", "dinner", "Chicken Curry")).toBe("Roti Chicken Curry");
+  });
+
+  it("leaves breakfast dishes and the already-composed Premium Sunday veg dishes untouched", () => {
+    expect(composeFullDishName("regular", "breakfast", "Masala Pasta")).toBe("Masala Pasta");
+    expect(composeFullDishName("premium", "breakfast", "Bread Omelette")).toBe("Bread Omelette");
+    expect(composeFullDishName("premium", "lunch", "Paneer Butter Masala with Pulao")).toBe("Paneer Butter Masala with Pulao");
+    expect(composeFullDishName("premium", "dinner", "Puri with Chole")).toBe("Puri with Chole");
   });
 });

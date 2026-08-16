@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "PremiumMembership">;
 
 const BELL_RING_DURATION_MS = 1000;
 
-/** ₹39/30-day free-delivery membership — no delivery address needed (nothing is delivered),
+/** ₹21/60-day free-delivery membership — no delivery address needed (nothing is delivered),
  * so this is a slimmer checkout than Tiffin/Cart's: just pick a payment method and pay. Same
  * footer/confirmation treatment as the rest of the app's checkout screens. */
 export function PremiumMembershipScreen({ navigation }: Props) {

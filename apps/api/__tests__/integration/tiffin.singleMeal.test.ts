@@ -63,8 +63,11 @@ describe("GET /tiffin/single-meal/menu", () => {
     const miniVegLunch = find("mini", "lunch", "veg");
     expect(miniVegLunch.carbChoiceRequired).toBe(true);
     expect(miniVegLunch.dishName).toBeTruthy();
-    // Mini reuses Regular's veg lunch dish for the same day.
-    expect(miniVegLunch.dishName).toBe(find("regular", "lunch", "veg").dishName);
+    // Mini reuses Regular's veg lunch sabzi for the same day, but composes its own full name —
+    // "Roti {sabzi}" (no rice/daal), vs Regular's "Rice Roti Daal {sabzi}".
+    const regularVegLunch: string = find("regular", "lunch", "veg").dishName;
+    const sabzi = regularVegLunch.replace(/^Rice Roti Daal /, "");
+    expect(miniVegLunch.dishName).toBe(`Roti ${sabzi}`);
 
     expect(find("mini", "breakfast", "veg")).toBeUndefined();
     expect(find("mini", "breakfast", "non-veg")).toBeUndefined();

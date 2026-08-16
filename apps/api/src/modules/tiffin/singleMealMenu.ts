@@ -59,3 +59,26 @@ export function getSingleMealDish(tier: TiffinMealTier, dietType: TiffinDietType
   const menu = tier === "premium" ? TIFFIN_PREMIUM_VEG_MENU : TIFFIN_REGULAR_VEG_MENU;
   return menu[dayName][mealType];
 }
+
+/** Sunday's two Premium veg dishes are already fully composed in the curated menu itself
+ * ("...with Pulao" / "...with Chole") — every other lunch/dinner dish is just the bare sabzi or
+ * curry name, and needs the tier's real staple components spelled out so the customer knows
+ * exactly what's in the box, not just the sabzi. */
+const ALREADY_COMPOSED_DISHES = new Set(["Paneer Butter Masala with Pulao", "Puri with Chole"]);
+
+/**
+ * Turns a bare sabzi/curry name (from getSingleMealDish) into the full description of what's
+ * actually in the box: Regular gets rice + roti + daal; Premium swaps roti for paratha (and rice
+ * for pulao on its one Sunday non-veg dish, Mutton Curry); Mini drops rice and daal entirely —
+ * it's just roti + the day's sabzi. Breakfast dishes and the two already-composed Premium Sunday
+ * veg dishes are returned unchanged.
+ */
+export function composeFullDishName(tier: TiffinMealTier, mealType: SingleMealType, dishName: string): string {
+  if (mealType === "breakfast" || ALREADY_COMPOSED_DISHES.has(dishName)) return dishName;
+  if (tier === "mini") return `Roti ${dishName}`;
+  if (tier === "premium") {
+    const staple = dishName === "Mutton Curry" ? "Pulao" : "Rice";
+    return `${staple} Paratha Daal ${dishName}`;
+  }
+  return `Rice Roti Daal ${dishName}`;
+}

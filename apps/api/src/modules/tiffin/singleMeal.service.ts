@@ -12,23 +12,72 @@ import { sendNewSingleMealOrderAlert } from "../../integrations/whatsapp/sendNew
 import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
-import { getSingleMealDish } from "./singleMealMenu.js";
+import { composeFullDishName, getSingleMealDish } from "./singleMealMenu.js";
 import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
 
-/** Real dish photography, added incrementally as photos become available (served from
- * public/tiffin-images/, same static route the plan-card photos use) — keyed by exact dish name
- * so the same photo follows a dish across tiers/days, not by tier/day/mealType. Dishes with no
- * entry here simply render without a photo. */
-const TIFFIN_DISH_IMAGE_SLUGS: Record<string, string> = {
-  "Mutton Curry": "mutton-curry",
+/** Real dish photography (served from public/tiffin-images/, same static route the plan-card
+ * photos use), keyed by the *bare* dish name (before composeFullDishName's rice/roti/daal prefix
+ * is added) — shared by Regular and Premium, which serve the same sabzi/curry. Mini gets its own
+ * distinct photos below (different box/portioning), checked first. */
+const DISH_IMAGE_SLUGS: Record<string, string> = {
+  "Masala Pasta": "masala-pasta",
+  Sandwich: "sandwich",
+  "Aloo Paratha with Curd & Achar": "aloo-paratha-with-dahi-and-achar",
+  Poha: "poha",
+  "Sattu Paratha with Curd & Achar": "sattu-paratha-with-dahi-and-achar",
+  "Puri with Chole & Achar": "puri-chola",
+  "Puri with Chole": "puri-chola",
+  "Idli / Dosa with Sambar & Chutney": "idli-with-sambar-and-chutney",
+  "Bread Omelette": "bread-omelete",
+  "Aloo Matar": "aloo-matar",
+  "Aloo Gobhi": "aloo-gobhi",
+  "Aloo Soyabean": "aloo-soyabean",
+  "Dum Aloo": "dum-aloo",
+  "Matar Paneer": "matar-paneer",
+  "Mushroom Masala": "mushroom-masala",
+  Rajma: "rajma",
+  "Matar Mushroom": "matar-mushroom",
+  "Fish Curry": "fish-curry",
+  "Egg Curry": "egg-curry",
+  "Mutton Curry": "mutton-and-pulao",
+  "Paneer Butter Masala with Pulao": "paneer-butter-masala-and-pulao",
+};
+
+/** Mini's own photos (smaller box, single carb) — checked before the shared table above. Not
+ * every Mini dish has a dedicated photo yet; those fall through to the shared table instead. */
+const MINI_DISH_IMAGE_SLUGS: Record<string, string> = {
+  "Aloo Matar": "aloo-matar-mini",
+  "Aloo Gobhi": "aloo-gobhi-mini",
+  "Aloo Soyabean": "aloo-soyabean-mini",
+  "Dum Aloo": "dum-aloo-mini",
+  "Matar Paneer": "matar-paneer-mini",
+  "Mushroom Masala": "mushroom-masala-mini",
+  Rajma: "rajma-mini",
+  "Egg Curry": "egg-curry-mini",
+  "Chicken Curry": "chicken-curry-mini",
+  "Fish Curry": "fish-curry-mini",
 };
 
 function tiffinDishImageUrl(env: Env, slug: string): string {
   return `http://localhost:${env.PORT}/tiffin-images/${slug}.png`;
+}
+
+/**
+ * Mini checks its own photos first, then falls back to the shared Regular/Premium photo for the
+ * same dish (still a real, accurate photo — just not Mini's own box). Only genuinely unphotographed
+ * dishes (a handful — see the reply this was requested in) fall back further to the generic
+ * veg/non-veg thali photo the subscription plan cards use, and only for lunch/dinner — breakfast
+ * gets no generic fallback at all, since none of the available photos represent it accurately.
+ */
+function resolveDishImageSlug(tier: SingleMealMenuItem["tier"], dietType: SingleMealMenuItem["dietType"], mealType: SingleMealMenuItem["mealType"], bareDishName: string): string | undefined {
+  if (tier === "mini" && MINI_DISH_IMAGE_SLUGS[bareDishName]) return MINI_DISH_IMAGE_SLUGS[bareDishName];
+  if (DISH_IMAGE_SLUGS[bareDishName]) return DISH_IMAGE_SLUGS[bareDishName];
+  if (mealType === "breakfast") return undefined;
+  return dietType === "veg" ? "veg-tiffin" : "non-veg-tiffin";
 }
 
 /** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish
@@ -44,15 +93,15 @@ export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]>
     const mealType = price.mealType as SingleMealMenuItem["mealType"];
     const date = resolveSingleMealTargetDate(mealType, now);
     for (const dietType of DIET_TYPES) {
-      const dishName = getSingleMealDish(tier, dietType, mealType, date);
-      if (!dishName) continue;
-      const imageSlug = TIFFIN_DISH_IMAGE_SLUGS[dishName];
+      const bareDishName = getSingleMealDish(tier, dietType, mealType, date);
+      if (!bareDishName) continue;
+      const imageSlug = resolveDishImageSlug(tier, dietType, mealType, bareDishName);
       items.push({
         tier,
         mealType,
         dietType,
         date,
-        dishName,
+        dishName: composeFullDishName(tier, mealType, bareDishName),
         price: price.price,
         carbChoiceRequired: tier === "mini",
         imageUrl: imageSlug ? tiffinDishImageUrl(env, imageSlug) : undefined,
@@ -72,8 +121,8 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
   }
 
   const date = resolveSingleMealTargetDate(request.mealType, new Date());
-  const dishName = getSingleMealDish(request.tier, request.dietType, request.mealType, date);
-  if (!dishName) {
+  const bareDishName = getSingleMealDish(request.tier, request.dietType, request.mealType, date);
+  if (!bareDishName) {
     throw new TiffinValidationError("This meal isn't available right now");
   }
 
@@ -91,7 +140,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     dietType: request.dietType,
     carbChoice: request.tier === "mini" ? request.carbChoice : undefined,
     date,
-    dishName,
+    dishName: composeFullDishName(request.tier, request.mealType, bareDishName),
     status: "placed",
     delivery: request.delivery,
     price: price.price,

@@ -1,5 +1,5 @@
 import { useIsFocused } from "@react-navigation/native";
-import type { Brand } from "@tbc/shared-types";
+import { PREMIUM_MEMBERSHIP_DURATION_DAYS, PREMIUM_MEMBERSHIP_PRICE, type Brand } from "@tbc/shared-types";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import { Alert, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
@@ -36,7 +36,7 @@ interface Props {
 /**
  * Streaming-app-style "burst photo" hero, auto-rotating through every live brand every few
  * seconds — tapping it opens that brand's own page. Below it, a real Premium Membership promo
- * card (free delivery, ₹39/30 days — genuinely purchasable, not a mockup) instead of the old row
+ * card (free delivery, ₹21/60 days — genuinely purchasable, not a mockup) instead of the old row
  * of brand "PIP" thumbnails — brand switching is still reachable via the Menu footer button's
  * brand picker and the Restaurants row further down Home.
  */
@@ -173,7 +173,7 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
                     ? `Active until ${membershipStatus.expiresAt?.slice(0, 10)}`
                     : isExpiredMember
                       ? `Expired on ${membershipStatus?.expiresAt?.slice(0, 10)}`
-                      : "Free delivery · ₹39/month"}
+                      : `Free delivery · ₹${PREMIUM_MEMBERSHIP_PRICE}/${PREMIUM_MEMBERSHIP_DURATION_DAYS} days`}
                 </Text>
               </View>
             </View>

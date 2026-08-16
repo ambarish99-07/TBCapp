@@ -1,3 +1,4 @@
+import { PREMIUM_MEMBERSHIP_DURATION_DAYS } from "@tbc/shared-types";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
@@ -70,8 +71,9 @@ describe("Premium Membership purchase", () => {
       .send({ paymentMethod: "razorpay" });
 
     expect(second.status).toBe(201);
-    // The new pending purchase's expiry is extended from the still-active current one, not reset to today+30.
-    expect(second.body.purchase.expiresAt).toBe(todayPlusDays(60));
+    // The new pending purchase's expiry is extended from the still-active current one (today+30),
+    // not reset to today+PREMIUM_MEMBERSHIP_DURATION_DAYS.
+    expect(second.body.purchase.expiresAt).toBe(todayPlusDays(30 + PREMIUM_MEMBERSHIP_DURATION_DAYS));
   });
 
   it("rejects creating a Razorpay order for a purchase the caller doesn't own", async () => {
