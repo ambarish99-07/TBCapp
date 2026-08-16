@@ -92,6 +92,13 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
+  // selectedBrandId is deliberately a dependency here, not just read via the ref — a deliberate
+  // switch away from Home (e.g. tapping GG Tiffin, navigating away, then coming back) changes it
+  // externally, and without this the still-running interval would silently overwrite that choice
+  // with the next brand in rotation within one tick, sometimes before the customer even sees it.
+  // Depending on it re-mounts the timer on every change (including the rotation's own), which
+  // just restarts the same countdown — harmless, and it's what gives a freshly-restored brand its
+  // own full dwell time before rotation resumes.
   useEffect(() => {
     if (!brands || brands.length <= 1 || !isRotating) return;
     const timer = setInterval(() => {
@@ -100,7 +107,7 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
       restoreBrand(brands[next]);
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [brands, restoreBrand, isRotating]);
+  }, [brands, restoreBrand, isRotating, selectedBrandId]);
 
   // Keep the hero in sync if the active brand was switched via a thumbnail tap elsewhere.
   useEffect(() => {

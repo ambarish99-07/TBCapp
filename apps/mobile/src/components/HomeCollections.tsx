@@ -141,11 +141,6 @@ interface Props {
   combos: Combo[];
   onItemPress: (item: MenuItem) => void;
   onChooseCombo: (combo: Combo) => void;
-  /** Every live brand, for the Restaurants row — independent of whichever brand's items/combos are showing above. */
-  brands: Brand[];
-  /** Cross-brand, used only to pick one representative dish/drink photo per restaurant. */
-  allItems: MenuItem[];
-  onOpenRestaurant: (brand: Brand) => void;
   /** Items this customer has ordered across 2+ separate past orders for this brand — empty
    * (and thus hidden, via Row's own empty guard) for guests and first-time customers. */
   mostlyOrdered: MenuItem[];
@@ -156,11 +151,11 @@ interface Props {
  * each hidden entirely when it has nothing to show rather than an empty section:
  * Recommended (isPopular), Mostly Ordered (repeat customer history), Offers (this brand's
  * combos), Discounts (salePercent items), Signature (signature-shakes category), Premium
- * Picks (isStaffPick), Restaurants (every brand).
+ * Picks (isStaffPick). The Restaurants row lives separately (see RestaurantsRow below) — it's
+ * cross-brand and shouldn't disappear just because the brand currently being browsed (e.g. GG
+ * Tiffin) has no MenuItem-based rows of its own.
  */
-export function HomeCollections({ items, combos, onItemPress, onChooseCombo, brands, allItems, onOpenRestaurant, mostlyOrdered }: Props) {
-  const { colors } = useTheme();
-  const rowStyles = useMemo(() => makeRowStyles(colors), [colors]);
+export function HomeCollections({ items, combos, onItemPress, onChooseCombo, mostlyOrdered }: Props) {
   const recommended = useMemo(() => items.filter((item) => item.isPopular), [items]);
   const discounts = useMemo(() => items.filter((item) => item.salePercent), [items]);
   const signature = useMemo(() => items.filter((item) => item.category === "signature-shakes"), [items]);
@@ -168,11 +163,6 @@ export function HomeCollections({ items, combos, onItemPress, onChooseCombo, bra
 
   function itemPrice(id: string): number {
     return items.find((item) => item.id === id)?.price ?? 0;
-  }
-
-  function representativeItemFor(brandId: string): MenuItem | undefined {
-    const brandItems = allItems.filter((item) => item.brandId === brandId);
-    return brandItems.find((item) => item.isPopular || item.isStaffPick) ?? brandItems[0];
   }
 
   return (
@@ -183,14 +173,33 @@ export function HomeCollections({ items, combos, onItemPress, onChooseCombo, bra
       <Row title="Discounts" data={discounts} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
       <Row title="Signature" data={signature} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
       <Row title="Premium Picks" data={premium} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
-      {brands.length > 0 && (
-        <View style={rowStyles.wrap}>
-          <Text style={rowStyles.title}>Restaurants</Text>
-          {brands.map((brand) => (
-            <RestaurantRow key={brand.id} brand={brand} representativeItem={representativeItemFor(brand.id)} onPress={() => onOpenRestaurant(brand)} />
-          ))}
-        </View>
-      )}
+    </View>
+  );
+}
+
+/**
+ * Every live brand (including GG Tiffin), independent of whichever brand's rows are showing
+ * above it — rendered once by MenuScreen regardless of which brand is currently selected, so it
+ * never disappears just because the carousel (or a deliberate tap) has switched Home over to
+ * GG Tiffin's own rows.
+ */
+export function RestaurantsRow({ brands, allItems, onOpenRestaurant }: { brands: Brand[]; allItems: MenuItem[]; onOpenRestaurant: (brand: Brand) => void }) {
+  const { colors } = useTheme();
+  const rowStyles = useMemo(() => makeRowStyles(colors), [colors]);
+
+  function representativeItemFor(brandId: string): MenuItem | undefined {
+    const brandItems = allItems.filter((item) => item.brandId === brandId);
+    return brandItems.find((item) => item.isPopular || item.isStaffPick) ?? brandItems[0];
+  }
+
+  if (brands.length === 0) return null;
+
+  return (
+    <View style={rowStyles.wrap}>
+      <Text style={rowStyles.title}>Restaurants</Text>
+      {brands.map((brand) => (
+        <RestaurantRow key={brand.id} brand={brand} representativeItem={representativeItemFor(brand.id)} onPress={() => onOpenRestaurant(brand)} />
+      ))}
     </View>
   );
 }

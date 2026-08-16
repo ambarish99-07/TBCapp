@@ -10,7 +10,7 @@ import { fetchMyOrders } from "../../api/orders.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
-import { HomeCollections } from "../../components/HomeCollections";
+import { HomeCollections, RestaurantsRow } from "../../components/HomeCollections";
 import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
@@ -56,6 +56,12 @@ export function MenuScreen({ navigation }: Props) {
     // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
     // own dedicated flow instead of the shake/mocktail RestaurantMenu tab+list UI.
     if (brand.id === "gg-tiffin") {
+      // restoreBrand, not selectBrand — it doesn't touch the cart. GG Tiffin has no cart of its
+      // own (subscriptions/single-meal orders bypass cartStore entirely), so switching to it
+      // shouldn't silently empty whatever the customer already has queued up for TBC/Alchemy
+      // Tails. This is still what makes Home remember to show GG Tiffin's own rows (Recommended/
+      // Premium Picks/Offers) the next time the customer lands back on Home.
+      restoreBrand(brand);
       navigation.navigate("TiffinLanding");
       return;
     }
@@ -201,9 +207,6 @@ export function MenuScreen({ navigation }: Props) {
                     combos={brandCombos}
                     onItemPress={(item) => setAddingItem(item)}
                     onChooseCombo={(combo) => navigation.navigate("ChooseCombo", { comboId: combo.id })}
-                    brands={brands ?? []}
-                    allItems={allItems ?? []}
-                    onOpenRestaurant={handleOpenRestaurant}
                     mostlyOrdered={mostlyOrdered}
                   />
                 )}
@@ -213,6 +216,10 @@ export function MenuScreen({ navigation }: Props) {
                 )}
               </>
             )}
+
+            {/* Cross-brand, independent of whichever brand's rows are showing above — stays
+                visible even when GG Tiffin's own rows have replaced the shake-brand ones. */}
+            <RestaurantsRow brands={brands ?? []} allItems={allItems ?? []} onOpenRestaurant={handleOpenRestaurant} />
           </View>
         );
     }
