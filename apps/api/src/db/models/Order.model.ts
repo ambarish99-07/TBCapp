@@ -58,7 +58,11 @@ const OrderTotalsSchema = new Schema(
   {
     subtotal: { type: Number, required: true },
     discountAmount: { type: Number, required: true },
-    discountReason: { type: String, enum: ["none", "quantity-tier", "premium"], required: true },
+    discountReason: {
+      type: String,
+      enum: ["none", "quantity-tier", "premium", "first-order-bogo", "second-order-half-off"],
+      required: true,
+    },
     rewardAmount: { type: Number, required: true },
     rewardReason: {
       type: String,

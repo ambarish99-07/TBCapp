@@ -1,9 +1,10 @@
 import { DELIVERY_FEE, FREE_DELIVERY_RADIUS_KM, FREE_DELIVERY_THRESHOLD, PREMIUM_DISCOUNT_PCT, TAX_PCT } from "./constants.js";
 import { computeMilestoneReward } from "./milestoneReward.js";
+import { computeNewCustomerOfferDiscount } from "./newCustomerOffer.js";
 import { resolveIsPremiumMember } from "./premium.js";
 import { quantityDiscountPercent } from "./quantityDiscount.js";
 import { round } from "./rounding.js";
-import type { PricingInput, PricingResult } from "./types.js";
+import type { DiscountReason, PricingInput, PricingResult } from "./types.js";
 
 function lineTotal(line: PricingInput["lines"][number]): number {
   const addOnsTotal = line.addOnPrices.reduce((sum, price) => sum + price, 0);
@@ -30,9 +31,35 @@ export function computePricing(input: PricingInput): PricingResult {
   // excluded from this discount — applying it on top would double-discount
   // an already-discounted bundle.
   const isPremiumMember = input.isLoggedIn && resolveIsPremiumMember(input.loyalty);
-  const discountReason = isPremiumMember ? "premium" : quantityDiscountPercent(nonComboQuantity) > 0 ? "quantity-tier" : "none";
-  const discountPercent = isPremiumMember ? PREMIUM_DISCOUNT_PCT : quantityDiscountPercent(nonComboQuantity);
-  const discountAmount = round(nonComboSubtotal * discountPercent);
+  const newCustomerOffer = isPremiumMember
+    ? null
+    : computeNewCustomerOfferDiscount(
+        input.lines,
+        nonComboSubtotal,
+        input.isLoggedIn,
+        input.isQuickDeliveryBrand ?? false,
+        input.loyalty.completedOrderCount
+      );
+
+  // Precedence: premium (25%, requires 15+ prior orders) > the one-time new-customer offer (orders
+  // #1/#2 only) > the ordinary quantity tier > nothing. Premium and the new-customer offer can
+  // never actually collide in practice (15+ vs. 0/1 prior orders), but the order still matters for
+  // clarity about which one wins if that ever changed.
+  let discountReason: DiscountReason;
+  let discountAmount: number;
+  if (isPremiumMember) {
+    discountReason = "premium";
+    discountAmount = round(nonComboSubtotal * PREMIUM_DISCOUNT_PCT);
+  } else if (newCustomerOffer) {
+    discountReason = newCustomerOffer.reason;
+    discountAmount = newCustomerOffer.amount;
+  } else if (quantityDiscountPercent(nonComboQuantity) > 0) {
+    discountReason = "quantity-tier";
+    discountAmount = round(nonComboSubtotal * quantityDiscountPercent(nonComboQuantity));
+  } else {
+    discountReason = "none";
+    discountAmount = 0;
+  }
 
   const milestoneReward = computeMilestoneReward(input.lines, input.isLoggedIn, input.loyalty.completedOrderCount);
 

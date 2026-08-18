@@ -185,6 +185,84 @@ describe("computePricing — paid Premium Membership (independent of the loyalty
   });
 });
 
+describe("computePricing — new-customer offer (order #1 BOGO / order #2 50% off)", () => {
+  it("order #1 gets the cheapest unit free instead of the quantity-tier discount", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: baseLoyalty, // completedOrderCount: 0 -> this is order #1
+      isQuickDeliveryBrand: true,
+    });
+    // Without the offer, 2 items would only get the 10% quantity-tier discount (50) — the
+    // new-customer offer takes precedence and gives the cheaper 200 unit free instead.
+    expect(result.discountReason).toBe("first-order-bogo");
+    expect(result.discountAmount).toBe(200);
+  });
+
+  it("order #2 gets a flat 50% off instead of the quantity-tier discount", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 1, isPremiumMemberOverride: false }, // this is order #2
+      isQuickDeliveryBrand: true,
+    });
+    expect(result.discountReason).toBe("second-order-half-off");
+    expect(result.discountAmount).toBe(150);
+  });
+
+  it("order #3 gets ordinary quantity-tier pricing again — the offer is one-time only", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 2, isPremiumMemberOverride: false }, // this is order #3
+      isQuickDeliveryBrand: true,
+    });
+    expect(result.discountReason).toBe("quantity-tier");
+    expect(result.discountAmount).toBe(50);
+  });
+
+  it("never applies outside the quick-delivery brands (e.g. GG Tiffin), even on order #1", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: baseLoyalty,
+      isQuickDeliveryBrand: false,
+    });
+    expect(result.discountReason).toBe("quantity-tier");
+  });
+
+  it("defaults to not applying when isQuickDeliveryBrand is omitted entirely", () => {
+    const result = computePricing({
+      lines: [
+        { unitPrice: 300, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" },
+        { unitPrice: 200, addOnPrices: [], quantity: 1, isCombo: false, category: "cold-coffee" },
+      ],
+      isLoggedIn: true,
+      loyalty: baseLoyalty,
+    });
+    expect(result.discountReason).toBe("quantity-tier");
+  });
+
+  it("a premium member (15+ orders) is unaffected — premium always wins and the two can never actually collide", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 1000, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: true,
+      loyalty: { completedOrderCount: 15, isPremiumMemberOverride: false },
+      isQuickDeliveryBrand: true,
+    });
+    expect(result.discountReason).toBe("premium");
+  });
+});
+
 describe("computePricing — milestone rewards stack on top of the discount", () => {
   it("order #6 stacks the cold-coffee reward with whatever quantity discount applies", () => {
     const result = computePricing({

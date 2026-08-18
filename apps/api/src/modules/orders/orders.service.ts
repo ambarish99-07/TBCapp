@@ -1,5 +1,6 @@
 import { computePricing } from "@tbc/pricing";
 import {
+  isQuickDeliveryBrandId,
   ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT,
   ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT,
   type CreateOrderRequest,
@@ -45,6 +46,10 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     loyalty,
     distanceFromShopKm: request.delivery.distanceFromShopKm ?? null,
     hasFreeDeliveryMembership,
+    // The first/second-order new-customer offer only ever applies to TBC/Alchemy Tails — GG
+    // Tiffin doesn't use this endpoint at all today, but this keeps that exclusion explicit and
+    // enforced here rather than relying on that being true forever by accident.
+    isQuickDeliveryBrand: isQuickDeliveryBrandId(request.brandId),
   });
 
   const order = await OrderModel.create({

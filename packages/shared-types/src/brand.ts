@@ -27,3 +27,11 @@ export type UpdateBrandRequest = z.infer<typeof UpdateBrandRequestSchema>;
 
 /** Sentinel combo brandId for the one combo not owned by any single brand — its eligible items span every live brand. Never a real Brand doc. */
 export const CROSS_BRAND_ID = "cross-brand";
+
+/** Brands with the regular (non-tiffin) cart/checkout flow — a customer's first/second order
+ * across these two combined (never GG Tiffin) qualifies for the new-customer offer. See
+ * @tbc/pricing's `isQuickDeliveryBrand` input and `computeNewCustomerOfferDiscount`. */
+export const QUICK_DELIVERY_BRAND_IDS = ["tbc", "alchemy-tails"] as const;
+export function isQuickDeliveryBrandId(brandId: string): boolean {
+  return (QUICK_DELIVERY_BRAND_IDS as readonly string[]).includes(brandId);
+}

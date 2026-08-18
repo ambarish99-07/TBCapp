@@ -8,6 +8,8 @@ const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
   none: "",
   "quantity-tier": "Multi-item discount",
   premium: "Premium member discount (25%)",
+  "first-order-bogo": "🎉 Welcome offer: Buy 1 Get 1 Free",
+  "second-order-half-off": "🎉 Welcome offer: 50% off",
 };
 
 const REWARD_LABELS: Record<PricingResult["rewardReason"], string> = {

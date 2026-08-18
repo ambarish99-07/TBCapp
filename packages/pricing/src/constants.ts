@@ -28,6 +28,16 @@ export const PREMIUM_DISCOUNT_PCT = 0.25;
 /** Completed orders required to unlock premium membership (in addition to any admin override). */
 export const PREMIUM_ORDER_THRESHOLD = 15;
 
+/** A logged-in customer's very first quick-delivery order (TBC/Alchemy Tails, never GG Tiffin —
+ * see PricingInput.isQuickDeliveryBrand) gets the cheapest non-combo unit in the cart free,
+ * provided there are at least two non-combo units to begin with ("buy 1" needs something to
+ * pair the free one with). Their second such order gets a flat percentage off instead. Beyond
+ * that, normal quantity-tier/premium pricing resumes — this is a one-time acquisition perk, not
+ * a repeating cycle like the 6th/10th-order milestone rewards. */
+export const NEW_CUSTOMER_BOGO_ORDER_NUMBER = 1;
+export const NEW_CUSTOMER_HALF_OFF_ORDER_NUMBER = 2;
+export const NEW_CUSTOMER_HALF_OFF_PCT = 0.5;
+
 /** Every 10th-cycle order at position 6 (6, 16, 26, ...): 50% off the cheapest cold-coffee unit in the cart. */
 export const SIXTH_ORDER_CYCLE_POSITION = 6;
 export const SIXTH_ORDER_REWARD_PCT = 0.5;
