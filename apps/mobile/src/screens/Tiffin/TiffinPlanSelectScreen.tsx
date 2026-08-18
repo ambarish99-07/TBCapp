@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useTiffinPlans } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
-import { dishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
+import { composeFullDishName, dishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
 import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -105,7 +105,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
           {scheduledMealTypes.map((type) => (
             <View key={type} style={styles.scheduleRow}>
               <Text style={styles.scheduleMealType}>{scheduledMealTypes.length > 1 ? MEAL_TYPE_LABELS[type] : ""}</Text>
-              <Text style={styles.scheduleDish}>{dishForDay(plan.dietType, day, type)}</Text>
+              <Text style={styles.scheduleDish}>{composeFullDishName("regular", type, dishForDay(plan.dietType, day, type))}</Text>
             </View>
           ))}
         </View>

@@ -14,6 +14,7 @@ import { DraggableSheet } from "../../components/DraggableSheet";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
 import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
+import { composeFullDishName } from "../../utils/tiffinDishForDay";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMeal">;
@@ -160,7 +161,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
               <Text style={styles.mealType}>
                 {MEAL_TYPE_LABELS[item.mealType]} · {deliveryDayLabel(item.date)}
               </Text>
-              <Text style={styles.mealDish}>{item.dishName}</Text>
+              <Text style={styles.mealDish}>{composeFullDishName(item.tier, item.mealType, item.dishName)}</Text>
               {item.addOns.length > 0 && <Text style={styles.addOnsHint}>Add-ons available</Text>}
             </View>
             <Text style={styles.mealPrice}>₹{item.price}</Text>
@@ -179,7 +180,9 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
                 <Text style={styles.sheetMealType}>
                   {MEAL_TYPE_LABELS[customizeItem.mealType]} · {deliveryDayLabel(customizeItem.date)}
                 </Text>
-                <Text style={styles.sheetDishName}>{customizeItem.dishName}</Text>
+                <Text style={styles.sheetDishName}>
+                  {composeFullDishName(customizeItem.tier, customizeItem.mealType, customizeItem.dishName)}
+                </Text>
 
                 {customizeItem.carbChoiceRequired && (
                   <>

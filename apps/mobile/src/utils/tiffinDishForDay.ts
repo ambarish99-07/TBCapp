@@ -52,3 +52,28 @@ export function dishForDay(dietType: TiffinDietType, day: string, mealType: Tiff
   if (dish === null) throw new Error("unreachable: Regular tier always has a dish for every meal type");
   return dish;
 }
+
+/** Premium's Sunday dinner ("Puri with Chole") is already a complete two-part dish name, so it's
+ * left unchanged rather than getting a staple prefix. */
+const ALREADY_COMPOSED_DISPLAY_DISHES = new Set(["Puri with Chole"]);
+/** Premium's two Sunday upgrades (Mutton Curry, Paneer Butter Masala) pair with Pulao instead of
+ * plain Rice. */
+const PULAO_STAPLE_DISPLAY_DISHES = new Set(["Mutton Curry", "Paneer Butter Masala"]);
+
+/**
+ * Spells out the tier's real staple components ahead of the bare sabzi/curry name, for display on
+ * the menu-browsing screens (subscription plan preview, Weekly Menu, Order a Single Meal) —
+ * "Rice Roti Daal Aloo Gobhi", "Rice Paratha Daal Mushroom Masala", "Pulao Paratha Daal Mutton
+ * Curry" on Premium's Sunday upgrades. Purely a display transform: the order/checkout/tracking
+ * flow keeps using the bare dish name plus its own real, individually-priced add-ons — this
+ * doesn't touch either.
+ */
+export function composeFullDishName(tier: TiffinMealTier, mealType: TiffinMealType, dishName: string): string {
+  if (mealType === "breakfast" || ALREADY_COMPOSED_DISPLAY_DISHES.has(dishName)) return dishName;
+  if (tier === "mini") return `Roti ${dishName}`;
+  if (tier === "premium") {
+    const staple = PULAO_STAPLE_DISPLAY_DISHES.has(dishName) ? "Pulao" : "Rice";
+    return `${staple} Paratha Daal ${dishName}`;
+  }
+  return `Rice Roti Daal ${dishName}`;
+}
