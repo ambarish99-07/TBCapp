@@ -120,13 +120,17 @@ describe("resolveAddOns", () => {
     ]);
   });
 
-  it("drops rice and daal for Mini — just roti and the sabzi/protein add-on", () => {
+  it("offers Mini the same rice/roti/daal staples as Regular, even though its base meal is just roti + sabzi", () => {
     expect(resolveAddOns("mini", "lunch", "Aloo Matar")).toEqual([
+      { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
       { name: "Extra Aloo Matar", price: 30 },
     ]);
     expect(resolveAddOns("mini", "dinner", "Chicken Curry")).toEqual([
+      { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
+      { name: "Daal", price: 20 },
       { name: "Chicken piece", price: 40 },
     ]);
   });

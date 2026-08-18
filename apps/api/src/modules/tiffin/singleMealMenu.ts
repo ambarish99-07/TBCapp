@@ -71,8 +71,10 @@ const NO_ADDONS_DISHES = new Set(["Puri with Chole"]);
 const PULAO_STAPLE_DISHES = new Set(["Mutton Curry", "Paneer Butter Masala"]);
 
 /** Meat/egg curries offer "{Protein} piece" as their extra-portion add-on instead of "Extra
- * {dish}" — every other (veg) dish offers an extra helping of the sabzi itself. */
-const PROTEIN_PIECE_NAMES: Record<string, string> = {
+ * {dish}" — every other (veg) dish offers an extra helping of the sabzi itself. Exported so
+ * singleMeal.service.ts's image fallback can tell whether a bare dish name is actually non-veg,
+ * independent of which diet tab it happens to be listed under. */
+export const PROTEIN_PIECE_NAMES: Record<string, string> = {
   "Fish Curry": "Fish piece",
   "Egg Curry": "Egg piece",
   "Chicken Curry": "Chicken piece",
@@ -101,11 +103,12 @@ const EXTRA_VEG_PORTION_PRICE = 30;
 
 /**
  * The real, individually-priced extras a customer can choose to add to this meal in the
- * customize pop-up — never included automatically. Regular offers rice/roti/daal plus an extra
- * portion of the day's dish; Premium swaps roti for paratha (and rice for pulao on its two Sunday
- * upgrades, Mutton Curry and Paneer Butter Masala); Mini, the single-carb tier, only offers roti
- * plus the extra-portion add-on. Breakfast and Premium's already-complete Sunday dinner have
- * nothing to add, so they return no add-ons at all.
+ * customize pop-up — never included automatically. Regular and Mini both offer rice/roti/daal
+ * plus an extra portion of the day's dish — Mini's base meal is just roti + sabzi, but the
+ * customer can still choose to add rice and/or daal on top for extra cost; Premium swaps roti
+ * for paratha (and rice for pulao on its two Sunday upgrades, Mutton Curry and Paneer Butter
+ * Masala). Breakfast and Premium's already-complete Sunday dinner have nothing to add, so they
+ * return no add-ons at all.
  */
 export function resolveAddOns(tier: TiffinMealTier, mealType: SingleMealType, dishName: string): SingleMealAddOn[] {
   if (mealType === "breakfast" || NO_ADDONS_DISHES.has(dishName)) return [];
@@ -117,7 +120,7 @@ export function resolveAddOns(tier: TiffinMealTier, mealType: SingleMealType, di
 
   const stapleNames =
     tier === "mini"
-      ? ["Roti"]
+      ? ["Rice", "Roti", "Daal"]
       : tier === "premium"
         ? [PULAO_STAPLE_DISHES.has(dishName) ? "Pulao" : "Rice", "Paratha", "Daal"]
         : ["Rice", "Roti", "Daal"];

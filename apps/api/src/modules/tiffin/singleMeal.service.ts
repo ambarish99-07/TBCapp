@@ -15,7 +15,7 @@ import { sendNewSingleMealOrderAlert } from "../../integrations/whatsapp/sendNew
 import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
-import { getSingleMealDish, resolveAddOns } from "./singleMealMenu.js";
+import { getSingleMealDish, PROTEIN_PIECE_NAMES, resolveAddOns } from "./singleMealMenu.js";
 import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
@@ -84,16 +84,28 @@ function pickDeliveryPartner(orderId: string): DeliveryPartner {
 
 /**
  * Mini checks its own photos first, then falls back to the shared Regular/Premium photo for the
- * same dish (still a real, accurate photo — just not Mini's own box). Only genuinely unphotographed
- * dishes (a handful — see the reply this was requested in) fall back further to the generic
- * veg/non-veg thali photo the subscription plan cards use, and only for lunch/dinner — breakfast
- * gets no generic fallback at all, since none of the available photos represent it accurately.
+ * same dish (still a real, accurate photo — just not Mini's own box). Only genuinely
+ * unphotographed dishes (Aloo Parwal, Lauki Masala, Matar Chole, Upma, and Chicken Curry outside
+ * Mini — none of these have a dish-specific photo yet) fall back further to one of three generic
+ * tiffin-box photos: Mini gets its own smaller single-curry box (matching what it actually
+ * serves — no rice, no second sabzi), everything else gets the veg/non-veg thali photo.
+ *
+ * The veg/non-veg choice is made from the *resolved dish itself* (is bareDishName a protein
+ * curry?), never from the diet-tab parameter — a "non-veg" tab with no override for today still
+ * serves that day's veg dish (see getSingleMealDish), and showing the chicken-curry stock photo
+ * next to a vegetable dish's name would be a straight-up lie about what's in the box. Mini's non-
+ * veg dishes all have their own dedicated photos already (see MINI_DISH_IMAGE_SLUGS), so its
+ * generic fallback is checked for protein first too — it should never actually be needed, but if
+ * a future menu change added an unphotographed Mini non-veg dish, this keeps it honest rather
+ * than silently mislabeling it veg.
  */
-function resolveDishImageSlug(tier: SingleMealMenuItem["tier"], dietType: SingleMealMenuItem["dietType"], mealType: SingleMealMenuItem["mealType"], bareDishName: string): string | undefined {
+export function resolveDishImageSlug(tier: SingleMealMenuItem["tier"], mealType: SingleMealMenuItem["mealType"], bareDishName: string): string | undefined {
   if (tier === "mini" && MINI_DISH_IMAGE_SLUGS[bareDishName]) return MINI_DISH_IMAGE_SLUGS[bareDishName];
   if (DISH_IMAGE_SLUGS[bareDishName]) return DISH_IMAGE_SLUGS[bareDishName];
-  if (mealType === "breakfast") return undefined;
-  return dietType === "veg" ? "veg-tiffin" : "non-veg-tiffin";
+  if (mealType === "breakfast") return "breakfast-tiffin";
+  const isNonVegDish = bareDishName in PROTEIN_PIECE_NAMES;
+  if (isNonVegDish) return "non-veg-tiffin";
+  return tier === "mini" ? "mini-tiffin" : "veg-tiffin";
 }
 
 /** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish
@@ -111,7 +123,7 @@ export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]>
     for (const dietType of DIET_TYPES) {
       const bareDishName = getSingleMealDish(tier, dietType, mealType, date);
       if (!bareDishName) continue;
-      const imageSlug = resolveDishImageSlug(tier, dietType, mealType, bareDishName);
+      const imageSlug = resolveDishImageSlug(tier, mealType, bareDishName);
       items.push({
         tier,
         mealType,

@@ -71,16 +71,19 @@ describe("GET /tiffin/single-meal/menu", () => {
     expect(miniVegLunch.carbChoiceRequired).toBe(true);
     expect(miniVegLunch.dishName).toBeTruthy();
     // Mini reuses Regular's veg lunch sabzi for the same day — the dish name is now always just
-    // the bare sabzi, so both tiers show the exact same name; only the offered add-ons differ.
+    // the bare sabzi, so both tiers show the exact same name. Mini's base meal is still just
+    // roti + sabzi, but it offers the same rice/roti/daal add-on catalog as Regular, so the two
+    // tiers' add-ons match too — only what's included by default differs, not what's offered.
     const regularVegLunch: MenuItem = find("regular", "lunch", "veg");
     expect(miniVegLunch.dishName).toBe(regularVegLunch.dishName);
-    expect(miniVegLunch.addOns).toEqual([{ name: "Roti", price: 10 }, { name: `Extra ${miniVegLunch.dishName}`, price: 30 }]);
-    expect(regularVegLunch.addOns).toEqual([
+    const expectedAddOns = [
       { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
       { name: "Daal", price: 20 },
       { name: `Extra ${regularVegLunch.dishName}`, price: 30 },
-    ]);
+    ];
+    expect(miniVegLunch.addOns).toEqual(expectedAddOns);
+    expect(regularVegLunch.addOns).toEqual(expectedAddOns);
 
     expect(find("mini", "breakfast", "veg")).toBeUndefined();
     expect(find("mini", "breakfast", "non-veg")).toBeUndefined();
