@@ -18,6 +18,8 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealCheckout">;
 
+const ORDER_PLACED_DURATION_MS = 1700;
+
 const TIER_LABELS: Record<Props["route"]["params"]["tier"], string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
 const MEAL_TYPE_LABELS: Record<Props["route"]["params"]["mealType"], string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 const DIET_LABELS: Record<Props["route"]["params"]["dietType"], string> = { veg: "Veg", "non-veg": "Non-Veg" };
@@ -38,7 +40,11 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileNudge, setShowProfileNudge] = useState(false);
   const nudgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  // Set the instant the order succeeds — triggers the full-screen "Meal Ordered" confirmation
+  // below, which then auto-navigates on once it's done, same pattern as the regular TBC/Alchemy
+  // Tails checkout (CartScreen) rather than leaving the customer stranded on a dead-end screen
+  // with only the floating "Track Tiffin Order" pill to find their way to the order.
+  const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null);
   const bellRotate = useRef(new Animated.Value(0)).current;
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption;
@@ -46,6 +52,14 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
   useEffect(() => () => {
     if (nudgeTimeoutRef.current) clearTimeout(nudgeTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!confirmedOrderId) return;
+    const timer = setTimeout(() => {
+      navigation.replace("TiffinSingleMealOrderTracking", { orderId: confirmedOrderId });
+    }, ORDER_PLACED_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [confirmedOrderId, navigation]);
 
   async function handleOrder() {
     if (!user) return;
@@ -90,7 +104,7 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
         }
       }
 
-      setConfirmed(true);
+      setConfirmedOrderId(order.id);
       bellRotate.setValue(0);
       Animated.sequence([
         Animated.timing(bellRotate, { toValue: 1, duration: 100, useNativeDriver: true }),
@@ -182,7 +196,7 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {confirmed && (
+      {confirmedOrderId && (
         <View style={[styles.confirmedOverlay, { backgroundColor: colors.background }]}>
           <Animated.View
             style={{

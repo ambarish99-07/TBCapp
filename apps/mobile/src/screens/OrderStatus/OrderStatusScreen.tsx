@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelOrderRequest, fetchOrderByAccessToken } from "../../api/orders.api";
+import { DISCOUNT_LABELS, REWARD_LABELS } from "../../components/PriceBreakdown";
 import { StatusTimeline } from "../../components/StatusTimeline";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
@@ -136,6 +137,57 @@ export function OrderStatusScreen({ route, navigation }: Props) {
           </View>
         )}
 
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Your Order</Text>
+          {order.items.map((line) => (
+            <View key={line.lineId} style={styles.itemRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{line.signatureName}</Text>
+                <Text style={styles.itemMeta}>Qty {line.quantity}</Text>
+              </View>
+              <Text style={styles.itemPrice}>₹{(line.unitPrice + line.addOnPrices.reduce((sum, price) => sum + price, 0)) * line.quantity}</Text>
+            </View>
+          ))}
+
+          <View style={styles.divider} />
+
+          {order.totals.discountAmount > 0 && DISCOUNT_LABELS[order.totals.discountReason] && (
+            <View style={styles.newCustomerBanner}>
+              <Text style={styles.newCustomerBannerText}>{DISCOUNT_LABELS[order.totals.discountReason]} applied to this order!</Text>
+            </View>
+          )}
+
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabel}>Subtotal</Text>
+            <Text style={styles.totalsValue}>₹{order.totals.subtotal}</Text>
+          </View>
+          {order.totals.discountAmount > 0 && (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabelMuted}>{DISCOUNT_LABELS[order.totals.discountReason]}</Text>
+              <Text style={styles.totalsValueMuted}>-₹{order.totals.discountAmount}</Text>
+            </View>
+          )}
+          {order.totals.rewardAmount > 0 && (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabelMuted}>{REWARD_LABELS[order.totals.rewardReason]}</Text>
+              <Text style={styles.totalsValueMuted}>-₹{order.totals.rewardAmount}</Text>
+            </View>
+          )}
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabelMuted}>Delivery fee</Text>
+            <Text style={styles.totalsValueMuted}>{order.totals.deliveryFee === 0 ? "Free" : `₹${order.totals.deliveryFee}`}</Text>
+          </View>
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabelMuted}>Tax</Text>
+            <Text style={styles.totalsValueMuted}>₹{order.totals.tax}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.totalsRow}>
+            <Text style={styles.summaryTitleStrong}>Total</Text>
+            <Text style={styles.summaryTitleStrong}>₹{order.totals.total}</Text>
+          </View>
+        </View>
+
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>{order.deliveryFor === "recipient" ? "Delivering to" : "Delivering to (you)"}</Text>
           <Text style={styles.summaryText}>{order.delivery.fullName}</Text>
@@ -149,8 +201,6 @@ export function OrderStatusScreen({ route, navigation }: Props) {
           <Text style={styles.summaryText}>
             {order.payment.method === "cod" ? "Pay on Delivery" : "Paid Online"} · {order.payment.status}
           </Text>
-          <Text style={styles.summaryTitle}>Total</Text>
-          <Text style={styles.summaryText}>₹{order.totals.total}</Text>
         </View>
 
         {order.status !== "cancelled" && (
@@ -209,6 +259,26 @@ const makeStyles = (colors: ColorPalette) =>
     refundReasonText: { color: colors.muted, fontSize: 13, marginTop: 4 },
     redirectText: { color: colors.muted, fontSize: 12, fontStyle: "italic", marginTop: theme.spacing(1) },
     sectionTitle: { fontSize: 12, fontWeight: "700", color: colors.muted, marginBottom: 6 },
+    itemRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
+    itemName: { fontSize: 14, fontWeight: "700", color: colors.text },
+    itemMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
+    itemPrice: { fontSize: 14, fontWeight: "700", color: colors.text },
+    divider: { height: 1, backgroundColor: colors.border, marginVertical: theme.spacing(1) },
+    totalsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+    totalsLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
+    totalsValue: { fontSize: 14, fontWeight: "600", color: colors.text },
+    totalsLabelMuted: { fontSize: 13, color: colors.muted },
+    totalsValueMuted: { fontSize: 13, color: colors.muted },
+    summaryTitleStrong: { fontSize: 15, fontWeight: "800", color: colors.text },
+    newCustomerBanner: {
+      backgroundColor: colors.accent + "22",
+      borderWidth: 1,
+      borderColor: colors.accent,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1),
+      marginBottom: theme.spacing(1),
+    },
+    newCustomerBannerText: { color: colors.primary, fontWeight: "800", fontSize: 13, textAlign: "center" },
     partnerName: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     partnerActions: { flexDirection: "row", gap: 8 },
     partnerButton: {

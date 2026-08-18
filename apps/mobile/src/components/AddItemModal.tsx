@@ -3,8 +3,8 @@ import type { AddOnId, IceLevel, MenuItem, SugarLevel } from "@tbc/shared-types"
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
-import { useCartStore } from "../state/cartStore";
 import { useTheme } from "../state/themeStore";
+import { addLineWithBrandGuard } from "../utils/addToCartWithBrandGuard";
 import { CustomizationFields } from "./CustomizationFields";
 import { DraggableSheet } from "./DraggableSheet";
 
@@ -17,7 +17,6 @@ interface Props {
 export function AddItemModal({ item, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const addLine = useCartStore((state) => state.addLine);
 
   const [sugarLevel, setSugarLevel] = useState<SugarLevel>("regular");
   const [iceLevel, setIceLevel] = useState<IceLevel>("regular");
@@ -41,7 +40,7 @@ export function AddItemModal({ item, onClose }: Props) {
   function handleAdd() {
     if (!item) return;
     const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
-    addLine({
+    addLineWithBrandGuard({
       lineId: `${item.id}-${Date.now()}`,
       brandId: item.brandId,
       menuItemId: item.id,

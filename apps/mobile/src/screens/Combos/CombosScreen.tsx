@@ -6,8 +6,8 @@ import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native
 import { useAllCombos, useAllMenuItems } from "../../api/menu.api";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { theme, type ColorPalette } from "../../constants/theme";
-import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
+import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -29,8 +29,6 @@ function CuratedComboCard({
   itemImage: (id: string) => string | undefined;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const addLine = useCartStore((state) => state.addLine);
-
   const fullPriceSum = combo.itemIds.reduce((sum, id) => sum + itemPrice(id), 0);
   const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice));
   const savings = Math.max(0, fullPriceSum - comboPrice);
@@ -39,7 +37,7 @@ function CuratedComboCard({
   function handleAdd() {
     // Stays on this list rather than jumping to Cart — lets the customer add another
     // combo (or several) in one go; the floating summary bar confirms it landed.
-    addLine(
+    addLineWithBrandGuard(
       makeComboCartLine({
         comboId: combo.id,
         brandId: combo.brandId,

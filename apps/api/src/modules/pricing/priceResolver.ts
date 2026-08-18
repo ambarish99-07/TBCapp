@@ -144,6 +144,11 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
     });
 
     const unitPrice = resolveUnitPrice(menuItem);
+    // Both the saved order line and the pricing line only ever care about "is this a drink
+    // category the milestone rewards track" — anything else (mocktails, premium mains, ...) must
+    // stay undefined here, not the raw menu category, since Order.model's `category` enum only
+    // accepts "signature-shakes"/"cold-coffee" and rejects the document outright otherwise.
+    const drinkCategory = toDrinkCategory(menuItem.category);
 
     resolvedLines.push({
       lineId: line.lineId,
@@ -156,14 +161,14 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       addOnPrices,
       quantity: line.quantity,
       customization: line.customization,
-      category: menuItem.category,
+      category: drinkCategory,
     });
     pricingLines.push({
       unitPrice,
       addOnPrices,
       quantity: line.quantity,
       isCombo: false,
-      category: toDrinkCategory(menuItem.category),
+      category: drinkCategory,
     });
   }
 

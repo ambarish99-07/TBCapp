@@ -5,8 +5,8 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useAllCombos, useAllMenuItems } from "../../api/menu.api";
 import { theme, type ColorPalette } from "../../constants/theme";
-import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
+import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -21,7 +21,6 @@ export function ChooseComboScreen({ route, navigation }: Props) {
   const { data: combos } = useAllCombos();
   const { data: menuItems } = useAllMenuItems();
   const { data: brands } = useBrands();
-  const addLine = useCartStore((state) => state.addLine);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const combo = combos?.find((c) => c.id === route.params.comboId);
@@ -53,7 +52,7 @@ export function ChooseComboScreen({ route, navigation }: Props) {
   }
 
   function handleAddToCart() {
-    addLine(
+    addLineWithBrandGuard(
       makeComboCartLine({
         comboId: combo!.id,
         brandId: combo!.brandId,

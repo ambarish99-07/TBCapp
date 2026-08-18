@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelSingleMealOrderRequest, useMySingleMealOrders } from "../../api/tiffin.api";
+import { StepFlow, type StepFlowStep } from "../../components/StepFlow";
 import { TiffinSubscriptionAndOrders } from "../../components/TiffinSubscriptionAndOrders";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
@@ -13,14 +14,12 @@ import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealOrderTracking">;
 
-const STATUS_STEPS: TiffinSingleMealOrderStatus[] = ["placed", "preparing", "out-for-delivery", "delivered"];
-const STATUS_LABELS: Record<TiffinSingleMealOrderStatus, string> = {
-  placed: "Placed",
-  preparing: "Preparing",
-  "out-for-delivery": "Out for delivery",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
-};
+const STATUS_STEPS: StepFlowStep[] = [
+  { key: "placed", label: "Placed", icon: "🧾" },
+  { key: "preparing", label: "Preparing", icon: "🍳" },
+  { key: "out-for-delivery", label: "Out for delivery", icon: "🛵" },
+  { key: "delivered", label: "Delivered", icon: "✅" },
+];
 
 /** Cancellable any time before it's actually delivered (or already cancelled) — refund
  * eligibility, not cancellability, is what the 15-minute window gates. */
@@ -88,7 +87,7 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
 
   const addOnsTotal = order.addOns.reduce((sum, addOn) => sum + addOn.price, 0);
   const total = (order.price + addOnsTotal) * order.quantity;
-  const currentIndex = STATUS_STEPS.indexOf(order.status);
+  const currentIndex = STATUS_STEPS.findIndex((step) => step.key === order.status);
 
   return (
     <View style={styles.screen}>
@@ -111,15 +110,7 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
           </View>
         ) : (
           <View style={styles.card}>
-            {STATUS_STEPS.map((step, index) => {
-              const isDone = index <= currentIndex;
-              return (
-                <View key={step} style={styles.step}>
-                  <View style={[styles.dot, isDone && styles.dotDone]} />
-                  <Text style={[styles.stepLabel, isDone && styles.stepLabelDone]}>{STATUS_LABELS[step]}</Text>
-                </View>
-              );
-            })}
+            <StepFlow steps={STATUS_STEPS} currentIndex={currentIndex} />
           </View>
         )}
 
@@ -204,11 +195,6 @@ const makeStyles = (colors: ColorPalette) =>
       padding: theme.spacing(2),
       marginBottom: theme.spacing(1.5),
     },
-    step: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
-    dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border },
-    dotDone: { backgroundColor: colors.primary },
-    stepLabel: { fontSize: 14, color: colors.muted },
-    stepLabelDone: { color: colors.text, fontWeight: "700" },
     cancelledText: { color: colors.danger, fontWeight: "700", fontSize: 15 },
     refundText: { color: colors.muted, fontSize: 13, marginTop: 4 },
     redirectText: { color: colors.muted, fontSize: 12, fontStyle: "italic", marginTop: theme.spacing(1) },

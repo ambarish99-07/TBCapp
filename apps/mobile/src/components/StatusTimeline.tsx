@@ -3,15 +3,14 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { ColorPalette } from "../constants/theme";
 import { useTheme } from "../state/themeStore";
+import { StepFlow, type StepFlowStep } from "./StepFlow";
 
-const STEPS: OrderStatus[] = ["received", "preparing", "out-for-delivery", "delivered"];
-const STEP_LABELS: Record<OrderStatus, string> = {
-  received: "Received",
-  preparing: "Preparing",
-  "out-for-delivery": "Out for delivery",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
-};
+const STEPS: StepFlowStep[] = [
+  { key: "received", label: "Order Placed", icon: "🧾" },
+  { key: "preparing", label: "Preparing", icon: "🍳" },
+  { key: "out-for-delivery", label: "Out for delivery", icon: "🛵" },
+  { key: "delivered", label: "Delivered", icon: "✅" },
+];
 
 export function StatusTimeline({ status, history }: { status: OrderStatus; history: StatusHistoryEntry[] }) {
   const { colors } = useTheme();
@@ -25,36 +24,23 @@ export function StatusTimeline({ status, history }: { status: OrderStatus; histo
     );
   }
 
-  const currentIndex = STEPS.indexOf(status);
+  const currentIndex = STEPS.findIndex((step) => step.key === status);
+  const currentHistoryEntry = history.find((entry) => entry.status === status);
 
   return (
     <View style={styles.wrap}>
-      {STEPS.map((step, index) => {
-        const isDone = index <= currentIndex;
-        const historyEntry = history.find((entry) => entry.status === step);
-        return (
-          <View key={step} style={styles.step}>
-            <View style={[styles.dot, isDone && styles.dotDone]} />
-            <View style={styles.stepBody}>
-              <Text style={[styles.stepLabel, isDone && styles.stepLabelDone]}>{STEP_LABELS[step]}</Text>
-              {historyEntry && <Text style={styles.timestamp}>{new Date(historyEntry.at).toLocaleString()}</Text>}
-            </View>
-          </View>
-        );
-      })}
+      <StepFlow steps={STEPS} currentIndex={currentIndex} />
+      {/* The current step's own timestamp is the one detail worth surfacing inline — the full
+          history list isn't shown per-step anymore now that the flow reads left-to-right rather
+          than as a vertical log, but "when did it last move" is still useful at a glance. */}
+      {currentHistoryEntry && <Text style={styles.currentTimestamp}>Updated {new Date(currentHistoryEntry.at).toLocaleString()}</Text>}
     </View>
   );
 }
 
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
-    wrap: { gap: 12 },
-    step: { flexDirection: "row", alignItems: "center", gap: 12 },
-    dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border },
-    dotDone: { backgroundColor: colors.primary },
-    stepBody: { flex: 1 },
-    stepLabel: { fontSize: 14, color: colors.muted },
-    stepLabelDone: { color: colors.text, fontWeight: "700" },
-    timestamp: { fontSize: 11, color: colors.muted },
+    wrap: {},
+    currentTimestamp: { fontSize: 11, color: colors.muted, textAlign: "center" },
     cancelled: { color: colors.danger, fontWeight: "700" },
   });

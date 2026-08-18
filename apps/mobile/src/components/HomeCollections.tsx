@@ -3,8 +3,8 @@ import type { Brand, Combo, MenuItem } from "@tbc/shared-types";
 import { useMemo, type ReactElement } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
-import { useCartStore } from "../state/cartStore";
 import { useTheme } from "../state/themeStore";
+import { addLineWithBrandGuard } from "../utils/addToCartWithBrandGuard";
 import { makeComboCartLine } from "../utils/comboCartLine";
 
 export function Row<T>({ title, data, keyExtractor, renderItem }: { title: string; data: T[]; keyExtractor: (item: T) => string; renderItem: (item: T) => ReactElement }) {
@@ -56,8 +56,6 @@ function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () => void }
 function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; itemPrice: (id: string) => number; onChoosePress: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeCardStyles(colors), [colors]);
-  const addLine = useCartStore((state) => state.addLine);
-
   if (combo.type === "curated") {
     // Captured outside the closure below — TS narrowing on `combo.type` doesn't carry into
     // a nested function declaration, since the closure could in principle outlive it.
@@ -66,7 +64,7 @@ function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; item
     const comboPrice = computeComboPrice(itemIds.map(itemPrice));
 
     function handleAdd() {
-      addLine(
+      addLineWithBrandGuard(
         makeComboCartLine({
           comboId: combo.id,
           brandId: combo.brandId,

@@ -40,7 +40,9 @@ export function TiffinLandingScreen({ navigation }: Props) {
           <Switch
             value={vegOnly}
             onValueChange={setVegOnly}
-            trackColor={{ true: colors.primary }}
+            // Green, not the brand's brown primary — matches the universal veg-indicator color
+            // (the little green dot on veg packaging) rather than reading as just "brand-colored".
+            trackColor={{ true: "#2E7D32" }}
             thumbColor="#fff"
           />
         </View>

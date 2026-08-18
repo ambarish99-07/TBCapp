@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
+import { isComboLineId, isQuickDeliveryBrandId, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
+import { useAuthContext } from "../../state/useAuthContext";
 import { useAuthStore } from "../../state/authStore";
 import { useBrandStore } from "../../state/brandStore";
 import { useCartStore } from "../../state/cartStore";
@@ -24,6 +26,12 @@ import type { RootStackParamList } from "../../navigation/types";
 type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
 
 const SEARCH_PLACEHOLDER_ROTATE_MS = 2200;
+// Fixed so the wedge's border-triangle can be sized to exactly match the body's height.
+const GG_TIFFIN_TAB_HEIGHT = 60;
+// A glossy emerald gradient instead of the flat theme accent orange — reads more clearly against
+// both the dark tab bar and the photo content behind it, and a distinct hue from every other
+// footer/promo color already in play (dark tab bar, purple offer tabs, gold Premium banner).
+const GG_TIFFIN_GRADIENT = ["#22D3A6", "#0EA679", "#066B4E"] as const;
 
 export function MenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
@@ -51,6 +59,15 @@ export function MenuScreen({ navigation }: Props) {
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   const ggTiffinBrand = brands?.find((brand) => brand.id === "gg-tiffin");
+
+  // New-customer offer promo tabs (see packages/pricing/src/newCustomerOffer.ts) — quick-delivery
+  // brands only (never GG Tiffin), and only while the signed-in customer's next order is still
+  // #1 or #2. Gated on isLoggedIn too so guests aren't shown an offer they won't actually get
+  // at checkout (the backend requires login the same way).
+  const { isLoggedIn, loyalty } = useAuthContext();
+  const isQuickDeliveryBrandSelected = !!selectedBrandId && isQuickDeliveryBrandId(selectedBrandId);
+  const nextOrderNumber = loyalty.completedOrderCount + 1;
+  const showNewCustomerOfferTabs = isLoggedIn && isQuickDeliveryBrandSelected && nextOrderNumber <= 2;
 
   function handleOpenRestaurant(brand: Brand) {
     // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
@@ -150,9 +167,13 @@ export function MenuScreen({ navigation }: Props) {
   // exactly as before — but only the search row is sticky (stays pinned once scrolled past)
   // while the address row scrolls away above it. FlatList's stickyHeaderIndices only works on
   // its own top-level rows, so both live as rows in `data` instead of a single ListHeaderComponent.
-  type Row = { kind: "header" } | { kind: "search" } | { kind: "content" };
+  type Row = { kind: "header" } | { kind: "offerTabs" } | { kind: "search" } | { kind: "content" };
 
-  const rows: Row[] = useMemo(() => [{ kind: "header" }, { kind: "search" }, { kind: "content" }], []);
+  const rows: Row[] = useMemo(
+    () => [{ kind: "header" }, ...(showNewCustomerOfferTabs ? [{ kind: "offerTabs" as const }] : []), { kind: "search" }, { kind: "content" }],
+    [showNewCustomerOfferTabs]
+  );
+  const stickySearchIndex = rows.findIndex((row) => row.kind === "search");
 
   function renderRow({ item: row }: { item: Row }) {
     switch (row.kind) {
@@ -179,6 +200,31 @@ export function MenuScreen({ navigation }: Props) {
             <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
               <Text style={styles.avatarButtonText}>{initial}</Text>
             </Pressable>
+          </View>
+        );
+      case "offerTabs":
+        return (
+          <View style={styles.offerTabsBar}>
+            <LinearGradient colors={["#4A1D7A", "#8E2DE2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.offerTabsGradient}>
+              <Pressable
+                style={[styles.offerTab, nextOrderNumber === 1 && styles.offerTabActive]}
+                android_ripple={{ color: "rgba(0,0,0,0.15)" }}
+                onPress={() => navigation.navigate("RestaurantMenu")}
+              >
+                <Text style={styles.offerTabBadge}>Order 1</Text>
+                <Text style={styles.offerTabIcon}>🎁</Text>
+                <Text style={[styles.offerTabLabel, nextOrderNumber === 1 && styles.offerTabLabelActive]}>BOGO Free</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.offerTab, nextOrderNumber === 2 && styles.offerTabActive]}
+                android_ripple={{ color: "rgba(0,0,0,0.15)" }}
+                onPress={() => navigation.navigate("RestaurantMenu")}
+              >
+                <Text style={styles.offerTabBadge}>Order 2</Text>
+                <Text style={styles.offerTabIcon}>🔥</Text>
+                <Text style={[styles.offerTabLabel, nextOrderNumber === 2 && styles.offerTabLabelActive]}>50% Off</Text>
+              </Pressable>
+            </LinearGradient>
           </View>
         );
       case "search":
@@ -232,7 +278,7 @@ export function MenuScreen({ navigation }: Props) {
         style={styles.list}
         data={rows}
         keyExtractor={(row) => row.kind}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[stickySearchIndex]}
         contentContainerStyle={{ paddingBottom: theme.spacing(2) + 90 + insets.bottom }}
         renderItem={renderRow}
       />
@@ -242,41 +288,78 @@ export function MenuScreen({ navigation }: Props) {
       <View pointerEvents="box-none" style={[styles.floatingFooter, { paddingBottom: insets.bottom + theme.spacing(1) }]}>
         <CartSummaryBar navigation={navigation} />
 
-        {/* Two separate pills, pinned to opposite corners — Menu/Combos/Bulk Deals on the left
-            (a shared top-to-bottom border wraps that group, with thin vertical dividers between
-            each icon+label), GG Tiffin on the right with its own boundary. */}
+        {/* Dark floating tab bar (Menu/Combos/Bulk Deals) plus a separate bright accent chip
+            (GG Tiffin) to its right — modeled on the dark-pill-bar + standout-chip pattern from
+            the reference screenshot the user provided, rather than the previous light bordered
+            buttons. */}
         <View style={styles.bottomRow}>
-          <View style={styles.bottomBar}>
-            <Pressable style={styles.bottomIcon} onPress={() => setIsBrandPickerOpen(true)}>
-              <Text style={styles.bottomIconEmoji}>📋</Text>
-              <Text style={styles.bottomIconLabel}>Menu</Text>
+          <View style={styles.tabBar}>
+            <Pressable
+              style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
+              android_ripple={{ color: "#3a332c", borderless: false }}
+              onPress={() => setIsBrandPickerOpen(true)}
+            >
+              {({ pressed }) => (
+                <>
+                  <Text style={styles.tabIcon}>📋</Text>
+                  <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Menu</Text>
+                  <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
+                </>
+              )}
             </Pressable>
-            <View style={styles.bottomDivider} />
             {showCombosBanner && (
-              <>
-                <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("Combos")}>
-                  <Text style={styles.bottomIconEmoji}>🎁</Text>
-                  <Text style={styles.bottomIconLabel}>Combos</Text>
-                </Pressable>
-                <View style={styles.bottomDivider} />
-              </>
+              <Pressable
+                style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
+                android_ripple={{ color: "#3a332c", borderless: false }}
+                onPress={() => navigation.navigate("Combos")}
+              >
+                {({ pressed }) => (
+                  <>
+                    <Text style={styles.tabIcon}>🎁</Text>
+                    <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Combos</Text>
+                    <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
+                  </>
+                )}
+              </Pressable>
             )}
-            <Pressable style={styles.bottomIcon} onPress={() => navigation.navigate("BulkOrder")}>
-              <Text style={styles.bottomIconEmoji}>🎉</Text>
-              <Text style={styles.bottomIconLabel}>Bulk Deals</Text>
+            <Pressable
+              style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
+              android_ripple={{ color: "#3a332c", borderless: false }}
+              onPress={() => navigation.navigate("BulkOrder")}
+            >
+              {({ pressed }) => (
+                <>
+                  <Text style={styles.tabIcon}>🎉</Text>
+                  <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Bulk Deals</Text>
+                  <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
+                </>
+              )}
             </Pressable>
           </View>
 
-          <Pressable style={styles.ggTiffinTab} onPress={() => navigation.navigate("TiffinLanding")}>
-            {ggTiffinBrand?.logoUrl ? (
-              <Image source={{ uri: ggTiffinBrand.logoUrl }} style={styles.ggTiffinLogo} resizeMode="cover" />
-            ) : (
-              <Text style={styles.bottomIconEmoji}>🍱</Text>
-            )}
-            <View>
-              <Text style={styles.ggTiffinLabelLine}>GG</Text>
-              <Text style={styles.ggTiffinLabelLine}>Tiffin</Text>
-            </View>
+          {/* Left edge is a pointed wedge (two straight lines meeting at a point) instead of a
+              rounded corner — a separate CSS-triangle-style View glued to the body's square left
+              edge, since RN Views can't clip to a non-rectangular shape on their own. */}
+          <Pressable
+            style={({ pressed }) => [styles.ggTiffinTab, pressed && styles.ggTiffinTabPressed]}
+            android_ripple={{ color: colors.primary, borderless: false }}
+            onPress={() => navigation.navigate("TiffinLanding")}
+          >
+            <View style={styles.ggTiffinWedge} />
+            <LinearGradient colors={GG_TIFFIN_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ggTiffinBody}>
+              {/* Soft light streak across the top — the "glossy" reflection a flat fill can't give. */}
+              <View pointerEvents="none" style={styles.ggTiffinGloss} />
+              {ggTiffinBrand?.logoUrl ? (
+                <Image source={{ uri: ggTiffinBrand.logoUrl }} style={styles.ggTiffinLogo} resizeMode="cover" />
+              ) : (
+                <Text style={styles.bottomIconEmoji}>🍱</Text>
+              )}
+              <View>
+                <Text style={styles.ggTiffinLabelLine}>GG</Text>
+                <Text style={styles.ggTiffinLabelLine}>Tiffin</Text>
+              </View>
+              <Text style={styles.ggTiffinArrow}>↗</Text>
+            </LinearGradient>
           </Pressable>
         </View>
       </View>
@@ -352,6 +435,50 @@ const makeStyles = (colors: ColorPalette) =>
     // includeFontPadding:false strips Android's default extra glyph padding, which is what
     // was pushing the digit past the badge's tight circular bounds and cutting it off.
     cartBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800", lineHeight: 14, includeFontPadding: false },
+    // New-customer offer promo tabs — modeled on a food-delivery app's Food/Instamart/Dineout
+    // tab-shaped switcher bar (purple gradient strip, rounded tab cards, a small floating badge
+    // above each), but purely informational here since there's nothing to switch between.
+    offerTabsBar: {
+      borderRadius: 20,
+      overflow: "hidden",
+      marginBottom: theme.spacing(1.5),
+      shadowColor: "#4A1D7A",
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+    },
+    offerTabsGradient: { flexDirection: "row", padding: theme.spacing(0.75), gap: theme.spacing(0.75) },
+    offerTab: {
+      flex: 1,
+      position: "relative",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: theme.spacing(1.75),
+      paddingBottom: theme.spacing(1),
+      borderRadius: 16,
+      backgroundColor: "rgba(255,255,255,0.16)",
+    },
+    // The offer whose turn it actually is on this customer's next order gets the raised white
+    // "active" treatment; the other stays dim — same active/inactive contrast as the reference
+    // tab bar, just driven by order-number eligibility instead of which category is selected.
+    offerTabActive: { backgroundColor: "#fff" },
+    offerTabBadge: {
+      position: "absolute",
+      top: -8,
+      alignSelf: "center",
+      fontSize: 9,
+      fontWeight: "800",
+      color: "#3D1465",
+      backgroundColor: "#FFD54A",
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+      overflow: "hidden",
+    },
+    offerTabIcon: { fontSize: 22 },
+    offerTabLabel: { fontSize: 12, fontWeight: "800", color: "#fff", marginTop: 2 },
+    offerTabLabelActive: { color: "#3D1465" },
     // Opaque so the carousel/items scrolling underneath don't show through the pinned strip
     // once this row becomes sticky.
     stickySearchWrap: { backgroundColor: colors.background, paddingBottom: theme.spacing(1.5) },
@@ -365,39 +492,99 @@ const makeStyles = (colors: ColorPalette) =>
     // Absolute positioning is relative to the screen's border box, not its padding box — restate
     // the screen's own horizontal padding here so the floating cart bar isn't flush against the edges.
     floatingFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: theme.spacing(2) },
-    // Left pill (Menu/Combos/Bulk Deals) and the right GG Tiffin pill, pinned to opposite ends.
-    bottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: theme.spacing(1) },
-    bottomBar: {
+    // Left group (Menu/Combos/Bulk Deals) and the right GG Tiffin pill, pinned to opposite ends.
+    bottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: theme.spacing(1), gap: theme.spacing(1) },
+    // Single dark rounded pill housing all three tabs — mirrors the reference screenshot's
+    // dark bottom bar rather than separate light bordered buttons.
+    tabBar: {
       flexDirection: "row",
-      paddingVertical: theme.spacing(1),
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: theme.radius,
-      backgroundColor: colors.surface,
-      overflow: "hidden",
+      alignItems: "center",
+      backgroundColor: "#221B17",
+      borderRadius: 30,
+      paddingVertical: theme.spacing(0.75),
+      paddingHorizontal: theme.spacing(0.75),
+      gap: theme.spacing(0.25),
+      shadowColor: "#000",
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 8,
+      flexShrink: 1,
     },
-    bottomIcon: { alignItems: "center", paddingHorizontal: theme.spacing(2.5) },
-    // Thin vertical rule between icons — stretches to match the tallest sibling's height
-    // (default cross-axis alignItems: "stretch") instead of a fixed px guess.
-    bottomDivider: { width: 1, backgroundColor: colors.border },
+    tabItem: {
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 56,
+      paddingVertical: theme.spacing(0.75),
+      paddingHorizontal: theme.spacing(1),
+      borderRadius: 22,
+    },
+    // Pressed state doubles as this bar's only "active" cue — a soft highlight chip behind the icon,
+    // since none of these three destinations reflect a persistent "current tab".
+    tabItemActive: { backgroundColor: "rgba(255,255,255,0.1)" },
+    tabIcon: { fontSize: 18, opacity: 0.9 },
+    tabLabel: { fontSize: 10, fontWeight: "700", color: "#9A9088", marginTop: 3 },
+    tabLabelActive: { color: "#fff" },
+    tabUnderline: { marginTop: 3, width: 14, height: 3, borderRadius: 2, backgroundColor: "transparent" },
+    tabUnderlineActive: { backgroundColor: colors.accent },
     bottomIconEmoji: { fontSize: 20 },
-    bottomIconLabel: { fontSize: 11, fontWeight: "700", color: colors.text, marginTop: 4 },
-    // Its own separate boundary, distinct from the left pill's shared border — logo on the left,
-    // "GG" / "Tiffin" stacked on the right, wider (not taller) than the left pill, and a distinct
-    // accent background so it reads as its own destination rather than another menu tab.
+    // Its own distinct pill, larger and warmer than the tab bar's dark neutral tone — logo on the
+    // left, "GG" / "Tiffin" stacked in the middle, a small arrow on the right (echoing the
+    // reference screenshot's accent chip, which runs flush to the screen's edge rather than
+    // floating with a gap on every side). The negative right margin cancels out floatingFooter's
+    // own horizontal padding so this pill's square right edge lands exactly on the screen's
+    // physical edge.
     ggTiffinTab: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: theme.spacing(1),
-      paddingHorizontal: theme.spacing(3.5),
-      borderWidth: 1,
-      borderColor: colors.accent,
-      borderRadius: theme.radius,
-      backgroundColor: colors.accent,
-      gap: theme.spacing(1),
+      marginRight: -theme.spacing(2),
+      shadowColor: GG_TIFFIN_GRADIENT[1],
+      shadowOpacity: 0.45,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
     },
-    ggTiffinLogo: { width: 42, height: 42, borderRadius: 21 },
-    ggTiffinLabelLine: { fontSize: 15, fontWeight: "800", color: "#fff", lineHeight: 17 },
+    ggTiffinTabPressed: { opacity: 0.85 },
+    // Classic CSS-triangle trick: a zero-size box whose only visible pixels are its borders —
+    // top/bottom borders transparent and full-height (half each), right border colored and as
+    // wide as the desired point depth, left/top borders 0 — renders as a solid wedge pointing
+    // left, its flat base flush against ggTiffinBody's square left edge. Borders can't render a
+    // gradient, so it's filled with the gradient's own top-left stop for a seamless join.
+    ggTiffinWedge: {
+      width: 0,
+      height: 0,
+      borderTopWidth: GG_TIFFIN_TAB_HEIGHT / 2,
+      borderBottomWidth: GG_TIFFIN_TAB_HEIGHT / 2,
+      borderRightWidth: 18,
+      borderTopColor: "transparent",
+      borderBottomColor: "transparent",
+      borderRightColor: GG_TIFFIN_GRADIENT[0],
+    },
+    ggTiffinBody: {
+      flexDirection: "row",
+      alignItems: "center",
+      height: GG_TIFFIN_TAB_HEIGHT,
+      paddingLeft: theme.spacing(1),
+      paddingRight: theme.spacing(3),
+      gap: theme.spacing(0.75),
+      overflow: "hidden",
+      position: "relative",
+    },
+    // The highlight strip that reads as "glossy" — a soft light streak across the top third,
+    // fading out rather than a hard-edged band.
+    ggTiffinGloss: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: "45%",
+      backgroundColor: "rgba(255,255,255,0.3)",
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    ggTiffinLogo: { width: 38, height: 38, borderRadius: 19 },
+    ggTiffinLabelLine: { fontSize: 14, fontWeight: "800", color: "#fff", lineHeight: 16 },
+    ggTiffinArrow: { fontSize: 14, fontWeight: "800", color: "#fff", marginLeft: 2 },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
     modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2) },

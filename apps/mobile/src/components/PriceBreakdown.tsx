@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useTheme } from "../state/themeStore";
 
-const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
+export const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
   none: "",
   "quantity-tier": "Multi-item discount",
   premium: "Premium member discount (25%)",
@@ -12,11 +12,13 @@ const DISCOUNT_LABELS: Record<PricingResult["discountReason"], string> = {
   "second-order-half-off": "🎉 Welcome offer: 50% off",
 };
 
-const REWARD_LABELS: Record<PricingResult["rewardReason"], string> = {
+export const REWARD_LABELS: Record<PricingResult["rewardReason"], string> = {
   none: "",
   "sixth-order-cold-coffee": "6th-order reward: 50% off cold coffee",
   "tenth-order-free-drink": "10th-order reward: free drink",
 };
+
+const NEW_CUSTOMER_DISCOUNT_REASONS = new Set<PricingResult["discountReason"]>(["first-order-bogo", "second-order-half-off"]);
 
 function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   const { colors } = useTheme();
@@ -35,6 +37,14 @@ export function PriceBreakdown({ result }: { result: PricingResult }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
+      {/* A distinct celebratory banner for the two new-customer offers — the plain muted row below
+          still lists the exact amount, but this is the "yes, it's applied" confirmation the offer
+          tabs on Home promised. */}
+      {result.discountAmount > 0 && NEW_CUSTOMER_DISCOUNT_REASONS.has(result.discountReason) && (
+        <View style={styles.newCustomerBanner}>
+          <Text style={styles.newCustomerBannerText}>{DISCOUNT_LABELS[result.discountReason]} applied to this order!</Text>
+        </View>
+      )}
       <Row label="Subtotal" value={`₹${result.subtotal}`} />
       {result.discountAmount > 0 && (
         <Row label={DISCOUNT_LABELS[result.discountReason]} value={`-₹${result.discountAmount}`} muted />
@@ -63,4 +73,13 @@ const makeStyles = (colors: ColorPalette) =>
     muted: { fontWeight: "400", color: colors.muted },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
     premiumNote: { marginTop: 8, fontSize: 12, color: colors.primary, fontWeight: "700" },
+    newCustomerBanner: {
+      backgroundColor: colors.accent + "22",
+      borderWidth: 1,
+      borderColor: colors.accent,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1),
+      marginBottom: theme.spacing(1),
+    },
+    newCustomerBannerText: { color: colors.primary, fontWeight: "800", fontSize: 13, textAlign: "center" },
   });

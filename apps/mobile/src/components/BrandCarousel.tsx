@@ -187,7 +187,7 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
               </View>
             ) : (
               <View style={styles.premiumCta}>
-                <Text style={styles.premiumCtaText}>Upgrade to Premium</Text>
+                <Text style={styles.premiumCtaText}>Join the club!</Text>
               </View>
             )}
           </View>

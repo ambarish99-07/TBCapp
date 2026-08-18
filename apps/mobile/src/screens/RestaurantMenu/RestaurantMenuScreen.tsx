@@ -9,8 +9,8 @@ import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useBrandStore } from "../../state/brandStore";
-import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
+import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -33,13 +33,12 @@ function formatCategoryLabel(category: string): string {
 
 /** Curated combos have no customizable fields — tapping just adds one straight to the cart. */
 function CuratedComboRow({ combo, itemPrice, styles }: { combo: Extract<Combo, { type: "curated" }>; itemPrice: (id: string) => number; styles: ReturnType<typeof makeStyles> }) {
-  const addLine = useCartStore((state) => state.addLine);
   const fullPriceSum = combo.itemIds.reduce((sum, id) => sum + itemPrice(id), 0);
   const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice));
   const savings = Math.max(0, fullPriceSum - comboPrice);
 
   function handleAdd() {
-    addLine(
+    addLineWithBrandGuard(
       makeComboCartLine({
         comboId: combo.id,
         brandId: combo.brandId,

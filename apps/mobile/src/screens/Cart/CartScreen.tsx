@@ -1,6 +1,9 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { CROSS_BRAND_ID, isQuickDeliveryBrandId } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { fetchMe } from "../../api/auth.api";
+import { useBrands } from "../../api/brands.api";
 import { useMenuItems } from "../../api/menu.api";
 import { createOrderRequest } from "../../api/orders.api";
 import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
@@ -8,6 +11,7 @@ import { EditCartItemModal } from "../../components/EditCartItemModal";
 import { PriceBreakdown } from "../../components/PriceBreakdown";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
+import { useBrandStore } from "../../state/brandStore";
 import { useCartStore, type CartLine } from "../../state/cartStore";
 import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
@@ -30,11 +34,14 @@ export function CartScreen({ navigation }: Props) {
   const clearCart = useCartStore((state) => state.clear);
   const auth = useAuthContext();
   const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const { data: menuItems } = useMenuItems();
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const editingMenuItem = editingLine ? menuItems?.find((item) => item.id === editingLine.menuItemId) : null;
   const editingCategory = editingMenuItem?.category ?? null;
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
+  const { data: brands } = useBrands();
+  const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const [submitting, setSubmitting] = useState(false);
   // Set the instant the order succeeds — triggers the full-screen "Order Placed" confirmation
   // below, which then clears the cart and navigates on once it's done, same pattern as the
@@ -68,6 +75,24 @@ export function CartScreen({ navigation }: Props) {
   }
 
   const result = computeTotals(auth);
+
+  // BOGO (order #1) needs 2+ non-combo units to have anything to give away for free — computePricing
+  // silently returns no discount below that, same as it would at checkout. This nudge is the only
+  // place that explains *why*, before the customer reaches the payment screen and wonders where
+  // the offer they saw on Home went.
+  const nonComboUnits = lines.filter((line) => !line.isCombo).reduce((sum, line) => sum + line.quantity, 0);
+  const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
+  const isQuickDeliveryBrand = ownedLine ? isQuickDeliveryBrandId(ownedLine.brandId) : false;
+  const nextOrderNumber = auth.loyalty.completedOrderCount + 1;
+  const showBogoNudge = auth.isLoggedIn && isQuickDeliveryBrand && nextOrderNumber === 1 && nonComboUnits === 1;
+  const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
+
+  // restoreBrand, not selectBrand — selectBrand clears the cart on every switch (it assumes a
+  // deliberate brand change), which would wipe the very items this nudge exists to add to.
+  function handleBrowseMenuForBogo() {
+    if (cartBrand) restoreBrand(cartBrand);
+    navigation.navigate("RestaurantMenu");
+  }
 
   async function handleProceedToPay() {
     if (!profileComplete || !selectedPaymentOption || !user) return;
@@ -107,6 +132,17 @@ export function CartScreen({ navigation }: Props) {
             razorpay_signature: paymentResult.razorpay_signature,
           });
         }
+      }
+
+      // The server just advanced loyalty.completedOrderCount (COD: at creation above; Razorpay:
+      // in the verify call just above) — refetch so the Home offer tabs and this cart's own BOGO
+      // nudge reflect the new next-order-number immediately, not just after an app restart.
+      // Best-effort: a failed refresh shouldn't block the "order placed" confirmation the
+      // customer is actually waiting on.
+      try {
+        updateUser(await fetchMe());
+      } catch {
+        // Stale until next hydrate — not worth surfacing an error for.
       }
 
       // Payment method deliberately stays selected — it carries over to the next order
@@ -170,6 +206,15 @@ export function CartScreen({ navigation }: Props) {
 
       <View style={styles.spacer} />
 
+      {showBogoNudge && (
+        <Pressable style={styles.bogoNudge} onPress={handleBrowseMenuForBogo}>
+          <Text style={styles.bogoNudgeText}>
+            🎁 Your order is eligible for Buy 1 Get 1 Free! Choose one more item from the menu to claim it.
+          </Text>
+          <Text style={styles.bogoNudgeLink}>Tap here to browse the menu →</Text>
+        </Pressable>
+      )}
+
       <PriceBreakdown result={result} />
 
       {!profileComplete && (
@@ -225,6 +270,16 @@ const makeStyles = (colors: ColorPalette) =>
     screen: { flex: 1, backgroundColor: colors.background, padding: theme.spacing(2) },
     list: { flexGrow: 0 },
     spacer: { flex: 1 },
+    bogoNudge: {
+      backgroundColor: colors.accent + "22",
+      borderWidth: 1,
+      borderColor: colors.accent,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      marginBottom: theme.spacing(1.5),
+    },
+    bogoNudgeText: { color: colors.primary, fontWeight: "700", fontSize: 13, textAlign: "center" },
+    bogoNudgeLink: { color: colors.primary, fontWeight: "800", fontSize: 12, textAlign: "center", marginTop: 4, textDecorationLine: "underline" },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, backgroundColor: colors.background },
     emptyText: { color: colors.muted },
     browseButton: { backgroundColor: colors.primary, borderRadius: theme.radius, paddingHorizontal: 20, paddingVertical: 10 },
