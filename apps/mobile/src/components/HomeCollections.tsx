@@ -28,7 +28,7 @@ export function Row<T>({ title, data, keyExtractor, renderItem }: { title: strin
   );
 }
 
-function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+export function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeCardStyles(colors), [colors]);
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
@@ -210,7 +210,7 @@ const makeRowStyles = (colors: ColorPalette) =>
     rowContent: { gap: theme.spacing(1.5) },
   });
 
-const CARD_WIDTH = 128;
+export const CARD_WIDTH = 128;
 
 const makeCardStyles = (colors: ColorPalette) =>
   StyleSheet.create({

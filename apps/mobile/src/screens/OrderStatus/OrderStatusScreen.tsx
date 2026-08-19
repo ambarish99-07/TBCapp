@@ -156,31 +156,16 @@ export function OrderStatusScreen({ route, navigation }: Props) {
               <Text style={styles.newCustomerBannerText}>{DISCOUNT_LABELS[order.totals.discountReason]} applied to this order!</Text>
             </View>
           )}
-
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Subtotal</Text>
-            <Text style={styles.totalsValue}>₹{order.totals.subtotal}</Text>
-          </View>
-          {order.totals.discountAmount > 0 && (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabelMuted}>{DISCOUNT_LABELS[order.totals.discountReason]}</Text>
-              <Text style={styles.totalsValueMuted}>-₹{order.totals.discountAmount}</Text>
-            </View>
-          )}
           {order.totals.rewardAmount > 0 && (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabelMuted}>{REWARD_LABELS[order.totals.rewardReason]}</Text>
-              <Text style={styles.totalsValueMuted}>-₹{order.totals.rewardAmount}</Text>
+            <View style={styles.newCustomerBanner}>
+              <Text style={styles.newCustomerBannerText}>{REWARD_LABELS[order.totals.rewardReason]} applied to this order!</Text>
             </View>
           )}
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabelMuted}>Delivery fee</Text>
-            <Text style={styles.totalsValueMuted}>{order.totals.deliveryFee === 0 ? "Free" : `₹${order.totals.deliveryFee}`}</Text>
-          </View>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabelMuted}>Tax</Text>
-            <Text style={styles.totalsValueMuted}>₹{order.totals.tax}</Text>
-          </View>
+
+          {/* Subtotal/discount/delivery/tax line items already live on the Cart screen's own price
+              breakdown right before checkout — repeating all of them here was just noise on a
+              screen whose job is tracking the order, not re-auditing its price. Just the bottom
+              line stays. */}
           <View style={styles.divider} />
           <View style={styles.totalsRow}>
             <Text style={styles.summaryTitleStrong}>Total</Text>
@@ -265,10 +250,6 @@ const makeStyles = (colors: ColorPalette) =>
     itemPrice: { fontSize: 14, fontWeight: "700", color: colors.text },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: theme.spacing(1) },
     totalsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-    totalsLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
-    totalsValue: { fontSize: 14, fontWeight: "600", color: colors.text },
-    totalsLabelMuted: { fontSize: 13, color: colors.muted },
-    totalsValueMuted: { fontSize: 13, color: colors.muted },
     summaryTitleStrong: { fontSize: 15, fontWeight: "800", color: colors.text },
     newCustomerBanner: {
       backgroundColor: colors.accent + "22",
