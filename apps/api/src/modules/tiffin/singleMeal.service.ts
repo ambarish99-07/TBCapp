@@ -47,6 +47,11 @@ const DISH_IMAGE_SLUGS: Record<string, string> = {
   "Egg Curry": "egg-curry",
   "Mutton Curry": "mutton-and-pulao",
   "Paneer Butter Masala": "paneer-butter-masala-and-pulao",
+  Upma: "upma",
+  "Chicken Curry": "chicken-curry",
+  "Aloo Parwal": "aloo-parwal",
+  "Lauki Masala": "lauki-masala",
+  "Matar Chole": "matar-chole",
 };
 
 /** Mini's own photos (smaller box, single carb) — checked before the shared table above. Not
@@ -62,6 +67,9 @@ const MINI_DISH_IMAGE_SLUGS: Record<string, string> = {
   "Egg Curry": "egg-curry-mini",
   "Chicken Curry": "chicken-curry-mini",
   "Fish Curry": "fish-curry-mini",
+  "Aloo Parwal": "aloo-parwal-mini",
+  "Lauki Masala": "lauki-masala-mini",
+  "Matar Chole": "matar-chole-mini",
 };
 
 function tiffinDishImageUrl(env: Env, slug: string): string {
@@ -84,11 +92,11 @@ function pickDeliveryPartner(orderId: string): DeliveryPartner {
 
 /**
  * Mini checks its own photos first, then falls back to the shared Regular/Premium photo for the
- * same dish (still a real, accurate photo — just not Mini's own box). Only genuinely
- * unphotographed dishes (Aloo Parwal, Lauki Masala, Matar Chole, Upma, and Chicken Curry outside
- * Mini — none of these have a dish-specific photo yet) fall back further to one of three generic
- * tiffin-box photos: Mini gets its own smaller single-curry box (matching what it actually
- * serves — no rice, no second sabzi), everything else gets the veg/non-veg thali photo.
+ * same dish (still a real, accurate photo — just not Mini's own box). Every dish on the schedule
+ * now has a dedicated photo at every tier that serves it — the generic tiffin-box fallbacks below
+ * exist for the hypothetical unphotographed future menu addition, not any current dish: Mini gets
+ * its own smaller single-curry box (matching what it actually serves — no rice, no second sabzi),
+ * everything else gets the veg/non-veg thali photo.
  *
  * The veg/non-veg choice is made from the *resolved dish itself* (is bareDishName a protein
  * curry?), never from the diet-tab parameter — a "non-veg" tab with no override for today still

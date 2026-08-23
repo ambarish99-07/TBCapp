@@ -15,31 +15,45 @@ describe("resolveDishImageSlug", () => {
     expect(resolveDishImageSlug("mini", "dinner", "Matar Mushroom")).toBe("matar-mushroom");
   });
 
-  it("gives an unphotographed breakfast dish the generic breakfast fallback", () => {
-    expect(resolveDishImageSlug("regular", "breakfast", "Upma")).toBe("breakfast-tiffin");
+  it("uses Upma's own dedicated photo, not the generic breakfast fallback", () => {
+    expect(resolveDishImageSlug("regular", "breakfast", "Upma")).toBe("upma");
+  });
+
+  it("gives a genuinely unphotographed breakfast dish the generic breakfast fallback", () => {
+    // Every real dish on the schedule is photographed now — a made-up name stands in so this
+    // still exercises the fallback path without depending on which real dish is unphotographed
+    // today (that list only shrinks as more photos come in).
+    expect(resolveDishImageSlug("regular", "breakfast", "Not A Real Dish")).toBe("breakfast-tiffin");
   });
 
   it("gives Mini its own smaller generic box instead of the big Regular/Premium thali photo", () => {
-    // Aloo Parwal has no dedicated photo at any tier — Mini shouldn't show the same
-    // multi-compartment rice+roti+daal+sabzi thali Regular/Premium fall back to, since Mini's
-    // real box is just roti + one sabzi.
-    expect(resolveDishImageSlug("mini", "lunch", "Aloo Parwal")).toBe("mini-tiffin");
+    // A made-up dish name for the same reason as above — every real Mini dish is photographed
+    // (either its own Mini-box photo or the shared Regular/Premium one) at this point.
+    expect(resolveDishImageSlug("mini", "lunch", "Not A Real Dish")).toBe("mini-tiffin");
+  });
+
+  it("prefers Mini's own dedicated photo for Aloo Parwal/Lauki Masala/Matar Chole over the generic box", () => {
+    expect(resolveDishImageSlug("mini", "lunch", "Aloo Parwal")).toBe("aloo-parwal-mini");
+    expect(resolveDishImageSlug("mini", "dinner", "Lauki Masala")).toBe("lauki-masala-mini");
+    expect(resolveDishImageSlug("mini", "dinner", "Matar Chole")).toBe("matar-chole-mini");
+  });
+
+  it("uses Aloo Parwal/Lauki Masala/Matar Chole's own Regular/Premium-size photo, not the generic thali", () => {
+    expect(resolveDishImageSlug("regular", "lunch", "Aloo Parwal")).toBe("aloo-parwal");
+    expect(resolveDishImageSlug("premium", "dinner", "Lauki Masala")).toBe("lauki-masala");
+    expect(resolveDishImageSlug("regular", "dinner", "Matar Chole")).toBe("matar-chole");
   });
 
   /**
    * The bug this locks in: getSingleMealMenu resolves a "non-veg" row to that day's plain VEG
-   * dish whenever no non-veg override applies (see getSingleMealDish) — e.g. "Lauki Masala" is
-   * a vegetable curry with no non-veg variant most days. The generic fallback must reflect what
-   * the resolved dish actually is, not which diet tab happened to ask for it — this function
-   * doesn't even take a dietType parameter, so there's no way for a tab to leak into the image
-   * choice. Showing the chicken-curry stock photo next to "Lauki Masala" would misrepresent
-   * what's actually in the box.
+   * dish whenever no non-veg override applies (see getSingleMealDish) — e.g. a veg curry with no
+   * non-veg variant that day. The generic fallback must reflect what the resolved dish actually
+   * is, not which diet tab happened to ask for it — this function doesn't even take a dietType
+   * parameter, so there's no way for a tab to leak into the image choice. Every real dish is
+   * photographed now, so a made-up name stands in to still exercise this path.
    */
-  it("chooses the veg/non-veg generic from what the dish actually is, never from a diet tab", () => {
-    expect(resolveDishImageSlug("regular", "dinner", "Lauki Masala")).toBe("veg-tiffin");
-    expect(resolveDishImageSlug("premium", "lunch", "Aloo Parwal")).toBe("veg-tiffin");
-    // Chicken Curry has a Mini-specific photo but no shared Regular/Premium one — genuinely
-    // falls through to the non-veg generic, since it really is a meat dish.
-    expect(resolveDishImageSlug("regular", "dinner", "Chicken Curry")).toBe("non-veg-tiffin");
+  it("chooses the veg generic for an unphotographed veg dish, never the non-veg one, regardless of diet tab", () => {
+    expect(resolveDishImageSlug("regular", "dinner", "Not A Real Dish")).toBe("veg-tiffin");
+    expect(resolveDishImageSlug("premium", "lunch", "Not A Real Dish")).toBe("veg-tiffin");
   });
 });

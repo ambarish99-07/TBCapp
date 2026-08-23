@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelSingleMealOrderRequest, useMySingleMealOrders } from "../../api/tiffin.api";
+import { DeliveryProgressTracker } from "../../components/DeliveryProgressTracker";
 import { StepFlow, type StepFlowStep } from "../../components/StepFlow";
 import { TiffinSubscriptionAndOrders } from "../../components/TiffinSubscriptionAndOrders";
 import { theme, type ColorPalette } from "../../constants/theme";
@@ -88,6 +89,7 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
   const addOnsTotal = order.addOns.reduce((sum, addOn) => sum + addOn.price, 0);
   const total = (order.price + addOnsTotal) * order.quantity;
   const currentIndex = STATUS_STEPS.findIndex((step) => step.key === order.status);
+  const outForDeliveryAt = order.statusHistory.find((entry) => entry.status === "out-for-delivery")?.at;
 
   return (
     <View style={styles.screen}>
@@ -127,6 +129,13 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
               </Pressable>
             </View>
           </View>
+        )}
+
+        {/* No estimatedMinutes here — single-meal orders are scheduled to a delivery window
+            (e.g. lunch 12-2pm), not an ASAP countdown, so the tracker shows movement only,
+            without inventing an "arriving in N min" claim it has no real basis for. */}
+        {order.status === "out-for-delivery" && outForDeliveryAt && (
+          <DeliveryProgressTracker outForDeliveryAt={outForDeliveryAt} deliveryPartnerName={order.deliveryPartner?.name} />
         )}
 
         <View style={styles.card}>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { cancelOrderRequest, fetchOrderByAccessToken } from "../../api/orders.api";
+import { DeliveryProgressTracker } from "../../components/DeliveryProgressTracker";
 import { DISCOUNT_LABELS, REWARD_LABELS } from "../../components/PriceBreakdown";
 import { StatusTimeline } from "../../components/StatusTimeline";
 import { theme, type ColorPalette } from "../../constants/theme";
@@ -94,6 +95,8 @@ export function OrderStatusScreen({ route, navigation }: Props) {
     );
   }
 
+  const outForDeliveryAt = order.statusHistory.find((entry) => entry.status === "out-for-delivery")?.at;
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -135,6 +138,14 @@ export function OrderStatusScreen({ route, navigation }: Props) {
               </Pressable>
             </View>
           </View>
+        )}
+
+        {order.status === "out-for-delivery" && outForDeliveryAt && (
+          <DeliveryProgressTracker
+            outForDeliveryAt={outForDeliveryAt}
+            estimatedMinutes={order.estimatedMinutes}
+            deliveryPartnerName={order.deliveryPartner?.name}
+          />
         )}
 
         <View style={styles.card}>
