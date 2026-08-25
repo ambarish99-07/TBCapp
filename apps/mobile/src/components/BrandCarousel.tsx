@@ -153,14 +153,25 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
 
       <Pressable style={styles.premiumWrap} onPress={handlePremiumPress}>
         <LinearGradient
-          colors={["#6E0F1F", "#B0202F", "#D4AF37"]}
+          colors={["rgba(7,91,120,0.6)", "rgba(11,138,140,0.6)", "rgba(242,180,60,0.6)"]}
+          // Blue holds the first 45% of the card, the teal-to-gold transition happens across the
+          // next 25% (0.45→0.70), and gold sits solid for the final 30% (0.70→1.0).
+          locations={[0, 0.45, 0.7]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.premiumCard}
         >
-          {/* A dark scrim behind the text guarantees contrast regardless of where it lands on
-              the red-to-gold gradient — the gold end especially needs it. */}
+          {/* A dark scrim keeps the cream heading legible against the brighter gold end of the
+              teal-to-gold gradient. */}
           <View style={styles.premiumScrim} />
+          {/* Glossy sheen — a soft diagonal light streak across the upper half, like light
+              catching a glass/enamel surface, layered on top of everything below it. */}
+          <LinearGradient
+            colors={["rgba(255,255,255,0.32)", "rgba(255,255,255,0.05)", "transparent"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 0.9 }}
+            style={styles.premiumGloss}
+          />
           {/* The gradient spans the full width (no bare background beside it), but this inner
               group stays compact and centered rather than stretching to fill it. */}
           <View style={styles.premiumContent}>
@@ -223,8 +234,9 @@ const makeStyles = (colors: ColorPalette) =>
     heroTagline: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: theme.spacing(0.5) },
     heroCta: { fontSize: 12, fontWeight: "700", color: "#fff", marginTop: theme.spacing(1) },
     premiumWrap: { marginTop: theme.spacing(1.5) },
-    // Deliberately fixed red-to-gold gradient, independent of the app's light/dark theme — a
-    // premium membership card reads as its own consistent brand, like a credit/status card.
+    // Deliberately fixed teal-to-green gradient (with a mild yellow diagonal highlight layered
+    // over it, see the second LinearGradient above), independent of the app's light/dark theme —
+    // a premium membership card reads as its own consistent brand, like a credit/status card.
     // Spans the full width (no bare background beside it), short rather than tall.
     premiumCard: {
       minHeight: 150,
@@ -233,8 +245,15 @@ const makeStyles = (colors: ColorPalette) =>
       paddingHorizontal: theme.spacing(2),
       borderRadius: theme.radius,
       borderWidth: 1.5,
-      borderColor: "#F2C94C",
+      borderColor: "#8ED9C8",
       overflow: "hidden",
+    },
+    premiumGloss: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: "60%",
     },
     premiumScrim: {
       position: "absolute",
@@ -242,34 +261,36 @@ const makeStyles = (colors: ColorPalette) =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.22)",
+      backgroundColor: "rgba(0,0,0,0.01)",
     },
     // The compact group that stays centered within the full-width gradient instead of stretching.
     premiumContent: { alignItems: "center" },
     premiumTopRow: { flexDirection: "row", alignItems: "center" },
+    // 👑 is a fixed-color emoji glyph — RN text color styling can't tint it, so it renders at
+    // its own default gold rather than the specified #FFD34E. Everything else below is exact.
     premiumCrown: { fontSize: 40, marginRight: theme.spacing(1.5) },
-    premiumTitle: { fontSize: 19, fontWeight: "800", color: "#F5E6C8", letterSpacing: 0.3 },
-    premiumSubtitle: { fontSize: 15, color: "#E8D5A8", marginTop: 4 },
+    premiumTitle: { fontSize: 19, fontWeight: "800", color: "#0B2E4F", letterSpacing: 0.3 },
+    premiumSubtitle: { fontSize: 15, color: "#0B2E4F", marginTop: 4 },
     premiumCta: {
       marginTop: theme.spacing(2),
-      backgroundColor: "#D4AF37",
+      backgroundColor: "#D3D3D3",
       borderRadius: theme.radius,
       paddingVertical: theme.spacing(1.25),
       paddingHorizontal: theme.spacing(4),
       alignItems: "center",
     },
-    premiumCtaText: { fontSize: 16, fontWeight: "800", color: "#171310" },
+    premiumCtaText: { fontSize: 16, fontWeight: "800", color: "#075B78" },
     // Quiet status badge — nothing to do while active, so it deliberately doesn't look like a
     // button the way the CTA pill above does.
     premiumStatusBadge: {
       marginTop: theme.spacing(1.5),
       borderWidth: 1,
-      borderColor: "rgba(245,230,200,0.6)",
+      borderColor: "rgba(255,246,220,0.6)",
       borderRadius: theme.radius,
       paddingVertical: 6,
       paddingHorizontal: theme.spacing(2),
     },
-    premiumStatusBadgeText: { fontSize: 13, fontWeight: "700", color: "#F5E6C8" },
+    premiumStatusBadgeText: { fontSize: 13, fontWeight: "700", color: "#FFF6DC" },
     // Small and urgent — a distinct color from the gold CTA/badge above, on purpose, so an
     // expired membership reads differently from "active" or "never purchased."
     premiumRenewTab: {
