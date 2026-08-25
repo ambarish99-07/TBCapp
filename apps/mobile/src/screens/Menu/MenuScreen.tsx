@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -35,6 +36,9 @@ const GG_TIFFIN_TAB_HEIGHT = 60;
 // both the dark tab bar and the photo content behind it, and a distinct hue from every other
 // footer/promo color already in play (dark tab bar, purple offer tabs, gold Premium banner).
 const GG_TIFFIN_GRADIENT = ["#22D3A6", "#0EA679", "#066B4E"] as const;
+// Plain dark neutral instead of colorful emoji — matches the reference footer's monochrome icon
+// style and the tab labels' own text color.
+const TAB_ICON_COLOR = "#3A342C";
 
 export function MenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
@@ -62,6 +66,9 @@ export function MenuScreen({ navigation }: Props) {
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   const ggTiffinBrand = brands?.find((brand) => brand.id === "gg-tiffin");
+  // The brand-tabs strip excludes GG Tiffin — it already has its own dedicated clickable card
+  // further down the Home screen, so listing it here too would just be a duplicate shortcut.
+  const brandTabBrands = brands?.filter((brand) => brand.id !== "gg-tiffin");
 
   function handleOpenRestaurant(brand: Brand) {
     // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
@@ -164,8 +171,8 @@ export function MenuScreen({ navigation }: Props) {
   type Row = { kind: "header" } | { kind: "brandTabs" } | { kind: "content" };
 
   const rows: Row[] = useMemo(
-    () => [{ kind: "header" }, ...(brands && brands.length > 0 ? [{ kind: "brandTabs" as const }] : []), { kind: "content" }],
-    [brands]
+    () => [{ kind: "header" }, ...(brandTabBrands && brandTabBrands.length > 0 ? [{ kind: "brandTabs" as const }] : []), { kind: "content" }],
+    [brandTabBrands]
   );
   // Header is always first — sticking it (instead of just the old search row) keeps the search
   // bar, cart, and avatar reachable while scrolling too, now that they all live in this one row.
@@ -206,12 +213,12 @@ export function MenuScreen({ navigation }: Props) {
       case "brandTabs":
         return (
           <View style={styles.brandTabsRow}>
-            {(brands ?? []).map((brand, index) => (
+            {(brandTabBrands ?? []).map((brand, index) => (
               <Pressable
                 key={brand.id}
                 style={({ pressed }) => [
                   styles.brandTab,
-                  index === (brands?.length ?? 0) - 1 && styles.brandTabLast,
+                  index === (brandTabBrands?.length ?? 0) - 1 && styles.brandTabLast,
                   pressed && styles.brandTabPressed,
                 ]}
                 android_ripple={{ color: colors.primary + "22", borderless: false }}
@@ -303,46 +310,40 @@ export function MenuScreen({ navigation }: Props) {
           <View style={styles.tabBar}>
             <Pressable
               style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
-              android_ripple={{ color: "#3a332c", borderless: false }}
+              android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
               onPress={() => setIsBrandPickerOpen(true)}
             >
-              {({ pressed }) => (
-                <>
-                  <Text style={styles.tabIcon}>📋</Text>
-                  <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Menu</Text>
-                  <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
-                </>
-              )}
+              {/* Two glyphs instead of one — a shake glass plus a bowl of food, since this tab
+                  opens the full menu (drinks and dishes both), not just one or the other. */}
+              <View style={styles.tabIconPair}>
+                <MaterialCommunityIcons name="glass-mug-variant" size={18} color={TAB_ICON_COLOR} />
+                <MaterialCommunityIcons name="bowl-mix-outline" size={18} color={TAB_ICON_COLOR} />
+              </View>
+              <Text style={styles.tabLabel}>Menu</Text>
             </Pressable>
             {showCombosBanner && (
               <Pressable
                 style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
-                android_ripple={{ color: "#3a332c", borderless: false }}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
                 onPress={() => navigation.navigate("Combos")}
               >
-                {({ pressed }) => (
-                  <>
-                    <Text style={styles.tabIcon}>🎁</Text>
-                    <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Combos</Text>
-                    <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
-                  </>
-                )}
+                <MaterialCommunityIcons name="gift-outline" size={20} color={TAB_ICON_COLOR} />
+                <Text style={styles.tabLabel}>Combos</Text>
               </Pressable>
             )}
             <Pressable
               style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
-              android_ripple={{ color: "#3a332c", borderless: false }}
+              android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
               onPress={() => navigation.navigate("BulkOrder")}
             >
-              {({ pressed }) => (
-                <>
-                  <Text style={styles.tabIcon}>🎉</Text>
-                  <Text style={[styles.tabLabel, pressed && styles.tabLabelActive]}>Bulk Deals</Text>
-                  <View style={[styles.tabUnderline, pressed && styles.tabUnderlineActive]} />
-                </>
-              )}
+              <MaterialCommunityIcons name="tag-multiple-outline" size={20} color={TAB_ICON_COLOR} />
+              <Text style={styles.tabLabel}>Bulk Deals</Text>
             </Pressable>
           </View>
+          {/* Mirrors the GG Tiffin chip's own left wedge (below) — same CSS-triangle trick, pointed
+              right instead of left, so the white bar and the green chip read as one continuous
+              arrow shape flowing into each other rather than two separate floating pieces. */}
+          <View style={styles.tabBarWedge} />
 
           {/* Left edge is a pointed wedge (two straight lines meeting at a point) instead of a
               rounded corner — a separate CSS-triangle-style View glued to the body's square left
@@ -361,11 +362,9 @@ export function MenuScreen({ navigation }: Props) {
               ) : (
                 <Text style={styles.bottomIconEmoji}>🍱</Text>
               )}
-              <View>
-                <Text style={styles.ggTiffinLabelLine}>GG</Text>
-                <Text style={styles.ggTiffinLabelLine}>Tiffin</Text>
-              </View>
-              <Text style={styles.ggTiffinArrow}>↗</Text>
+              <Text style={styles.ggTiffinLabelLine} numberOfLines={1}>
+                GG Tiffin
+              </Text>
             </LinearGradient>
           </Pressable>
         </View>
@@ -466,10 +465,10 @@ const makeStyles = (colors: ColorPalette) =>
       flexDirection: "row",
       marginBottom: theme.spacing(1.5),
       borderWidth: 1,
-      borderColor: colors.primary,
+      borderColor: "rgba(64,164,190,0.38)",
       borderRadius: 16,
       overflow: "hidden",
-      backgroundColor: colors.primary + "14",
+      backgroundColor: "rgba(93,190,207,0.12)",
     },
     brandTab: {
       flex: 1,
@@ -477,15 +476,13 @@ const makeStyles = (colors: ColorPalette) =>
       justifyContent: "center",
       paddingVertical: theme.spacing(1.25),
       borderRightWidth: 1,
-      borderRightColor: colors.primary,
+      borderRightColor: "rgba(64,164,190,0.38)",
     },
     brandTabLast: { borderRightWidth: 0 },
-    brandTabPressed: { backgroundColor: colors.primary + "26" },
+    brandTabPressed: { backgroundColor: "rgba(93,190,207,0.22)" },
     brandTabIcon: { fontSize: 22 },
-    // Gold-on-pale-blue (the tab's own tint) read too washed out to tell apart — colors.text is
-    // dark in both themes, so it stays legible against this light background regardless of theme.
-    brandTabLogo: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.text },
-    brandTabLabel: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 5 },
+    brandTabLogo: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "#164B63" },
+    brandTabLabel: { fontSize: 12, fontWeight: "800", color: "#164B63", marginTop: 5 },
     search: {
       flex: 1,
       borderWidth: 1,
@@ -499,40 +496,50 @@ const makeStyles = (colors: ColorPalette) =>
     // the screen's own horizontal padding here so the floating cart bar isn't flush against the edges.
     floatingFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: theme.spacing(2) },
     // Left group (Menu/Combos/Bulk Deals) and the right GG Tiffin pill, pinned to opposite ends.
-    bottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: theme.spacing(1), gap: theme.spacing(1) },
-    // Single dark rounded pill housing all three tabs — mirrors the reference screenshot's
-    // dark bottom bar rather than separate light bordered buttons.
+    // No gap — the tab bar's wedge and the GG Tiffin chip's own wedge need to sit flush against
+    // their neighbors to read as one continuous arrow shape rather than two floating pieces.
+    bottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: theme.spacing(1) },
+    // Light, evenly-spaced bar (icon over label, no dividers) instead of the previous dark pill —
+    // matches the reference footer's plain white, square-cornered look. Thin black border, except
+    // on the right, which is flush against tabBarWedge instead (no border needed where the two
+    // pieces join).
     tabBar: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: "#221B17",
-      borderRadius: 30,
-      paddingVertical: theme.spacing(0.75),
-      paddingHorizontal: theme.spacing(0.75),
-      gap: theme.spacing(0.25),
-      shadowColor: "#000",
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 8,
+      backgroundColor: "#FFFFFF",
+      height: GG_TIFFIN_TAB_HEIGHT,
+      paddingHorizontal: theme.spacing(0.5),
+      borderWidth: 1,
+      borderRightWidth: 0,
+      borderColor: "#000000",
       flexShrink: 1,
+      flexGrow: 1,
+    },
+    // Mirrors ggTiffinWedge below — same CSS-triangle trick (zero-size box, only border pixels
+    // visible), pointed right (colored left border) instead of left, filled with the bar's own
+    // white so it reads as the bar's square edge tapering to a point.
+    tabBarWedge: {
+      width: 0,
+      height: 0,
+      borderTopWidth: GG_TIFFIN_TAB_HEIGHT / 2,
+      borderBottomWidth: GG_TIFFIN_TAB_HEIGHT / 2,
+      borderLeftWidth: 18,
+      borderTopColor: "transparent",
+      borderBottomColor: "transparent",
+      borderLeftColor: "#FFFFFF",
     },
     tabItem: {
+      flex: 1,
       alignItems: "center",
       justifyContent: "center",
       minWidth: 56,
       paddingVertical: theme.spacing(0.75),
-      paddingHorizontal: theme.spacing(1),
-      borderRadius: 22,
+      paddingHorizontal: theme.spacing(0.5),
+      borderRadius: 14,
     },
-    // Pressed state doubles as this bar's only "active" cue — a soft highlight chip behind the icon,
-    // since none of these three destinations reflect a persistent "current tab".
-    tabItemActive: { backgroundColor: "rgba(255,255,255,0.1)" },
-    tabIcon: { fontSize: 18, opacity: 0.9 },
-    tabLabel: { fontSize: 10, fontWeight: "700", color: "#9A9088", marginTop: 3 },
-    tabLabelActive: { color: "#fff" },
-    tabUnderline: { marginTop: 3, width: 14, height: 3, borderRadius: 2, backgroundColor: "transparent" },
-    tabUnderlineActive: { backgroundColor: colors.accent },
+    tabItemActive: { backgroundColor: colors.primary + "14" },
+    tabIconPair: { flexDirection: "row", gap: 2 },
+    tabLabel: { fontSize: 10, fontWeight: "700", color: colors.text, marginTop: 3 },
     bottomIconEmoji: { fontSize: 20 },
     // Its own distinct pill, larger and warmer than the tab bar's dark neutral tone — logo on the
     // left, "GG" / "Tiffin" stacked in the middle, a small arrow on the right (echoing the
@@ -589,8 +596,7 @@ const makeStyles = (colors: ColorPalette) =>
       borderBottomRightRadius: 30,
     },
     ggTiffinLogo: { width: 38, height: 38, borderRadius: 19 },
-    ggTiffinLabelLine: { fontSize: 14, fontWeight: "800", color: "#fff", lineHeight: 16 },
-    ggTiffinArrow: { fontSize: 14, fontWeight: "800", color: "#fff", marginLeft: 2 },
+    ggTiffinLabelLine: { fontSize: 15, fontWeight: "800", color: "#fff" },
     info: { textAlign: "center", color: colors.muted, marginBottom: theme.spacing(1) },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: theme.spacing(3) },
     modalCard: { backgroundColor: colors.background, borderRadius: theme.radius, padding: theme.spacing(2) },
