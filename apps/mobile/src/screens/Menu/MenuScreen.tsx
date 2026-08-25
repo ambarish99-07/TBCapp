@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { isComboLineId, isQuickDeliveryBrandId, type Brand, type MenuItem } from "@tbc/shared-types";
+import { isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,7 +16,6 @@ import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
-import { useAuthContext } from "../../state/useAuthContext";
 import { useAuthStore } from "../../state/authStore";
 import { useBrandStore } from "../../state/brandStore";
 import { useCartStore } from "../../state/cartStore";
@@ -26,6 +25,10 @@ import type { RootStackParamList } from "../../navigation/types";
 type Props = NativeStackScreenProps<RootStackParamList, "Menu">;
 
 const SEARCH_PLACEHOLDER_ROTATE_MS = 2200;
+// A richer, more saturated gold than the theme's own accent token — reads clearly against the
+// light green tab background where the softer accent (#F5A623) felt flat; scoped to just the
+// brand tabs rather than changing the global accent token everywhere else it's used.
+const GLOSSY_YELLOW = "#FFC107";
 // Fixed so the wedge's border-triangle can be sized to exactly match the body's height.
 const GG_TIFFIN_TAB_HEIGHT = 60;
 // A glossy emerald gradient instead of the flat theme accent orange — reads more clearly against
@@ -59,15 +62,6 @@ export function MenuScreen({ navigation }: Props) {
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
 
   const ggTiffinBrand = brands?.find((brand) => brand.id === "gg-tiffin");
-
-  // New-customer offer promo tabs (see packages/pricing/src/newCustomerOffer.ts) — quick-delivery
-  // brands only (never GG Tiffin), and only while the signed-in customer's next order is still
-  // #1 or #2. Gated on isLoggedIn too so guests aren't shown an offer they won't actually get
-  // at checkout (the backend requires login the same way).
-  const { isLoggedIn, loyalty } = useAuthContext();
-  const isQuickDeliveryBrandSelected = !!selectedBrandId && isQuickDeliveryBrandId(selectedBrandId);
-  const nextOrderNumber = loyalty.completedOrderCount + 1;
-  const showNewCustomerOfferTabs = isLoggedIn && isQuickDeliveryBrandSelected && nextOrderNumber <= 2;
 
   function handleOpenRestaurant(brand: Brand) {
     // GG Tiffin is a subscription plan service, not a menu of individual items — it gets its
@@ -163,31 +157,41 @@ export function MenuScreen({ navigation }: Props) {
       .sort((a, b) => (orderCountByItemId.get(b.id) ?? 0) - (orderCountByItemId.get(a.id) ?? 0));
   }, [myOrders, items, selectedBrandId]);
 
-  // The address/cart/avatar row and the search bar visually stack in that order at rest,
-  // exactly as before — but only the search row is sticky (stays pinned once scrolled past)
-  // while the address row scrolls away above it. FlatList's stickyHeaderIndices only works on
-  // its own top-level rows, so both live as rows in `data` instead of a single ListHeaderComponent.
-  type Row = { kind: "header" } | { kind: "offerTabs" } | { kind: "search" } | { kind: "content" };
+  // Avatar, address, search, and cart all live in one row now (search moved in between address
+  // and cart, avatar moved to the far left) — the whole thing stays pinned to the top once
+  // scrolled past. FlatList's stickyHeaderIndices only works on its own top-level rows, so this
+  // lives as a row in `data` instead of a plain ListHeaderComponent.
+  type Row = { kind: "header" } | { kind: "brandTabs" } | { kind: "content" };
 
   const rows: Row[] = useMemo(
-    () => [{ kind: "header" }, ...(showNewCustomerOfferTabs ? [{ kind: "offerTabs" as const }] : []), { kind: "search" }, { kind: "content" }],
-    [showNewCustomerOfferTabs]
+    () => [{ kind: "header" }, ...(brands && brands.length > 0 ? [{ kind: "brandTabs" as const }] : []), { kind: "content" }],
+    [brands]
   );
-  const stickySearchIndex = rows.findIndex((row) => row.kind === "search");
+  // Header is always first — sticking it (instead of just the old search row) keeps the search
+  // bar, cart, and avatar reachable while scrolling too, now that they all live in this one row.
+  const stickyHeaderIndex = 0;
 
   function renderRow({ item: row }: { item: Row }) {
     switch (row.kind) {
       case "header":
         return (
           <View style={styles.headerRow}>
+            <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
+              <Text style={styles.avatarButtonText}>{initial}</Text>
+            </Pressable>
             <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
-              <Text style={styles.addressLabel}>🏠 Home</Text>
+              <Text style={styles.addressIcon}>🏠</Text>
               <View style={styles.addressValueRow}>
                 <Text style={styles.addressValue} numberOfLines={1}>
                   {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
                 </Text>
                 <Text style={styles.addressChevron}>▾</Text>
               </View>
+            </Pressable>
+            <Pressable style={styles.search} onPress={() => navigation.navigate("Search")}>
+              <Text style={styles.searchPlaceholder} numberOfLines={1}>
+                {searchPlaceholder}
+              </Text>
             </Pressable>
             <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
               <Text style={styles.cartButtonText}>🛒</Text>
@@ -197,42 +201,32 @@ export function MenuScreen({ navigation }: Props) {
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.avatarButton} onPress={() => navigation.navigate("Account")}>
-              <Text style={styles.avatarButtonText}>{initial}</Text>
-            </Pressable>
           </View>
         );
-      case "offerTabs":
+      case "brandTabs":
         return (
-          <View style={styles.offerTabsBar}>
-            <LinearGradient colors={["#4A1D7A", "#8E2DE2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.offerTabsGradient}>
+          <View style={styles.brandTabsRow}>
+            {(brands ?? []).map((brand, index) => (
               <Pressable
-                style={[styles.offerTab, nextOrderNumber === 1 && styles.offerTabActive]}
-                android_ripple={{ color: "rgba(0,0,0,0.15)" }}
-                onPress={() => navigation.navigate("RestaurantMenu")}
+                key={brand.id}
+                style={({ pressed }) => [
+                  styles.brandTab,
+                  index === (brands?.length ?? 0) - 1 && styles.brandTabLast,
+                  pressed && styles.brandTabPressed,
+                ]}
+                android_ripple={{ color: colors.primary + "22", borderless: false }}
+                onPress={() => handleOpenRestaurant(brand)}
               >
-                <Text style={styles.offerTabBadge}>Order 1</Text>
-                <Text style={styles.offerTabIcon}>🎁</Text>
-                <Text style={[styles.offerTabLabel, nextOrderNumber === 1 && styles.offerTabLabelActive]}>BOGO Free</Text>
+                {brand.logoUrl ? (
+                  <Image source={{ uri: brand.logoUrl }} style={styles.brandTabLogo} resizeMode="cover" />
+                ) : (
+                  <Text style={styles.brandTabIcon}>🍽️</Text>
+                )}
+                <Text style={styles.brandTabLabel} numberOfLines={1}>
+                  {brand.name}
+                </Text>
               </Pressable>
-              <Pressable
-                style={[styles.offerTab, nextOrderNumber === 2 && styles.offerTabActive]}
-                android_ripple={{ color: "rgba(0,0,0,0.15)" }}
-                onPress={() => navigation.navigate("RestaurantMenu")}
-              >
-                <Text style={styles.offerTabBadge}>Order 2</Text>
-                <Text style={styles.offerTabIcon}>🔥</Text>
-                <Text style={[styles.offerTabLabel, nextOrderNumber === 2 && styles.offerTabLabelActive]}>50% Off</Text>
-              </Pressable>
-            </LinearGradient>
-          </View>
-        );
-      case "search":
-        return (
-          <View style={styles.stickySearchWrap}>
-            <Pressable style={styles.search} onPress={() => navigation.navigate("Search")}>
-              <Text style={styles.searchPlaceholder}>{searchPlaceholder}</Text>
-            </Pressable>
+            ))}
           </View>
         );
       case "content":
@@ -244,6 +238,19 @@ export function MenuScreen({ navigation }: Props) {
               <TiffinHomeCollections
                 onOpenSingleMeal={() => navigation.navigate("TiffinSingleMeal")}
                 onOpenPlan={(plan) => navigation.navigate("TiffinPlanSelect", { planId: plan.id })}
+                onQuickOrderMeal={(item, quantity) =>
+                  navigation.navigate("TiffinSingleMealCheckout", {
+                    tier: item.tier,
+                    mealType: item.mealType,
+                    dietType: item.dietType,
+                    date: item.date,
+                    dishName: item.dishName,
+                    price: item.price,
+                    quantity,
+                    carbChoice: undefined,
+                    addOns: [],
+                  })
+                }
               />
             ) : (
               <>
@@ -278,7 +285,7 @@ export function MenuScreen({ navigation }: Props) {
         style={styles.list}
         data={rows}
         keyExtractor={(row) => row.kind}
-        stickyHeaderIndices={[stickySearchIndex]}
+        stickyHeaderIndices={[stickyHeaderIndex]}
         contentContainerStyle={{ paddingBottom: theme.spacing(2) + 90 + insets.bottom }}
         renderItem={renderRow}
       />
@@ -392,34 +399,48 @@ const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: theme.spacing(2) },
     list: { flex: 1 },
-    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: theme.spacing(2) },
-    addressBar: { flex: 1 },
-    addressLabel: { fontSize: 14, color: colors.muted, fontWeight: "600" },
+    // Opaque background — this row is now the one pinned to the top on scroll (search/cart/avatar
+    // all live here too), so scrolled content underneath must not show through it.
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.background,
+      paddingBottom: theme.spacing(2),
+    },
+    // No longer flex:1 — the search bar (inserted between address and cart) needs that flexible
+    // space instead, so the address block just sizes to its own content, shrinking if too long.
+    addressBar: { flexShrink: 1, maxWidth: 110, marginRight: theme.spacing(1) },
+    addressIcon: { fontSize: 18 },
     addressValueRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
     addressValue: { fontSize: 16, fontWeight: "800", color: colors.primary, flexShrink: 1 },
     addressChevron: { fontSize: 14, fontWeight: "800", color: colors.primary, marginLeft: 4 },
+    // Outline style matching the cart button beside it, instead of a solid filled circle.
     avatarButton: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: colors.primary,
+      backgroundColor: "transparent",
+      borderWidth: 1,
+      borderColor: GLOSSY_YELLOW,
       alignItems: "center",
       justifyContent: "center",
-      marginLeft: theme.spacing(1),
+      marginRight: theme.spacing(1),
     },
-    avatarButtonText: { color: "#fff", fontWeight: "800", fontSize: 24 },
+    avatarButtonText: { color: colors.primary, fontWeight: "400", fontSize: 24 },
     cartButton: {
       width: 40,
       height: 40,
       borderRadius: 20,
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
       marginLeft: theme.spacing(1),
     },
-    cartButtonText: { fontSize: 18 },
+    // Bigger than before — the pale default emoji rendering read as washed-out next to the bold,
+    // clearly-colored "H" in the avatar circle beside it; a larger glyph reads darker/heavier.
+    cartButtonText: { fontSize: 22 },
     cartBadge: {
       position: "absolute",
       top: -6,
@@ -435,60 +456,45 @@ const makeStyles = (colors: ColorPalette) =>
     // includeFontPadding:false strips Android's default extra glyph padding, which is what
     // was pushing the digit past the badge's tight circular bounds and cutting it off.
     cartBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800", lineHeight: 14, includeFontPadding: false },
-    // New-customer offer promo tabs — modeled on a food-delivery app's Food/Instamart/Dineout
-    // tab-shaped switcher bar (purple gradient strip, rounded tab cards, a small floating badge
-    // above each), but purely informational here since there's nothing to switch between.
-    offerTabsBar: {
-      borderRadius: 20,
-      overflow: "hidden",
+    // Simple navigation shortcuts, not a segmented control — each one just opens that brand's own
+    // menu (same handleOpenRestaurant every other brand-tap in this screen already uses), so there's
+    // no "active" brand to track and nothing here reacts to the hero carousel auto-rotating behind
+    // it. One connected strip (a single outer border, thin dividers between tabs) rather than three
+    // separate floating pills — transparent fill, no per-tab shadow (elevation on a semi-transparent
+    // background was rendering as an unwanted solid white rectangle behind each tab on Android).
+    brandTabsRow: {
+      flexDirection: "row",
       marginBottom: theme.spacing(1.5),
-      shadowColor: "#4A1D7A",
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: colors.primary + "14",
     },
-    offerTabsGradient: { flexDirection: "row", padding: theme.spacing(0.75), gap: theme.spacing(0.75) },
-    offerTab: {
+    brandTab: {
       flex: 1,
-      position: "relative",
       alignItems: "center",
       justifyContent: "center",
-      paddingTop: theme.spacing(1.75),
-      paddingBottom: theme.spacing(1),
-      borderRadius: 16,
-      backgroundColor: "rgba(255,255,255,0.16)",
+      paddingVertical: theme.spacing(1.25),
+      borderRightWidth: 1,
+      borderRightColor: colors.primary,
     },
-    // The offer whose turn it actually is on this customer's next order gets the raised white
-    // "active" treatment; the other stays dim — same active/inactive contrast as the reference
-    // tab bar, just driven by order-number eligibility instead of which category is selected.
-    offerTabActive: { backgroundColor: "#fff" },
-    offerTabBadge: {
-      position: "absolute",
-      top: -8,
-      alignSelf: "center",
-      fontSize: 9,
-      fontWeight: "800",
-      color: "#3D1465",
-      backgroundColor: "#FFD54A",
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 8,
-      overflow: "hidden",
-    },
-    offerTabIcon: { fontSize: 22 },
-    offerTabLabel: { fontSize: 12, fontWeight: "800", color: "#fff", marginTop: 2 },
-    offerTabLabelActive: { color: "#3D1465" },
-    // Opaque so the carousel/items scrolling underneath don't show through the pinned strip
-    // once this row becomes sticky.
-    stickySearchWrap: { backgroundColor: colors.background, paddingBottom: theme.spacing(1.5) },
+    brandTabLast: { borderRightWidth: 0 },
+    brandTabPressed: { backgroundColor: colors.primary + "26" },
+    brandTabIcon: { fontSize: 22 },
+    // Gold-on-pale-blue (the tab's own tint) read too washed out to tell apart — colors.text is
+    // dark in both themes, so it stays legible against this light background regardless of theme.
+    brandTabLogo: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.text },
+    brandTabLabel: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 5 },
     search: {
+      flex: 1,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: theme.radius,
-      padding: theme.spacing(1.25),
+      paddingHorizontal: theme.spacing(1.25),
+      paddingVertical: theme.spacing(1),
     },
-    searchPlaceholder: { color: colors.muted },
+    searchPlaceholder: { color: colors.muted, fontSize: 13 },
     // Absolute positioning is relative to the screen's border box, not its padding box — restate
     // the screen's own horizontal padding here so the floating cart bar isn't flush against the edges.
     floatingFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: theme.spacing(2) },

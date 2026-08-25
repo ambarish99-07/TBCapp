@@ -3,6 +3,7 @@ import type { Brand, Combo, MenuItem } from "@tbc/shared-types";
 import { useMemo, type ReactElement } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
+import { useCartStore, type CartLine } from "../state/cartStore";
 import { useTheme } from "../state/themeStore";
 import { addLineWithBrandGuard } from "../utils/addToCartWithBrandGuard";
 import { makeComboCartLine } from "../utils/comboCartLine";
@@ -28,10 +29,64 @@ export function Row<T>({ title, data, keyExtractor, renderItem }: { title: strin
   );
 }
 
+/** The one cart line this card's quick-add stepper owns — the plain, no-customization version of
+ * this item (regular sugar/ice, no add-ons, no comment). A customer who wants something fancier
+ * still taps the card itself to open the full customize popup, which adds its own separate line
+ * rather than colliding with this one. */
+function findQuickAddLine(lines: CartLine[], itemId: string) {
+  return lines.find(
+    (line) =>
+      line.menuItemId === itemId &&
+      !line.isCombo &&
+      line.sugarLevel === "regular" &&
+      line.iceLevel === "regular" &&
+      line.addOnIds.length === 0 &&
+      !line.comment
+  );
+}
+
 export function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeCardStyles(colors), [colors]);
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
+  const lines = useCartStore((state) => state.lines);
+  const setQuantity = useCartStore((state) => state.setQuantity);
+  const removeLine = useCartStore((state) => state.removeLine);
+  const quickAddLine = findQuickAddLine(lines, item.id);
+  const quantity = quickAddLine?.quantity ?? 0;
+
+  function handleIncrement() {
+    if (quickAddLine) {
+      setQuantity(quickAddLine.lineId, quickAddLine.quantity + 1);
+      return;
+    }
+    addLineWithBrandGuard({
+      lineId: `${item.id}-${Date.now()}`,
+      brandId: item.brandId,
+      menuItemId: item.id,
+      signatureName: item.signatureName,
+      commonName: item.commonName,
+      image: item.image,
+      unitPrice: effectivePrice,
+      originalUnitPrice: item.price,
+      addOnPrices: [],
+      quantity: 1,
+      sugarLevel: "regular",
+      iceLevel: "regular",
+      addOnIds: [],
+      isCombo: false,
+      category: item.category === "signature-shakes" || item.category === "cold-coffee" ? item.category : undefined,
+    });
+  }
+
+  function handleDecrement() {
+    if (!quickAddLine) return;
+    if (quickAddLine.quantity <= 1) {
+      removeLine(quickAddLine.lineId);
+    } else {
+      setQuantity(quickAddLine.lineId, quickAddLine.quantity - 1);
+    }
+  }
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -39,14 +94,31 @@ export function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () =>
       <Text style={styles.name} numberOfLines={1}>
         {item.signatureName}
       </Text>
-      <View style={styles.priceRow}>
-        {item.salePercent ? (
-          <>
-            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
-            <Text style={styles.price}>₹{effectivePrice}</Text>
-          </>
+      <View style={styles.priceAddRow}>
+        <View style={styles.priceRow}>
+          {item.salePercent ? (
+            <>
+              <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+              <Text style={styles.price}>₹{effectivePrice}</Text>
+            </>
+          ) : (
+            <Text style={styles.price}>₹{item.price}</Text>
+          )}
+        </View>
+        {quantity === 0 ? (
+          <Pressable style={styles.quickAddButton} onPress={handleIncrement}>
+            <Text style={styles.quickAddButtonText}>ADD</Text>
+          </Pressable>
         ) : (
-          <Text style={styles.price}>₹{item.price}</Text>
+          <View style={styles.quickAddStepper}>
+            <Pressable style={styles.quickAddStepperButton} onPress={handleDecrement} hitSlop={8}>
+              <Text style={styles.quickAddStepperButtonText}>−</Text>
+            </Pressable>
+            <Text style={styles.quickAddStepperValue}>{quantity}</Text>
+            <Pressable style={styles.quickAddStepperButton} onPress={handleIncrement} hitSlop={8}>
+              <Text style={styles.quickAddStepperButtonText}>+</Text>
+            </Pressable>
+          </View>
         )}
       </View>
     </Pressable>
@@ -218,10 +290,35 @@ const makeCardStyles = (colors: ColorPalette) =>
     image: { width: CARD_WIDTH, height: CARD_WIDTH, borderRadius: theme.radius, backgroundColor: colors.surface },
     imagePlaceholder: { alignItems: "center", justifyContent: "center" },
     name: { fontSize: 12, fontWeight: "700", color: colors.text, marginTop: 6 },
-    priceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+    // Price and the Add button/stepper now share one row instead of the button sitting on its
+    // own line below — wrap allows a long strikethrough+sale-price pair to drop the button to a
+    // second line rather than overflowing the narrow card.
+    priceAddRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", marginTop: 2, gap: 4 },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     price: { fontSize: 13, fontWeight: "700", color: colors.primary },
     priceStrikethrough: { fontSize: 11, color: colors.muted, textDecorationLine: "line-through" },
     hint: { fontSize: 10, color: colors.muted, marginTop: 2 },
+    quickAddButton: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      alignItems: "center",
+    },
+    quickAddButtonText: { fontSize: 11, fontWeight: "800", color: colors.primary },
+    quickAddStepper: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+    },
+    quickAddStepperButton: { paddingHorizontal: 4 },
+    quickAddStepperButtonText: { fontSize: 15, fontWeight: "800", color: "#fff", lineHeight: 17 },
+    quickAddStepperValue: { fontSize: 12, fontWeight: "800", color: "#fff", marginHorizontal: 2 },
   });
 
 const makeRestaurantRowStyles = (colors: ColorPalette) =>
