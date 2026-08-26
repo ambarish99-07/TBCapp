@@ -32,10 +32,9 @@ const SEARCH_PLACEHOLDER_ROTATE_MS = 2200;
 const GLOSSY_YELLOW = "#FFC107";
 // Fixed so the wedge's border-triangle can be sized to exactly match the body's height.
 const GG_TIFFIN_TAB_HEIGHT = 60;
-// A glossy emerald gradient instead of the flat theme accent orange — reads more clearly against
-// both the dark tab bar and the photo content behind it, and a distinct hue from every other
-// footer/promo color already in play (dark tab bar, purple offer tabs, gold Premium banner).
-const GG_TIFFIN_GRADIENT = ["#22D3A6", "#0EA679", "#066B4E"] as const;
+// Sapphire-glass blue (trying it in place of the earlier emerald, per the reference cocktail-glass
+// photo) — deep navy edge fading up to a brighter cobalt center, like light catching cut glass.
+const GG_TIFFIN_GRADIENT = ["#0B1F63", "#1E4FD9", "#3B82F6"] as const;
 // Plain dark neutral instead of colorful emoji — matches the reference footer's monochrome icon
 // style and the tab labels' own text color.
 const TAB_ICON_COLOR = "#3A342C";
@@ -591,7 +590,7 @@ const makeStyles = (colors: ColorPalette) =>
       left: 0,
       right: 0,
       height: "45%",
-      backgroundColor: "rgba(255,255,255,0.3)",
+      backgroundColor: "rgba(255,255,255,0.12)",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
