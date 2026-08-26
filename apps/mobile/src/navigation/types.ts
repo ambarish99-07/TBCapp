@@ -4,7 +4,11 @@ export type RootStackParamList = {
   // in-page item list did before it moved here. Reachable via the Home page's Restaurants row.
   RestaurantMenu: undefined;
   Addresses: undefined;
-  // Optional prefill from "use current location" or tapping a Patna address search result.
+  // Search bar + interactive map (drag/tap the pin, or auto-detect via GPS) — the "Confirm &
+  // Proceed" footer hands the resolved address off to AddAddress below for the remaining
+  // house-number/label/name/phone details.
+  PickLocation: undefined;
+  // Optional prefill from "use current location", tapping a Patna address search result, or PickLocation.
   AddAddress: { address?: string; area?: string; city?: string; pincode?: string } | undefined;
   Combos: undefined;
   ChooseCombo: { comboId: string };

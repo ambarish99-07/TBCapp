@@ -7,6 +7,7 @@ import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
 import { useAuthStore } from "../../state/authStore";
 import { useTheme } from "../../state/themeStore";
+import { formatAddressLine } from "../../utils/formatAddress";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddAddress">;
@@ -45,7 +46,7 @@ export function AddAddressScreen({ route, navigation }: Props) {
     try {
       const saved = await createSavedRecipient(form);
       queryClient.invalidateQueries({ queryKey: ["saved-recipients"] });
-      setSelectedAddress({ label: saved.label, city: saved.city });
+      setSelectedAddress({ label: saved.label, city: saved.city, line: formatAddressLine(saved) });
       // Skip back past the Addresses list screen too — saving is the end of this whole flow.
       navigation.popToTop();
     } catch {

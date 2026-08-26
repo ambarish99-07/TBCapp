@@ -23,13 +23,12 @@ independent brands** under one umbrella app:
 | The Alchemy Tails | `alchemy-tails` | Cocktail-style mocktails cloud kitchen | Cart → checkout, "quick delivery" |
 | GG Tiffin Service | `gg-tiffin` | Home-style daily tiffin (breakfast/lunch/dinner) | Weekly/monthly **subscriptions**, or one-off **single-meal** orders — no cart |
 
-TBC and Alchemy Tails are referred to throughout the code as the **"quick delivery" brands** — they
-share one cart/checkout/order system. GG Tiffin is structurally **completely separate**: its own
-Mongoose models, its own service/controller files, its own mobile screens, and it **never** touches
-the `Order` model or the regular checkout flow. This separation is deliberate and load-bearing —
-several features (loyalty counter, new-customer offer, cancellation policy) rely on GG Tiffin
-never appearing in the regular-order code path. Don't blur this line without updating everything
-that depends on it (see §4.7).
+TBC and Alchemy Tails share one cart/checkout/order system. GG Tiffin is structurally **completely
+separate**: its own Mongoose models, its own service/controller files, its own mobile screens, and
+it **never** touches the `Order` model or the regular checkout flow. This separation is deliberate
+and load-bearing — several features (loyalty counter, cancellation policy, coupons — see §4.2) rely
+on GG Tiffin never appearing in the regular-order code path. Don't blur this line without updating
+everything that depends on it.
 
 Business is based in Patna, Bihar, India. Delivery zone is currently a hardcoded single-city check
 (`apps/api/src/modules/orders/deliveryZone.ts`) — no real geocoding/maps API is configured.
@@ -84,10 +83,11 @@ These are established patterns, not accidents. Follow them rather than reinventi
    `computePricing()` function so it can't structurally drift from what the server charges.
 
 2. **`packages/pricing` is a pure, brand-agnostic, I/O-free package.** It takes plain data in
-   (`CartLineInput[]`, `LoyaltyState`, booleans like `isLoggedIn`/`isQuickDeliveryBrand`) and
-   returns a `PricingResult` — no DB calls, no brand-specific hardcoding inside. Callers resolve
-   brand/DB-specific meaning into plain booleans/numbers before calling in. Keep it this way; it's
-   what makes the package trivially unit-testable and keeps mobile/API pricing in lockstep.
+   (`CartLineInput[]`, `LoyaltyState`, booleans like `isLoggedIn`) and returns a `PricingResult` —
+   no DB calls, no brand-specific hardcoding inside. Callers resolve brand/DB-specific meaning into
+   plain booleans/numbers before calling in (e.g. a coupon's discount amount is resolved via a DB
+   lookup by the caller, then passed in as `couponDiscountAmount`). Keep it this way; it's what
+   makes the package trivially unit-testable and keeps mobile/API pricing in lockstep.
 
 3. **Snapshot, don't reference, at order/purchase time.** Dish names, add-on prices, delivery-fee
    waivers (`isPremiumMemberAtOrder`), etc. are copied onto the order document at creation time,
@@ -142,20 +142,27 @@ special cross-brand combo (`CROSS_BRAND_ID = "cross-brand"`) can mix items from 
 Current formula, in precedence order (see `computePricing.ts`):
 1. **Premium member** (15+ completed orders, or admin override) → flat 25% off non-combo subtotal,
    plus free delivery within a self-reported distance-from-shop placeholder radius.
-2. **New-customer offer** (added most recently — see §4.7): a logged-in customer's global 1st
-   quick-delivery order (TBC+Alchemy-Tails combined, GG Tiffin excluded) → cheapest non-combo unit
-   free (Buy 1 Get 1 Free, requires ≥2 units); their 2nd such order → flat 50% off. One-time only;
-   order #3 onward reverts to normal pricing. Never triggered by/for GG Tiffin.
-3. **Quantity-tier discount** (fallback when neither of the above applies): 1 item→0%, 2→10%,
-   3→15%, 4+→20%, on the non-combo subtotal, guests and registered users alike.
+2. **Quantity-tier discount** (fallback when the above doesn't apply): 1 item→0%, 2→10%, 3→15%,
+   4+→20%, on the non-combo subtotal, guests and registered users alike.
+
+(A first/second-order "new-customer offer" — BOGO on order #1, 50% off order #2 — previously lived
+here at this precedence step; it was removed entirely per a later product decision. If a similar
+one-time acquisition perk is ever reintroduced, `git log` on `packages/pricing/src/` around its
+removal has the full original implementation for reference.)
 
 Separately (stacks additively on top of whichever discount above applies, doesn't replace it):
 **milestone rewards**, registered users only, repeating every 10 orders — order #6/16/26/...→50%
 off the cheapest cold-coffee unit; order #10/20/30/...→cheapest eligible drink entirely free.
 
+Also separate and additive: a **coupon code** (`apps/api/src/modules/coupons/`), applied via
+the Cart screen's "Apply Coupon" flow — percent or flat rupee amount, validated server-side against
+`minOrderAmount`/`brandId`/`expiresAt`/`isActive`, applied last (after the discount/reward above,
+before tax) via `PricingInput.couponDiscountAmount`. Never trust a client-sent discount amount —
+`orders.service.ts` re-resolves the code server-side at order-creation time too.
+
 Delivery fee: free at subtotal ≥ ₹499, OR premium-tier + within radius, OR an active **paid Premium
 Membership** (see §4.3, independent mechanism), else ₹39 flat. Tax is flat 5% on
-`subtotal - discountAmount - rewardAmount`.
+`subtotal - discountAmount - rewardAmount - couponDiscount`.
 
 A `salePercent` field on individual MenuItems gives a small number of items their own markdown,
 independent of and stacking with all cart-level discounts.
@@ -261,16 +268,7 @@ a cancel button with an in-context policy explanation.
   order's page (no refund confirmation to read), unlike a Razorpay order where the refund amount
   stays visible.
 
-### 4.7 New-customer offer (most recent addition — see §4.2 for the formula)
-Implemented entirely in the pure pricing package + a thin `isQuickDeliveryBrand` boolean threaded
-through from the API/mobile callers (`isQuickDeliveryBrandId()` /`QUICK_DELIVERY_BRAND_IDS` in
-`packages/shared-types/src/brand.ts`). Reuses the existing `user.loyalty.completedOrderCount`
-counter as-is — that counter was already, by construction, a global-across-TBC-and-Alchemy-Tails,
-GG-Tiffin-excluded count (GG Tiffin has never called `advanceLoyaltyOrderCount`/`OrderModel.create`
-at any point), so no new counter or per-brand DB query was needed. If GG Tiffin ever starts using
-the generic `/orders` endpoint, re-audit this assumption.
-
-### 4.8 Admin app (`apps/admin`)
+### 4.7 Admin app (`apps/admin`)
 Plain React+Vite SPA (not React Native) — order list/filter/status-advance for regular orders,
 tiffin subscriptions/single-meal-orders/deliveries management (`TiffinDeliveriesPage.tsx`),
 WhatsApp-recommendation trigger, meal-price management. This is also the **only** way to advance an
@@ -292,8 +290,8 @@ to simulate that state, which matters when testing/demoing the tracking screens.
   (see §7.3).
 - Hosting/deployment: recommended but not provisioned (Render for API, Atlas for Mongo, EAS Build
   for the mobile app stores) — nothing is actually deployed anywhere yet.
-- As of this writing, **there are uncommitted changes** in the working tree (the new-customer-offer
-  feature, §4.7) — run `git status` before assuming HEAD reflects everything described here.
+- Run `git status` before assuming HEAD reflects everything described here — this doc is kept
+  up to date deliberately, but working-tree state can still drift ahead of it mid-session.
 
 ---
 

@@ -5,6 +5,8 @@ export interface AddressSuggestion {
   area?: string;
   city: string;
   pincode?: string;
+  lat: number;
+  lon: number;
 }
 
 // Patna's rough bounding box — keeps results scoped to the one city this app delivers in.
@@ -35,6 +37,8 @@ export async function searchPatnaAddresses(query: string): Promise<AddressSugges
   const results = (await response.json()) as Array<{
     place_id: number;
     display_name: string;
+    lat: string;
+    lon: string;
     address?: {
       house_number?: string;
       road?: string;
@@ -57,6 +61,46 @@ export async function searchPatnaAddresses(query: string): Promise<AddressSugges
       area: addr.suburb ?? addr.neighbourhood ?? addr.state_district,
       city: addr.city ?? addr.town ?? addr.village ?? "Patna",
       pincode: addr.postcode,
+      lat: Number(result.lat),
+      lon: Number(result.lon),
     };
   });
+}
+
+/** Turns a dropped/dragged map pin's coordinates back into an address — same free Nominatim
+ * endpoint as the search above, just its `/reverse` counterpart. */
+export async function reverseGeocode(lat: number, lon: number): Promise<AddressSuggestion> {
+  const params = new URLSearchParams({ format: "json", addressdetails: "1", lat: String(lat), lon: String(lon) });
+
+  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error("Reverse geocoding failed");
+
+  const result = (await response.json()) as {
+    place_id: number;
+    display_name: string;
+    address?: {
+      house_number?: string;
+      road?: string;
+      suburb?: string;
+      neighbourhood?: string;
+      city?: string;
+      town?: string;
+      village?: string;
+      state_district?: string;
+      postcode?: string;
+    };
+  };
+  const addr = result.address ?? {};
+  return {
+    id: String(result.place_id),
+    displayName: result.display_name,
+    address: [addr.house_number, addr.road].filter(Boolean).join(" ") || result.display_name.split(",")[0],
+    area: addr.suburb ?? addr.neighbourhood ?? addr.state_district,
+    city: addr.city ?? addr.town ?? addr.village ?? "Patna",
+    pincode: addr.postcode,
+    lat,
+    lon,
+  };
 }

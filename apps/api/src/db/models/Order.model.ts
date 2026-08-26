@@ -60,7 +60,7 @@ const OrderTotalsSchema = new Schema(
     discountAmount: { type: Number, required: true },
     discountReason: {
       type: String,
-      enum: ["none", "quantity-tier", "premium", "first-order-bogo", "second-order-half-off"],
+      enum: ["none", "quantity-tier", "premium"],
       required: true,
     },
     rewardAmount: { type: Number, required: true },

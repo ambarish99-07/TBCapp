@@ -3,6 +3,10 @@ import { create } from "zustand";
 interface SelectedAddress {
   label: string;
   city: string;
+  /** Full street line (house number/area/address), for display under the label — e.g. the Cart
+   * header's "Home" + full address beneath it. Optional since MenuScreen's own address bar has
+   * always only shown `label · city`, before this existed. */
+  line?: string;
 }
 
 interface AddressState {

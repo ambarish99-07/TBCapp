@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ADD_ON_PRICES, computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
-import { CROSS_BRAND_ID, isQuickDeliveryBrandId, type AddOnId, type IceLevel, type SugarLevel } from "@tbc/shared-types";
+import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
 import { create } from "zustand";
 
 const CART_STORAGE_KEY = "tbc_cart_lines";
@@ -125,10 +125,6 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   computeTotals: (auth) => {
     const lines = get().lines;
-    // Same "which brand does this cart actually belong to" resolution createOrderRequest uses
-    // (see orders.api.ts#resolveCartBrandId) — a cross-brand combo line has no brand of its own,
-    // so it's skipped when picking the representative line.
-    const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
     return computePricing({
       lines: lines.map((line) => ({
         unitPrice: line.unitPrice,
@@ -141,7 +137,6 @@ export const useCartStore = create<CartState>((set, get) => ({
       loyalty: auth.loyalty,
       distanceFromShopKm: auth.distanceFromShopKm,
       hasFreeDeliveryMembership: auth.hasFreeDeliveryMembership,
-      isQuickDeliveryBrand: ownedLine ? isQuickDeliveryBrandId(ownedLine.brandId) : false,
       couponDiscountAmount: get().appliedCoupon?.discountAmount,
     });
   },

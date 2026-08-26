@@ -1,6 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { CROSS_BRAND_ID, isQuickDeliveryBrandId, type MenuItem } from "@tbc/shared-types";
-import { LinearGradient } from "expo-linear-gradient";
+import { CROSS_BRAND_ID, type MenuItem } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { fetchMe } from "../../api/auth.api";
@@ -75,69 +74,15 @@ export function CartScreen({ navigation }: Props) {
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption;
 
-  // BOGO (order #1) needs 2+ non-combo units to have anything to give away for free — computePricing
-  // silently returns no discount below that, same as it would at checkout. This nudge is the only
-  // place that explains *why*, before the customer reaches the payment screen and wonders where
-  // the offer they saw on Home went.
-  const nonComboUnits = lines.filter((line) => !line.isCombo).reduce((sum, line) => sum + line.quantity, 0);
   const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
-  const isQuickDeliveryBrand = ownedLine ? isQuickDeliveryBrandId(ownedLine.brandId) : false;
-  const nextOrderNumber = auth.loyalty.completedOrderCount + 1;
-  const showBogoNudge = auth.isLoggedIn && isQuickDeliveryBrand && nextOrderNumber === 1 && nonComboUnits === 1;
-  // 50% off (order #2) has no minimum-quantity gate — it applies to whatever's already in the
-  // cart, so this is purely a heads-up, not a "you're about to miss it" warning like BOGO's.
-  const showHalfOffNudge = auth.isLoggedIn && isQuickDeliveryBrand && nextOrderNumber === 2 && lines.length > 0;
   const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
 
   // restoreBrand, not selectBrand — selectBrand clears the cart on every switch (it assumes a
-  // deliberate brand change), which would wipe the very items this nudge exists to add to.
+  // deliberate brand change), which would wipe the items this nudge exists to add to.
   function handleBrowseCartBrandMenu() {
     if (cartBrand) restoreBrand(cartBrand);
     navigation.navigate("RestaurantMenu");
   }
-
-  // Proactively surfaces the offer the moment the cart becomes eligible, rather than only when
-  // the customer scrolls past the banner or reaches checkout — a popup they have to dismiss is
-  // much harder to miss than a banner they can scroll past. Fires once per eligible cart (the ref
-  // resets once they're no longer eligible — e.g. they added a 2nd item — so it can fire again if
-  // they remove back down to 1).
-  const bogoPopupShownRef = useRef(false);
-  useEffect(() => {
-    // placedAccessToken means an order just succeeded — completedOrderCount (and therefore
-    // nextOrderNumber) updates the instant that happens, while this screen is still mounted for
-    // its "Order Placed" confirmation and hasn't cleared/navigated away yet. Without this guard,
-    // that brief window could fire a popup describing eligibility for the *next* order right on
-    // top of the confirmation for the one that just finished — confusing regardless of which
-    // offer it is.
-    if (!showBogoNudge || placedAccessToken) {
-      bogoPopupShownRef.current = false;
-      return;
-    }
-    if (bogoPopupShownRef.current) return;
-    bogoPopupShownRef.current = true;
-    // Just an acknowledgement, not a navigation prompt — the customer is already on the Cart
-    // screen, which already has both the "Tap here to browse the menu" nudge banner and its own
-    // "+ Add More Items" button right there, so this popup's job is only to make sure they don't
-    // miss the offer, not to send them anywhere.
-    Alert.alert(
-      "🎁 You're eligible for Buy 1 Get 1 Free!",
-      "Add one more item from the menu and get it free — this offer is only available on your first order."
-    );
-  }, [showBogoNudge, placedAccessToken]);
-
-  // Same proactive treatment for the 2nd-order offer — nothing to add, just a heads-up that it's
-  // already been applied so the discount on the total below doesn't come as a surprise.
-  const halfOffPopupShownRef = useRef(false);
-  useEffect(() => {
-    // See the comment on the BOGO effect above — same guard, same reason.
-    if (!showHalfOffNudge || placedAccessToken) {
-      halfOffPopupShownRef.current = false;
-      return;
-    }
-    if (halfOffPopupShownRef.current) return;
-    halfOffPopupShownRef.current = true;
-    Alert.alert("🔥 50% Off Applied!", "This is your 2nd order — 50% off is already applied to your total below.");
-  }, [showHalfOffNudge, placedAccessToken]);
 
   if (lines.length === 0 && !placedAccessToken) {
     return (
@@ -175,28 +120,6 @@ export function CartScreen({ navigation }: Props) {
     clampedSuggestionPage * SUGGESTIONS_PER_PAGE,
     clampedSuggestionPage * SUGGESTIONS_PER_PAGE + SUGGESTIONS_PER_PAGE
   );
-
-  // Catches the exact "missed the nudge" moment — the customer is about to pay for a single item
-  // that would've been free as part of a BOGO pair, with no chance left to add a second one after
-  // this screen. A banner they can scroll past is easy to miss; a popup right at the point of
-  // paying isn't.
-  function handleProceedToPay() {
-    if (!profileComplete || !selectedPaymentOption || !user) return;
-
-    if (showBogoNudge) {
-      Alert.alert(
-        "You're eligible for Buy 1 Get 1 Free!",
-        "Add one more item to get it free — or continue and pay full price for this order.",
-        [
-          { text: "Add One More Item", onPress: handleBrowseCartBrandMenu },
-          { text: "Continue Anyway", style: "destructive", onPress: submitOrder },
-        ]
-      );
-      return;
-    }
-
-    submitOrder();
-  }
 
   async function submitOrder() {
     if (!profileComplete || !selectedPaymentOption || !user) return;
@@ -240,10 +163,9 @@ export function CartScreen({ navigation }: Props) {
       }
 
       // The server just advanced loyalty.completedOrderCount (COD: at creation above; Razorpay:
-      // in the verify call just above) — refetch so the Home offer tabs and this cart's own BOGO
-      // nudge reflect the new next-order-number immediately, not just after an app restart.
-      // Best-effort: a failed refresh shouldn't block the "order placed" confirmation the
-      // customer is actually waiting on.
+      // in the verify call just above) — refetch so milestone-reward/premium-membership eligibility
+      // reflects the new order count immediately, not just after an app restart. Best-effort: a
+      // failed refresh shouldn't block the "order placed" confirmation the customer is waiting on.
       try {
         updateUser(await fetchMe());
       } catch {
@@ -304,25 +226,14 @@ export function CartScreen({ navigation }: Props) {
           </View>
         ))}
 
-        {/* Straight to the brand already in this cart (same restoreBrand-not-selectBrand navigation
-            the BOGO nudge uses), not the generic Home screen — landing on Home would've meant
-            re-picking the same restaurant just to add one more thing. */}
+        {/* Straight to the brand already in this cart (restoreBrand, not selectBrand — see
+            handleBrowseCartBrandMenu), not the generic Home screen — landing on Home would've
+            meant re-picking the same restaurant just to add one more thing. */}
         <Pressable style={styles.addMoreButton} onPress={handleBrowseCartBrandMenu}>
           <Text style={styles.addMoreButtonText}>+ Add More Items</Text>
         </Pressable>
 
-        {/* The popup on arrival already told them this and how to act on it — this banner is now
-            just a lightweight, still-tappable reminder while they're on the page, not the primary
-            notice, so it no longer repeats the "tap here" call to action. */}
-        {showBogoNudge && (
-          <Pressable style={styles.bogoNudge} onPress={handleBrowseCartBrandMenu}>
-            <Text style={styles.bogoNudgeText}>
-              🎁 Your order is eligible for Buy 1 Get 1 Free! Choose one more item from the menu to claim it.
-            </Text>
-          </Pressable>
-        )}
-
-        {/* Right where the customer already is — a one-tap way to hit the BOGO/quantity-tier
+        {/* Right where the customer already is — a one-tap way to hit the quantity-tier discount
             minimums without leaving the cart to go browse. Same ItemMiniCard Home itself uses for
             "Recommended For You", so the photos read the same rounded-square style everywhere. The
             whole brand's menu is reachable here, 3 at a time — a Netflix/Hotstar-style arrow pages
@@ -375,20 +286,6 @@ export function CartScreen({ navigation }: Props) {
         <PriceBreakdown result={result} couponCode={appliedCoupon?.code} />
       </ScrollView>
 
-      {/* Static, not scrollable — pinned directly above the payment row instead of living inside
-          the scrolling content, where a longer cart or the suggestions row could push it out of
-          view entirely, leaving customers staring at a disabled "Proceed to Pay" with no visible
-          explanation why. This is the one thing standing between them and checking out, so it
-          stays exactly where they're about to look. */}
-      {!profileComplete && (
-        <Pressable style={styles.completeProfileBanner} onPress={() => navigation.navigate("Checkout")}>
-          <LinearGradient colors={["#3A2E22", "#181310"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.completeProfileGradient}>
-            <View pointerEvents="none" style={styles.completeProfileGloss} />
-            <Text style={styles.completeProfileText}>One-time setup - Save your profile!</Text>
-          </LinearGradient>
-        </Pressable>
-      )}
-
       <View style={styles.actionRow}>
         <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod")}>
           <Text style={styles.payUsingLabel}>Pay using</Text>
@@ -402,7 +299,7 @@ export function CartScreen({ navigation }: Props) {
 
         <Pressable
           style={[styles.checkoutButton, !canProceed && styles.checkoutButtonDisabled]}
-          onPress={handleProceedToPay}
+          onPress={submitOrder}
           disabled={!canProceed || submitting}
         >
           <Text style={styles.checkoutButtonText}>{submitting ? "Placing order…" : "Proceed to Pay"}</Text>
@@ -437,15 +334,6 @@ const makeStyles = (colors: ColorPalette) =>
     screen: { flex: 1, backgroundColor: colors.background },
     scroll: { flex: 1 },
     scrollContent: { padding: theme.spacing(2), paddingBottom: theme.spacing(2) },
-    bogoNudge: {
-      backgroundColor: colors.accent + "22",
-      borderWidth: 1,
-      borderColor: colors.accent,
-      borderRadius: theme.radius,
-      padding: theme.spacing(1.25),
-      marginBottom: theme.spacing(1.5),
-    },
-    bogoNudgeText: { color: colors.primary, fontWeight: "700", fontSize: 13, textAlign: "center" },
     suggestionsWrap: { marginBottom: theme.spacing(2) },
     suggestionsTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     suggestionsRow: { position: "relative" },
@@ -523,32 +411,6 @@ const makeStyles = (colors: ColorPalette) =>
       marginBottom: theme.spacing(2),
     },
     addMoreButtonText: { color: colors.primary, fontWeight: "700" },
-    completeProfileBanner: {
-      borderRadius: theme.radius,
-      marginHorizontal: theme.spacing(2),
-      marginTop: theme.spacing(1),
-      overflow: "hidden",
-      shadowColor: "#000",
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 6,
-    },
-    completeProfileGradient: {
-      alignItems: "center",
-      justifyContent: "center",
-      padding: theme.spacing(1.5),
-      position: "relative",
-    },
-    completeProfileGloss: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: "50%",
-      backgroundColor: "rgba(255,255,255,0.12)",
-    },
-    completeProfileText: { fontSize: 13, fontWeight: "800", color: "#fff", textAlign: "center" },
     actionRow: {
       flexDirection: "row",
       gap: theme.spacing(1),

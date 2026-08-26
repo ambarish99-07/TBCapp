@@ -7,6 +7,7 @@ import { EditProfileScreen } from "../screens/Account/EditProfileScreen";
 import { OrderHistoryScreen } from "../screens/Account/OrderHistoryScreen";
 import { AddAddressScreen } from "../screens/Address/AddAddressScreen";
 import { AddressScreen } from "../screens/Address/AddressScreen";
+import { PickLocationScreen } from "../screens/Address/PickLocationScreen";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
 import { BulkOrderScreen } from "../screens/BulkOrder/BulkOrderScreen";
 import { CartScreen } from "../screens/Cart/CartScreen";
@@ -14,6 +15,7 @@ import { CouponsScreen } from "../screens/Cart/CouponsScreen";
 import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
 import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
+import { CartAddressButton } from "../components/CartAddressButton";
 import { CartHeaderButton } from "../components/CartHeaderButton";
 import { GuestLookupScreen } from "../screens/OrderLookup/GuestLookupScreen";
 import { MenuScreen } from "../screens/Menu/MenuScreen";
@@ -76,6 +78,7 @@ export function RootNavigator() {
                 options={{ title: "Menu", headerRight: () => <CartHeaderButton /> }}
               />
               <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
+              <Stack.Screen name="PickLocation" component={PickLocationScreen} options={{ title: "Select Location" }} />
               <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />
               <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
               <Stack.Screen
@@ -111,7 +114,11 @@ export function RootNavigator() {
                 options={{ title: "Track Order" }}
               />
               <Stack.Screen name="PremiumMembership" component={PremiumMembershipScreen} options={{ title: "Premium Membership" }} />
-              <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
+              <Stack.Screen
+                name="Cart"
+                component={CartScreen}
+                options={{ title: "Your Cart", headerRight: () => <CartAddressButton /> }}
+              />
               <Stack.Screen name="Coupons" component={CouponsScreen} options={{ title: "Coupons" }} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
               <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />

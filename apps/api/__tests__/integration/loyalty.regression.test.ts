@@ -96,28 +96,8 @@ describe("milestone rewards and premium membership advance across a logged-in us
     expect(signupResponse.status).toBe(201);
     const token: string = signupResponse.body.token;
 
-    // Order 1: the new-customer offer takes precedence over quantity-tier — Buy 1 Get 1 Free
-    // gives away the cheaper 180 cold-coffee unit.
-    const firstOrder = await placeCodOrder(token);
-    expect(firstOrder.status).toBe(201);
-    expect(firstOrder.body.order.totals.discountReason).toBe("first-order-bogo");
-    expect(firstOrder.body.order.totals.discountAmount).toBe(180);
-    expect(firstOrder.body.order.totals.rewardReason).toBe("none");
-    const meAfterFirst = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
-    expect(meAfterFirst.body.user.loyalty.completedOrderCount).toBe(1);
-
-    // Order 2: still the new-customer offer, now the flat 50%-off — 50% of the 400 subtotal.
-    const secondOrder = await placeCodOrder(token);
-    expect(secondOrder.status).toBe(201);
-    expect(secondOrder.body.order.totals.discountReason).toBe("second-order-half-off");
-    expect(secondOrder.body.order.totals.discountAmount).toBe(200);
-    expect(secondOrder.body.order.totals.rewardReason).toBe("none");
-    const meAfterSecond = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
-    expect(meAfterSecond.body.user.loyalty.completedOrderCount).toBe(2);
-
-    // Orders 3-5: the one-time new-customer offer is spent — ordinary quantity-tier discount
-    // only (2 items -> 10%), no milestone reward yet.
-    for (let i = 3; i <= 5; i++) {
+    // Orders 1-5: ordinary quantity-tier discount only (2 items -> 10%), no milestone reward yet.
+    for (let i = 1; i <= 5; i++) {
       const orderResponse = await placeCodOrder(token);
       expect(orderResponse.status).toBe(201);
       expect(orderResponse.body.order.totals.discountReason).toBe("quantity-tier");

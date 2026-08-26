@@ -16,7 +16,7 @@ export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 export const PaymentStatusSchema = z.enum(["pending", "paid", "failed", "refunded"]);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 
-export const DiscountReasonSchema = z.enum(["none", "quantity-tier", "premium", "first-order-bogo", "second-order-half-off"]);
+export const DiscountReasonSchema = z.enum(["none", "quantity-tier", "premium"]);
 export const RewardReasonSchema = z.enum(["none", "sixth-order-cold-coffee", "tenth-order-free-drink"]);
 
 /**

@@ -9,6 +9,7 @@ import { deleteSavedRecipient, fetchSavedRecipients } from "../../api/recipients
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
 import { useTheme } from "../../state/themeStore";
+import { formatAddressLine } from "../../utils/formatAddress";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Addresses">;
@@ -55,7 +56,7 @@ export function AddressScreen({ navigation }: Props) {
   }
 
   function handleSelect(address: SavedRecipient) {
-    setSelectedAddress({ label: address.label, city: address.city });
+    setSelectedAddress({ label: address.label, city: address.city, line: formatAddressLine(address) });
     navigation.goBack();
   }
 

@@ -36,14 +36,6 @@ export interface PricingInput {
    */
   hasFreeDeliveryMembership?: boolean;
   /**
-   * Whether this order's brand is one of the "quick delivery" brands (TBC, Alchemy Tails) that
-   * the first/second-order new-customer offer applies to — GG Tiffin is deliberately excluded.
-   * Resolved by the caller from the order's brandId (see @tbc/shared-types QUICK_DELIVERY_BRAND_IDS),
-   * not decided inside this brand-agnostic pricing engine. Defaults to false when omitted, so
-   * existing callers that don't pass it never accidentally grant the offer.
-   */
-  isQuickDeliveryBrand?: boolean;
-  /**
    * Pre-resolved coupon discount amount — this pure engine never looks up a coupon itself (that
    * needs a DB round-trip), so the caller validates the code server-side first and passes the
    * resulting rupee amount in here. Clamped against the remaining payable amount below so a
@@ -52,14 +44,13 @@ export interface PricingInput {
   couponDiscountAmount?: number;
 }
 
-export type DiscountReason = "none" | "quantity-tier" | "premium" | "first-order-bogo" | "second-order-half-off";
+export type DiscountReason = "none" | "quantity-tier" | "premium";
 
 export interface PricingResult {
   subtotal: number;
   /** Whether this order is being priced as a premium member (15+ completed orders, or admin override). */
   isPremiumMember: boolean;
-  /** The quantity-tier (0/10/15/20%), premium (25%), or new-customer-offer (order #1 BOGO / order
-   * #2 50% off) discount amount, applied to the non-combo subtotal only. */
+  /** The quantity-tier (0/10/15/20%) or premium (25%) discount amount, applied to the non-combo subtotal only. */
   discountAmount: number;
   discountReason: DiscountReason;
   /** The 6th/16th/26th... (50% off a cold coffee) or 10th/20th/30th... (one drink free) milestone reward amount, if this order qualifies. */

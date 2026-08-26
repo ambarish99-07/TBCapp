@@ -5,11 +5,10 @@ import { useCartStore, type CartLine } from "../state/cartStore";
 /**
  * TBC, Alchemy Tails, and GG Tiffin items can never share one cart or one order — the server
  * rejects a mismatched brandId/menuItemId pair at checkout (see priceResolver's
- * `{ _id: line.menuItemId, brandId }` lookup), and the new-customer BOGO/50%-off offer is
- * explicitly same-brand-only too. Every "Add to cart" entry point should route through this
- * instead of calling `addLine` directly, so a customer adding a second brand's item on top of an
- * existing cart is asked first, rather than the add silently going through and only failing (or
- * mis-pricing) later.
+ * `{ _id: line.menuItemId, brandId }` lookup). Every "Add to cart" entry point should route
+ * through this instead of calling `addLine` directly, so a customer adding a second brand's item
+ * on top of an existing cart is asked first, rather than the add silently going through and only
+ * failing (or mis-pricing) later.
  */
 export function addLineWithBrandGuard(line: CartLine) {
   const { lines, addLine, clear } = useCartStore.getState();

@@ -579,6 +579,14 @@ function buildCoupons() {
   return [
     { code: "WELCOME50", type: "percent" as const, value: 50, minOrderAmount: 0, maxDiscountAmount: 100, isActive: true },
     { code: "FLAT50", type: "flat" as const, value: 50, minOrderAmount: 200, isActive: true },
+    { code: "FLAT250", type: "flat" as const, value: 250, minOrderAmount: 999, isActive: true },
+    { code: "FLAT125", type: "flat" as const, value: 125, minOrderAmount: 599, isActive: true },
+    { code: "FLAT100", type: "flat" as const, value: 100, minOrderAmount: 499, isActive: true },
+    { code: "FLAT400", type: "flat" as const, value: 400, minOrderAmount: 1499, isActive: true },
+    { code: "FLAT300", type: "flat" as const, value: 300, minOrderAmount: 1299, isActive: true },
+    { code: "FLAT175", type: "flat" as const, value: 175, minOrderAmount: 799, isActive: true },
+    { code: "FLAT150", type: "flat" as const, value: 150, minOrderAmount: 699, isActive: true },
+    { code: "FLAT200", type: "flat" as const, value: 200, minOrderAmount: 899, isActive: true },
   ];
 }
 

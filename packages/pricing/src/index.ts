@@ -1,7 +1,6 @@
 export { computeComboPrice } from "./comboPricing.js";
 export { computePricing, cartSubtotal } from "./computePricing.js";
 export { computeMilestoneReward } from "./milestoneReward.js";
-export { computeNewCustomerOfferDiscount } from "./newCustomerOffer.js";
 export { resolveIsPremiumMember } from "./premium.js";
 export { quantityDiscountPercent } from "./quantityDiscount.js";
 export { scorePairings, getRecommendations } from "./recommendation.js";
