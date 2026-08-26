@@ -36,6 +36,8 @@ export function CartScreen({ navigation }: Props) {
   const removeLine = useCartStore((state) => state.removeLine);
   const computeTotals = useCartStore((state) => state.computeTotals);
   const clearCart = useCartStore((state) => state.clear);
+  const appliedCoupon = useCartStore((state) => state.appliedCoupon);
+  const setAppliedCoupon = useCartStore((state) => state.setAppliedCoupon);
   const auth = useAuthContext();
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -150,6 +152,14 @@ export function CartScreen({ navigation }: Props) {
 
   const result = computeTotals(auth);
 
+  function handleRemoveCoupon() {
+    if (!appliedCoupon) return;
+    Alert.alert("Remove coupon?", `${appliedCoupon.code} will no longer be applied to this order.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => setAppliedCoupon(null) },
+    ]);
+  }
+
   // A quick "add more from this cart" nudge, right where the customer already is instead of
   // making them leave and come back — every item from the cart's own brand not already in it,
   // paged 3 at a time (see suggestionPage below) rather than a hard cap, so the whole menu stays
@@ -212,6 +222,7 @@ export function CartScreen({ navigation }: Props) {
         },
         deliveryFor: "self",
         paymentMethod: selectedPaymentOption.apiMethod,
+        couponCode: appliedCoupon?.code,
       });
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
@@ -350,7 +361,18 @@ export function CartScreen({ navigation }: Props) {
           </View>
         )}
 
-        <PriceBreakdown result={result} />
+        <Pressable style={styles.couponCard} onPress={() => navigation.navigate("Coupons")}>
+          <Text style={styles.couponRowLabel}>Apply Coupon</Text>
+          <Text style={styles.couponRowChevron}>›</Text>
+        </Pressable>
+        {appliedCoupon && (
+          <Pressable style={styles.couponAppliedRow} onPress={handleRemoveCoupon}>
+            <Text style={styles.couponAppliedCode}>{appliedCoupon.code}</Text>
+            <Text style={styles.couponAppliedBadge}>Applied ✓</Text>
+          </Pressable>
+        )}
+
+        <PriceBreakdown result={result} couponCode={appliedCoupon?.code} />
       </ScrollView>
 
       {/* Static, not scrollable — pinned directly above the payment row instead of living inside
@@ -453,6 +475,30 @@ const makeStyles = (colors: ColorPalette) =>
     emptyText: { color: colors.muted },
     browseButton: { backgroundColor: colors.primary, borderRadius: theme.radius, paddingHorizontal: 20, paddingVertical: 10 },
     browseButtonText: { color: "#fff", fontWeight: "700" },
+    couponCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius,
+      paddingHorizontal: theme.spacing(1.5),
+      paddingVertical: theme.spacing(1.25),
+      marginBottom: theme.spacing(1),
+    },
+    couponRowLabel: { color: colors.text, fontWeight: "700", fontSize: 14 },
+    couponRowChevron: { color: colors.muted, fontSize: 18, fontWeight: "700" },
+    couponAppliedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.primary + "14",
+      borderRadius: theme.radius,
+      paddingHorizontal: theme.spacing(1.5),
+      paddingVertical: theme.spacing(1.25),
+      marginBottom: theme.spacing(1.5),
+    },
+    couponAppliedCode: { color: colors.primary, fontWeight: "800", fontSize: 14, letterSpacing: 0.5 },
+    couponAppliedBadge: { color: colors.primary, fontWeight: "700", fontSize: 13 },
     line: { paddingVertical: theme.spacing(1.5), borderBottomWidth: 1, borderBottomColor: colors.border },
     lineTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
     lineName: { fontSize: 15, fontWeight: "700", color: colors.text },

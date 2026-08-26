@@ -39,6 +39,8 @@ export type RootStackParamList = {
   // ₹21/60-day free-delivery membership — reached from the Home carousel's promo card.
   PremiumMembership: undefined;
   Cart: undefined;
+  // No params — reads the cart's own brand/subtotal directly, same as Cart itself does.
+  Coupons: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.
   Checkout: undefined;

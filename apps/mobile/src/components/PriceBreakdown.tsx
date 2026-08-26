@@ -29,8 +29,11 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
   );
 }
 
-/** Renders the exact breakdown returned by @tbc/pricing — used identically in Cart and Checkout. */
-export function PriceBreakdown({ result }: { result: PricingResult }) {
+/** Renders the exact breakdown returned by @tbc/pricing — used identically in Cart and Checkout.
+ * `couponCode` is purely for the row's label — `computePricing` itself never sees a coupon code,
+ * only the pre-resolved rupee amount (see PricingInput.couponDiscountAmount), so the code has to
+ * be threaded through separately by whichever screen applied it. */
+export function PriceBreakdown({ result, couponCode }: { result: PricingResult; couponCode?: string }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
@@ -44,6 +47,9 @@ export function PriceBreakdown({ result }: { result: PricingResult }) {
       )}
       {result.rewardAmount > 0 && (
         <Row label={REWARD_LABELS[result.rewardReason]} value={`-₹${result.rewardAmount}`} muted />
+      )}
+      {result.couponDiscount > 0 && (
+        <Row label={couponCode ? `Coupon (${couponCode})` : "Coupon discount"} value={`-₹${result.couponDiscount}`} muted />
       )}
       <Row label="Delivery fee" value={result.deliveryFee === 0 ? "Free" : `₹${result.deliveryFee}`} muted />
       <Row label="Tax (5%)" value={`₹${result.tax}`} muted />

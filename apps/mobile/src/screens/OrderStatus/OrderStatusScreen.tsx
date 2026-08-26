@@ -172,6 +172,13 @@ export function OrderStatusScreen({ route, navigation }: Props) {
               <Text style={styles.newCustomerBannerText}>{REWARD_LABELS[order.totals.rewardReason]} applied to this order!</Text>
             </View>
           )}
+          {order.totals.couponDiscountAmount > 0 && (
+            <View style={styles.newCustomerBanner}>
+              <Text style={styles.newCustomerBannerText}>
+                Coupon {order.totals.couponCode ? `${order.totals.couponCode} ` : ""}applied: -₹{order.totals.couponDiscountAmount}
+              </Text>
+            </View>
+          )}
 
           {/* Subtotal/discount/delivery/tax line items already live on the Cart screen's own price
               breakdown right before checkout — repeating all of them here was just noise on a

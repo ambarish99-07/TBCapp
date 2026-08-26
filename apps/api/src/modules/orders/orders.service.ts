@@ -1,4 +1,4 @@
-import { computePricing } from "@tbc/pricing";
+import { cartSubtotal, computePricing } from "@tbc/pricing";
 import {
   isQuickDeliveryBrandId,
   ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT,
@@ -9,6 +9,7 @@ import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
+import { resolveCoupon } from "../coupons/coupons.service.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
 import { generateAccessToken } from "./accessToken.js";
 import { assertWithinDeliveryZone } from "./deliveryZone.js";
@@ -40,12 +41,27 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     hasFreeDeliveryMembership = !!user.premiumMembershipExpiresAt && user.premiumMembershipExpiresAt > new Date();
   }
 
+  // Re-validated here even though the client already called /coupons/validate before checkout —
+  // never trust a client-sent discount amount, same reasoning as every other server-side price
+  // resolution in this function. Wrapped so an invalid/expired coupon surfaces as the same
+  // OrderValidationError shape the rest of this function already throws, rather than requiring
+  // orders.controller.ts to know about a second error class.
+  let couponResult: { code: string; discountAmount: number } | undefined;
+  if (request.couponCode) {
+    try {
+      couponResult = await resolveCoupon(request.couponCode, request.brandId, cartSubtotal(pricingLines));
+    } catch (err) {
+      throw new OrderValidationError(err instanceof Error ? err.message : "Invalid coupon code");
+    }
+  }
+
   const pricingResult = computePricing({
     lines: pricingLines,
     isLoggedIn: userId !== null,
     loyalty,
     distanceFromShopKm: request.delivery.distanceFromShopKm ?? null,
     hasFreeDeliveryMembership,
+    couponDiscountAmount: couponResult?.discountAmount,
     // The first/second-order new-customer offer only ever applies to TBC/Alchemy Tails — GG
     // Tiffin doesn't use this endpoint at all today, but this keeps that exclusion explicit and
     // enforced here rather than relying on that being true forever by accident.
@@ -67,6 +83,8 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
       discountReason: pricingResult.discountReason,
       rewardAmount: pricingResult.rewardAmount,
       rewardReason: pricingResult.rewardReason,
+      couponCode: pricingResult.couponDiscount > 0 ? couponResult?.code : undefined,
+      couponDiscountAmount: pricingResult.couponDiscount,
       deliveryFee: pricingResult.deliveryFee,
       tax: pricingResult.tax,
       total: pricingResult.total,

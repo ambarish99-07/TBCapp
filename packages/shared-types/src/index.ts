@@ -8,3 +8,4 @@ export * from "./brand.js";
 export * from "./browseCategory.js";
 export * from "./tiffin.js";
 export * from "./premiumMembership.js";
+export * from "./coupon.js";

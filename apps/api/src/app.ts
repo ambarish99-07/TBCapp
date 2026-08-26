@@ -13,6 +13,7 @@ import { createAdminRouter } from "./modules/admin/admin.routes.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
 import { createBrandsRouter } from "./modules/brands/brands.routes.js";
 import { createBulkOrdersRouter } from "./modules/bulkOrders/bulkOrders.routes.js";
+import { createCouponsRouter } from "./modules/coupons/coupons.routes.js";
 import { createMenuRouter } from "./modules/menu/menu.routes.js";
 import { createOrdersRouter } from "./modules/orders/orders.routes.js";
 import { createPaymentsRouter } from "./modules/payments/payments.routes.js";
@@ -56,6 +57,7 @@ export function createApp(env: Env): Express {
   app.use("/bulk-order-inquiries", createBulkOrdersRouter(env));
   app.use("/tiffin", createTiffinRouter(env));
   app.use("/premium-membership", createPremiumMembershipRouter(env));
+  app.use("/coupons", createCouponsRouter(env));
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

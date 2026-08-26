@@ -43,6 +43,13 @@ export interface PricingInput {
    * existing callers that don't pass it never accidentally grant the offer.
    */
   isQuickDeliveryBrand?: boolean;
+  /**
+   * Pre-resolved coupon discount amount — this pure engine never looks up a coupon itself (that
+   * needs a DB round-trip), so the caller validates the code server-side first and passes the
+   * resulting rupee amount in here. Clamped against the remaining payable amount below so a
+   * coupon can never push the taxable amount negative.
+   */
+  couponDiscountAmount?: number;
 }
 
 export type DiscountReason = "none" | "quantity-tier" | "premium" | "first-order-bogo" | "second-order-half-off";
@@ -58,6 +65,9 @@ export interface PricingResult {
   /** The 6th/16th/26th... (50% off a cold coffee) or 10th/20th/30th... (one drink free) milestone reward amount, if this order qualifies. */
   rewardAmount: number;
   rewardReason: "none" | "sixth-order-cold-coffee" | "tenth-order-free-drink";
+  /** Echoes `couponDiscountAmount` back, clamped to what was actually deductible — 0 when no
+   * coupon was applied or the discount/reward above already used up the payable amount. */
+  couponDiscount: number;
   /** Whether the delivery fee was waived because of a purchased Premium Membership (not the loyalty-tier free-delivery radius). */
   hasFreeDeliveryMembership: boolean;
   deliveryFee: number;

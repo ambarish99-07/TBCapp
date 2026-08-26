@@ -305,3 +305,48 @@ describe("computePricing — milestone rewards stack on top of the discount", ()
     expect(result.rewardAmount).toBe(500);
   });
 });
+
+describe("computePricing — coupon", () => {
+  it("subtracts a pre-resolved coupon discount from the taxable amount", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
+      couponDiscountAmount: 30,
+    });
+    expect(result.subtotal).toBe(100);
+    expect(result.couponDiscount).toBe(30);
+    expect(result.tax).toBe(4); // round((100-30) * 0.05)
+    expect(result.total).toBe(113); // 70 + 4 tax + 39 delivery
+  });
+
+  it("clamps the coupon so it never pushes the taxable amount below zero", () => {
+    const result = computePricing({
+      lines: [{ unitPrice: 50, addOnPrices: [], quantity: 1, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
+      couponDiscountAmount: 500,
+    });
+    expect(result.couponDiscount).toBe(50);
+    expect(result.tax).toBe(0);
+  });
+
+  it("applies after the quantity-tier discount, not stacked independently of it", () => {
+    const withoutCoupon = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 4, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
+    });
+    const withCoupon = computePricing({
+      lines: [{ unitPrice: 100, addOnPrices: [], quantity: 4, isCombo: false, category: "signature-shakes" }],
+      isLoggedIn: false,
+      loyalty: baseLoyalty,
+      couponDiscountAmount: 30,
+    });
+    // 400 subtotal - 80 (20% tier) - 30 coupon = 290 taxable, vs 320 without the coupon
+    expect(withoutCoupon.discountAmount).toBe(80);
+    expect(withCoupon.discountAmount).toBe(80);
+    expect(withCoupon.couponDiscount).toBe(30);
+    expect(withCoupon.total).toBeLessThan(withoutCoupon.total);
+  });
+});

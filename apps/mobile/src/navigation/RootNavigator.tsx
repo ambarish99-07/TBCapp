@@ -10,6 +10,7 @@ import { AddressScreen } from "../screens/Address/AddressScreen";
 import { LoginScreen } from "../screens/Auth/LoginScreen";
 import { BulkOrderScreen } from "../screens/BulkOrder/BulkOrderScreen";
 import { CartScreen } from "../screens/Cart/CartScreen";
+import { CouponsScreen } from "../screens/Cart/CouponsScreen";
 import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
 import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
@@ -111,6 +112,7 @@ export function RootNavigator() {
               />
               <Stack.Screen name="PremiumMembership" component={PremiumMembershipScreen} options={{ title: "Premium Membership" }} />
               <Stack.Screen name="Cart" component={CartScreen} options={{ title: "Your Cart" }} />
+              <Stack.Screen name="Coupons" component={CouponsScreen} options={{ title: "Coupons" }} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: "Update Address" }} />
               <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} options={{ title: "Pay Using" }} />
               <Stack.Screen name="OrderStatus" component={OrderStatusScreen} options={{ title: "Order Status" }} />

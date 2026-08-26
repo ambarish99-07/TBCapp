@@ -11,6 +11,14 @@ function lineTotal(line: PricingInput["lines"][number]): number {
   return (line.unitPrice + addOnsTotal) * line.quantity;
 }
 
+/** The same subtotal math `computePricing` uses internally, exposed standalone for callers that
+ * need it before they have the rest of a `PricingInput` ready — e.g. resolving a coupon's
+ * `minOrderAmount` against the cart, which has to happen before the coupon's own discount amount
+ * can be fed back in as `couponDiscountAmount`. */
+export function cartSubtotal(lines: PricingInput["lines"]): number {
+  return lines.reduce((sum, line) => sum + lineTotal(line), 0);
+}
+
 /**
  * Pure pricing engine — no I/O, no DB lookups. Callers (API order-creation and
  * the mobile cart-preview) must resolve real unitPrice/addOnPrices/category
@@ -68,7 +76,12 @@ export function computePricing(input: PricingInput): PricingResult {
   const hasFreeDeliveryMembership = input.hasFreeDeliveryMembership ?? false;
   const deliveryFee = isWithinFreeDeliveryRadius || hasFreeDeliveryMembership || subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
 
-  const taxableAmount = subtotal - discountAmount - milestoneReward.amount;
+  // Applied after the discount/reward above rather than stacked independently — clamped so a
+  // coupon can never push the taxable amount below zero.
+  const remainingAfterDiscountAndReward = Math.max(0, subtotal - discountAmount - milestoneReward.amount);
+  const couponDiscount = Math.min(input.couponDiscountAmount ?? 0, remainingAfterDiscountAndReward);
+
+  const taxableAmount = remainingAfterDiscountAndReward - couponDiscount;
   const tax = round(taxableAmount * TAX_PCT);
 
   const total = taxableAmount + tax + deliveryFee;
@@ -80,6 +93,7 @@ export function computePricing(input: PricingInput): PricingResult {
     discountReason,
     rewardAmount: milestoneReward.amount,
     rewardReason: milestoneReward.reason,
+    couponDiscount,
     hasFreeDeliveryMembership,
     deliveryFee,
     tax,

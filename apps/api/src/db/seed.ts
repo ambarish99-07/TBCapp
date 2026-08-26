@@ -5,6 +5,7 @@ import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
 import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
+import { CouponModel } from "./models/Coupon.model.js";
 import { TiffinMealPriceModel } from "./models/TiffinMealPrice.model.js";
 import { TiffinPlanModel } from "./models/TiffinPlan.model.js";
 import { TiffinScheduledMealModel } from "./models/TiffinScheduledMeal.model.js";
@@ -572,6 +573,15 @@ function buildTiffinPlans(env: ReturnType<typeof loadEnv>) {
   return plans.map((plan) => ({ ...plan, imageUrl: tiffinImageUrl(env, plan.dietType === "veg" ? "veg-tiffin" : "non-veg-tiffin") }));
 }
 
+/** Demo promo codes for trying out the Cart screen's "Apply Coupon" flow — brandId absent means
+ * valid across every brand. */
+function buildCoupons() {
+  return [
+    { code: "WELCOME50", type: "percent" as const, value: 50, minOrderAmount: 0, maxDiscountAmount: 100, isActive: true },
+    { code: "FLAT50", type: "flat" as const, value: 50, minOrderAmount: 200, isActive: true },
+  ];
+}
+
 /** One-off single-meal purchase prices, per (tier, mealType) — Mini deliberately has no
  * breakfast row (see singleMealMenu.ts), so it's simply not offered. */
 function buildTiffinMealPrices() {
@@ -599,6 +609,7 @@ async function seed() {
   await TiffinPlanModel.deleteMany({});
   await TiffinSingleMealOrderModel.deleteMany({});
   await TiffinMealPriceModel.deleteMany({});
+  await CouponModel.deleteMany({});
 
   const brands = buildBrands(env);
   for (const brand of brands) {
@@ -638,9 +649,10 @@ async function seed() {
 
   const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans(env));
   const tiffinMealPrices = await TiffinMealPriceModel.insertMany(buildTiffinMealPrices());
+  const coupons = await CouponModel.insertMany(buildCoupons());
 
   console.log(
-    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, and ${tiffinMealPrices.length} single-meal prices.`
+    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, ${tiffinMealPrices.length} single-meal prices, and ${coupons.length} coupons.`
   );
   await disconnectFromDatabase();
 }

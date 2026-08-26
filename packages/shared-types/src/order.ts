@@ -56,6 +56,9 @@ export const OrderTotalsSchema = z.object({
   discountReason: DiscountReasonSchema,
   rewardAmount: z.number().nonnegative(),
   rewardReason: RewardReasonSchema,
+  /** Set only when a coupon was applied and actually deducted something — absent/0 otherwise. */
+  couponCode: z.string().optional(),
+  couponDiscountAmount: z.number().nonnegative(),
   deliveryFee: z.number().nonnegative(),
   tax: z.number().nonnegative(),
   total: z.number().nonnegative(),
@@ -115,6 +118,8 @@ export const CreateOrderRequestSchema = z.object({
   /** Client's explicit intent — "self" prefills from the account but is still just delivery info; never inferred server-side. */
   deliveryFor: DeliveryForSchema,
   paymentMethod: PaymentMethodSchema,
+  /** Re-validated server-side against the resolved cart — never trusted for the discount amount itself. */
+  couponCode: z.string().optional(),
 });
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
 

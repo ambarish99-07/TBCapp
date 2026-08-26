@@ -69,6 +69,8 @@ const OrderTotalsSchema = new Schema(
       enum: ["none", "sixth-order-cold-coffee", "tenth-order-free-drink"],
       required: true,
     },
+    couponCode: { type: String },
+    couponDiscountAmount: { type: Number, required: true, default: 0 },
     deliveryFee: { type: Number, required: true },
     tax: { type: Number, required: true },
     total: { type: Number, required: true },

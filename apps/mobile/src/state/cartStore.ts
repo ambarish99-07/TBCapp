@@ -38,9 +38,20 @@ interface AuthContext {
   hasFreeDeliveryMembership?: boolean;
 }
 
+export interface AppliedCoupon {
+  code: string;
+  /** The discount amount the server returned at "Apply Coupon" time — re-validated (never
+   * trusted) again at order creation, but used here for the live cart preview. */
+  discountAmount: number;
+}
+
 interface CartState {
   lines: CartLine[];
   isHydrated: boolean;
+  /** Not persisted across app restarts (unlike `lines`) — a coupon is cheap to re-apply and this
+   * avoids checking out with a stale discount if the coupon expired or its rules changed since. */
+  appliedCoupon: AppliedCoupon | null;
+  setAppliedCoupon: (coupon: AppliedCoupon | null) => void;
   /** Loads whatever was left in the cart last time the app was open — the cart survives
    * a restart now, same as the saved address/payment method, and only empties when the
    * customer clears it themselves (the summary bar's ✕) or completes an order. */
@@ -65,6 +76,8 @@ interface CartState {
 export const useCartStore = create<CartState>((set, get) => ({
   lines: [],
   isHydrated: false,
+  appliedCoupon: null,
+  setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
 
   hydrate: async () => {
     try {
@@ -108,7 +121,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       ),
     })),
 
-  clear: () => set({ lines: [] }),
+  clear: () => set({ lines: [], appliedCoupon: null }),
 
   computeTotals: (auth) => {
     const lines = get().lines;
@@ -129,6 +142,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       distanceFromShopKm: auth.distanceFromShopKm,
       hasFreeDeliveryMembership: auth.hasFreeDeliveryMembership,
       isQuickDeliveryBrand: ownedLine ? isQuickDeliveryBrandId(ownedLine.brandId) : false,
+      couponDiscountAmount: get().appliedCoupon?.discountAmount,
     });
   },
 }));
