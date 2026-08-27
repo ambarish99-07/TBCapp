@@ -112,6 +112,21 @@ export function OrderStatusScreen({ route, navigation }: Props) {
 
         <StatusTimeline status={order.status} history={order.statusHistory} />
 
+        <View style={styles.summary}>
+          <Text style={styles.summaryTitle}>{order.deliveryFor === "recipient" ? "Delivering to" : "Delivering to (you)"}</Text>
+          <Text style={styles.summaryText}>{order.delivery.fullName}</Text>
+          <Text style={styles.summaryText}>{deliveryAddressLine(order)}</Text>
+          {order.delivery.landmark && <Text style={styles.summaryText}>Landmark: {order.delivery.landmark}</Text>}
+          <Text style={styles.summaryText}>{order.delivery.phone}</Text>
+          <View style={styles.mapWrap}>
+            <WebView source={{ html: mapEmbedHtml(deliveryAddressLine(order)) }} style={styles.map} />
+          </View>
+          <Text style={styles.summaryTitle}>Payment</Text>
+          <Text style={styles.summaryText}>
+            {order.payment.method === "cod" ? "Pay on Delivery" : "Paid Online"} · {order.payment.status}
+          </Text>
+        </View>
+
         {order.status === "cancelled" && (
           <View style={styles.card}>
             <Text style={styles.cancelledText}>This order was cancelled.</Text>
@@ -189,21 +204,6 @@ export function OrderStatusScreen({ route, navigation }: Props) {
             <Text style={styles.summaryTitleStrong}>Total</Text>
             <Text style={styles.summaryTitleStrong}>₹{order.totals.total}</Text>
           </View>
-        </View>
-
-        <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>{order.deliveryFor === "recipient" ? "Delivering to" : "Delivering to (you)"}</Text>
-          <Text style={styles.summaryText}>{order.delivery.fullName}</Text>
-          <Text style={styles.summaryText}>{deliveryAddressLine(order)}</Text>
-          {order.delivery.landmark && <Text style={styles.summaryText}>Landmark: {order.delivery.landmark}</Text>}
-          <Text style={styles.summaryText}>{order.delivery.phone}</Text>
-          <View style={styles.mapWrap}>
-            <WebView source={{ html: mapEmbedHtml(deliveryAddressLine(order)) }} style={styles.map} />
-          </View>
-          <Text style={styles.summaryTitle}>Payment</Text>
-          <Text style={styles.summaryText}>
-            {order.payment.method === "cod" ? "Pay on Delivery" : "Paid Online"} · {order.payment.status}
-          </Text>
         </View>
 
         {order.status !== "cancelled" && (

@@ -1,6 +1,5 @@
 import type { Coupon, ValidateCouponRequest, ValidateCouponResponse } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { apiClient } from "./client";
 
 /** Every currently-usable coupon for this brand — powers the Cart screen's "Apply Coupon" browse
@@ -17,17 +16,9 @@ export function useActiveCoupons(brandId: string | undefined) {
   });
 }
 
-/** Thrown with the server's own message ("Add ₹50 more to use this coupon", "This coupon has
- * expired", etc.) — the generic axios error message ("Request failed with status code 400")
- * would otherwise be the only thing surfaced to the customer. */
+// The server's own message ("Add ₹50 more to use this coupon", "This coupon has expired", etc.)
+// ends up as the thrown error's `.message` automatically — see apiClient's response interceptor.
 export async function validateCouponRequest(payload: ValidateCouponRequest): Promise<ValidateCouponResponse> {
-  try {
-    const { data } = await apiClient.post<ValidateCouponResponse>("/coupons/validate", payload);
-    return data;
-  } catch (err) {
-    if (axios.isAxiosError(err) && typeof err.response?.data?.error === "string") {
-      throw new Error(err.response.data.error);
-    }
-    throw err;
-  }
+  const { data } = await apiClient.post<ValidateCouponResponse>("/coupons/validate", payload);
+  return data;
 }

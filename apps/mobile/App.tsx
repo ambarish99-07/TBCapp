@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { useAddressStore } from "./src/state/addressStore";
 import { useAuthStore } from "./src/state/authStore";
 import { useBrandStore } from "./src/state/brandStore";
 import { useCartStore } from "./src/state/cartStore";
@@ -19,6 +20,7 @@ export default function App() {
   const hydrateCart = useCartStore((state) => state.hydrate);
   const hydrateBrand = useBrandStore((state) => state.hydrate);
   const hydrateTiffinPreferences = useTiffinPreferencesStore((state) => state.hydrate);
+  const hydrateAddress = useAddressStore((state) => state.hydrate);
   const resolvedScheme = useThemeStore((state) => state.resolvedScheme);
 
   useEffect(() => {
@@ -28,7 +30,8 @@ export default function App() {
     hydrateCart();
     hydrateBrand();
     hydrateTiffinPreferences();
-  }, [hydrateAuth, hydrateTheme, hydratePaymentMethod, hydrateCart, hydrateBrand, hydrateTiffinPreferences]);
+    hydrateAddress();
+  }, [hydrateAuth, hydrateTheme, hydratePaymentMethod, hydrateCart, hydrateBrand, hydrateTiffinPreferences, hydrateAddress]);
 
   return (
     <SafeAreaProvider>

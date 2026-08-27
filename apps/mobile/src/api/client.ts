@@ -22,3 +22,15 @@ apiClient.interceptors.request.use((config) => {
 
   return config;
 });
+
+// Every screen's catch block already does `err instanceof Error ? err.message : "..."` to show
+// an Alert — without this, that message is axios's own generic "Request failed with status code
+// 400" rather than the server's actual reason (e.g. "we don't deliver to X yet"), which is far
+// more useful to the customer and was silently getting hidden everywhere at once.
+apiClient.interceptors.response.use(undefined, (error) => {
+  const serverMessage = error?.response?.data?.error;
+  if (typeof serverMessage === "string") {
+    error.message = serverMessage;
+  }
+  return Promise.reject(error);
+});

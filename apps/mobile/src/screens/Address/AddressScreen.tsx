@@ -5,9 +5,11 @@ import * as Location from "expo-location";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { searchPatnaAddresses, type AddressSuggestion } from "../../api/addressSearch.api";
+import { updateProfileRequest } from "../../api/auth.api";
 import { deleteSavedRecipient, fetchSavedRecipients } from "../../api/recipients.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
+import { useAuthStore } from "../../state/authStore";
 import { useTheme } from "../../state/themeStore";
 import { formatAddressLine } from "../../utils/formatAddress";
 import type { RootStackParamList } from "../../navigation/types";
@@ -17,6 +19,8 @@ type Props = NativeStackScreenProps<RootStackParamList, "Addresses">;
 export function AddressScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const setSelectedAddress = useAddressStore((state) => state.setSelectedAddress);
   const queryClient = useQueryClient();
 
@@ -55,9 +59,28 @@ export function AddressScreen({ navigation }: Props) {
     });
   }
 
-  function handleSelect(address: SavedRecipient) {
+  async function handleSelect(address: SavedRecipient) {
     setSelectedAddress({ label: address.label, city: address.city, line: formatAddressLine(address) });
     navigation.goBack();
+    // Writes through to the account's own address too — same reasoning as CartAddressButton's
+    // own handleSelect — otherwise Proceed to Pay stays gated despite a saved address being picked.
+    try {
+      updateUser(
+        await updateProfileRequest({
+          fullName: address.fullName,
+          email: user?.email,
+          phone: address.phone,
+          houseNumber: address.houseNumber,
+          area: address.area,
+          address: address.address,
+          landmark: address.landmark,
+          city: address.city,
+          pincode: address.pincode,
+        })
+      );
+    } catch {
+      // Best-effort — the selection above already went through either way.
+    }
   }
 
   async function handleDelete(id: string) {
