@@ -107,6 +107,12 @@ export function PickLocationScreen({ navigation }: Props) {
     });
   }
 
+  // Skips the map/search flow entirely — hands off to AddAddress with no prefill, since its
+  // params are all optional, so the customer can just type the whole address by hand.
+  function handleManualEntry() {
+    navigation.navigate("AddAddress", undefined);
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.searchWrap}>
@@ -117,6 +123,9 @@ export function PickLocationScreen({ navigation }: Props) {
           value={search}
           onChangeText={setSearch}
         />
+        <Pressable style={styles.manualEntryTab} onPress={handleManualEntry}>
+          <Text style={styles.manualEntryText}>Enter address manually ›</Text>
+        </Pressable>
         {isSearching && <Text style={styles.info}>Searching…</Text>}
         {suggestions.length > 0 && (
           <View style={styles.suggestionsBox}>
@@ -171,6 +180,8 @@ const makeStyles = (colors: ColorPalette) =>
       backgroundColor: colors.surface,
     },
     info: { fontSize: 12, color: colors.muted, marginTop: 6 },
+    manualEntryTab: { alignSelf: "flex-end", marginTop: theme.spacing(1) },
+    manualEntryText: { fontSize: 13, fontWeight: "700", color: colors.primary },
     // Floats over the map below it rather than pushing it down — a dropdown, not its own section.
     suggestionsBox: {
       position: "absolute",

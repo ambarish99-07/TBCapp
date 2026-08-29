@@ -187,12 +187,10 @@ export function MenuScreen({ navigation }: Props) {
             </Pressable>
             <Pressable style={styles.addressBar} onPress={() => navigation.navigate("Addresses")}>
               <Text style={styles.addressIcon}>🏠</Text>
-              <View style={styles.addressValueRow}>
-                <Text style={styles.addressValue} numberOfLines={1}>
-                  {selectedAddress ? `${selectedAddress.label} · ${selectedAddress.city}` : SUPPORTED_CITY}
-                </Text>
-                <Text style={styles.addressChevron}>▾</Text>
-              </View>
+              <Text style={styles.addressValue} numberOfLines={1}>
+                {selectedAddress ? selectedAddress.label : SUPPORTED_CITY}
+              </Text>
+              <Text style={styles.addressChevron}>▾</Text>
             </Pressable>
             <Pressable style={styles.search} onPress={() => navigation.navigate("Search")}>
               <Text style={styles.searchPlaceholder} numberOfLines={1}>
@@ -200,7 +198,10 @@ export function MenuScreen({ navigation }: Props) {
               </Text>
             </Pressable>
             <Pressable style={styles.cartButton} onPress={() => navigation.navigate("Cart")}>
-              <Text style={styles.cartButtonText}>🛒</Text>
+              {/* Vector icon, not the 🛒 emoji — an emoji's color is baked into its own glyph and
+                  ignores `color`, so it stayed pale next to the bold, colored "A" beside it no
+                  matter what. Same size as before (18) — just darkened, not enlarged. */}
+              <MaterialCommunityIcons name="cart-outline" size={18} color={colors.primary} />
               {cartItemCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>{cartItemCount > 9 ? "9+" : cartItemCount}</Text>
@@ -407,9 +408,11 @@ const makeStyles = (colors: ColorPalette) =>
     },
     // No longer flex:1 — the search bar (inserted between address and cart) needs that flexible
     // space instead, so the address block just sizes to its own content, shrinking if too long.
-    addressBar: { flexShrink: 1, maxWidth: 110, marginRight: theme.spacing(1) },
-    addressIcon: { fontSize: 18 },
-    addressValueRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+    // Single row (icon, label, chevron all inline) instead of icon-above-text — height matches
+    // avatarButton/cartButton so the home icon sits vertically centered with the avatar beside it,
+    // not floating above the address text on its own line.
+    addressBar: { flexDirection: "row", alignItems: "center", height: 40, flexShrink: 1, maxWidth: 110, marginRight: theme.spacing(1) },
+    addressIcon: { fontSize: 18, marginRight: 4 },
     addressValue: { fontSize: 16, fontWeight: "800", color: colors.primary, flexShrink: 1 },
     addressChevron: { fontSize: 14, fontWeight: "800", color: colors.primary, marginLeft: 4 },
     // Outline style matching the cart button beside it, instead of a solid filled circle.
@@ -436,9 +439,6 @@ const makeStyles = (colors: ColorPalette) =>
       justifyContent: "center",
       marginLeft: theme.spacing(1),
     },
-    // Bigger than before — the pale default emoji rendering read as washed-out next to the bold,
-    // clearly-colored "H" in the avatar circle beside it; a larger glyph reads darker/heavier.
-    cartButtonText: { fontSize: 22 },
     cartBadge: {
       position: "absolute",
       top: -6,

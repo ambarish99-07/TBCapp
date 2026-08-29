@@ -1,7 +1,8 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { updateProfileRequest } from "../../api/auth.api";
 import { createSavedRecipient } from "../../api/recipients.api";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
@@ -13,6 +14,14 @@ import { formatAddressLine } from "../../utils/formatAddress";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddAddress">;
+
+// The three address labels every customer picks from — "Other" covers anything that isn't
+// their own home or workplace (a friend's place, a relative's, etc.).
+const LABEL_OPTIONS: { key: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { key: "Home", icon: "home-outline" },
+  { key: "Work", icon: "briefcase-outline" },
+  { key: "Other", icon: "account-multiple-outline" },
+];
 
 export function AddAddressScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
@@ -39,6 +48,15 @@ export function AddAddressScreen({ route, navigation }: Props) {
     pincode: prefill?.pincode ?? "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  // Starts open (no label chosen yet) — shows all three tabs. Picking one collapses it down to
+  // just that tab; tapping the collapsed tab reopens the same three-tab row so the customer can
+  // switch to a different one, acting as its "dropdown".
+  const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(!form.label);
+
+  function handleSelectLabel(key: string) {
+    updateField("label", key);
+    setIsLabelPickerOpen(false);
+  }
 
   function updateField(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -85,7 +103,29 @@ export function AddAddressScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ padding: theme.spacing(2) }} keyboardShouldPersistTaps="handled">
-      <TextInput style={styles.input} placeholder="Label (e.g. Home, Work)" placeholderTextColor={colors.muted} value={form.label} onChangeText={(v) => updateField("label", v)} />
+      {isLabelPickerOpen ? (
+        <View style={styles.labelTabRow}>
+          {LABEL_OPTIONS.map((option) => {
+            const isActive = form.label === option.key;
+            return (
+              <Pressable
+                key={option.key}
+                style={[styles.labelTab, isActive && styles.labelTabActive]}
+                onPress={() => handleSelectLabel(option.key)}
+              >
+                <MaterialCommunityIcons name={option.icon} size={16} color={isActive ? "#fff" : colors.text} />
+                <Text style={[styles.labelTabText, isActive && styles.labelTabTextActive]}>{option.key}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : (
+        <Pressable style={styles.labelSelectedRow} onPress={() => setIsLabelPickerOpen(true)}>
+          <MaterialCommunityIcons name={LABEL_OPTIONS.find((o) => o.key === form.label)?.icon ?? "map-marker-outline"} size={16} color="#fff" />
+          <Text style={styles.labelSelectedText}>{form.label}</Text>
+          <Text style={styles.labelChevron}>⌄</Text>
+        </Pressable>
+      )}
       <TextInput style={styles.input} placeholder="Full name" placeholderTextColor={colors.muted} value={form.fullName} onChangeText={(v) => updateField("fullName", v)} />
       <TextInput style={styles.input} placeholder="Phone" placeholderTextColor={colors.muted} value={form.phone} onChangeText={(v) => updateField("phone", v)} keyboardType="phone-pad" />
       <TextInput style={styles.input} placeholder="House / flat number" placeholderTextColor={colors.muted} value={form.houseNumber} onChangeText={(v) => updateField("houseNumber", v)} />
@@ -116,6 +156,35 @@ const makeStyles = (colors: ColorPalette) =>
       backgroundColor: colors.surface,
     },
     cityFixed: { fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: theme.spacing(1.5) },
+    labelTabRow: { flexDirection: "row", gap: theme.spacing(1), marginBottom: theme.spacing(1.5) },
+    labelTab: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: theme.spacing(1),
+      borderRadius: theme.radius,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    labelTabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    labelTabText: { fontSize: 13, fontWeight: "700", color: colors.text },
+    labelTabTextActive: { color: "#fff" },
+    labelSelectedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 6,
+      paddingVertical: theme.spacing(1),
+      paddingHorizontal: theme.spacing(1.5),
+      borderRadius: theme.radius,
+      backgroundColor: colors.primary,
+      marginBottom: theme.spacing(1.5),
+    },
+    labelSelectedText: { fontSize: 13, fontWeight: "700", color: "#fff" },
+    labelChevron: { fontSize: 12, fontWeight: "800", color: "#fff", marginLeft: 2 },
     saveButton: { padding: theme.spacing(1.5), alignItems: "center", borderRadius: theme.radius, backgroundColor: colors.primary, marginTop: theme.spacing(1) },
     saveButtonText: { color: "#fff", fontWeight: "700" },
   });
