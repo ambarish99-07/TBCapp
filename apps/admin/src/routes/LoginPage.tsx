@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../auth/AdminAuthContext.js";
+import { Button } from "../components/ui/Button.js";
+import { Input } from "../components/ui/Input.js";
 
 export function LoginPage() {
   const { login } = useAdminAuth();
@@ -21,19 +23,18 @@ export function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto" }}>
-      <h1>Lickyeat Admin</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+    <div className="flex min-h-screen items-center justify-center bg-surface/40">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-border bg-white p-8 shadow-sm">
+        <h1 className="mb-1 text-xl font-extrabold text-primary-dark">Lickyeat</h1>
+        <p className="mb-6 text-sm text-muted">Sign in to the admin dashboard</p>
+        <div className="flex flex-col gap-3">
+          <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+          <Input placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
         </div>
-        <div style={{ marginTop: 8 }}>
-          <input placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
-        </div>
-        {error && <p style={{ color: "#B3261E" }}>{error}</p>}
-        <button type="submit" style={{ marginTop: 16 }}>
+        {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
+        <Button type="submit" className="mt-5 w-full">
           Log In
-        </button>
+        </Button>
       </form>
     </div>
   );

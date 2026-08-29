@@ -4,6 +4,9 @@ import { useParams } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
 import { StatusAdvanceControl } from "../components/StatusAdvanceControl.js";
 import { StatusBadge } from "../components/StatusBadge.js";
+import { Button } from "../components/ui/Button.js";
+import { Card } from "../components/ui/Card.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,64 +43,71 @@ export function OrderDetailPage() {
     );
   }
 
-  if (!order) return <p>Loading…</p>;
+  if (!order) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
     <div>
-      <h1>
-        {order.orderNumber} <StatusBadge status={order.status} />
-      </h1>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            {order.orderNumber} <StatusBadge status={order.status} />
+          </span>
+        }
+      />
 
-      <section>
-        <h3>Customer / Order Owner</h3>
-        <p>{order.customer?.name ?? order.delivery.fullName}</p>
-        {order.customer?.phone && <p>{order.customer.phone}</p>}
-        {!order.customer && <p style={{ color: "#8A7B6C" }}>Guest checkout — no account</p>}
-      </section>
+      <div className="flex flex-col gap-4">
+        <Card title="Customer / Order Owner">
+          <p className="text-sm font-medium">{order.customer?.name ?? order.delivery.fullName}</p>
+          {order.customer?.phone && <p className="text-sm text-muted">{order.customer.phone}</p>}
+          {!order.customer && <p className="text-sm text-muted">Guest checkout — no account</p>}
+        </Card>
 
-      <section style={order.deliveryFor === "recipient" ? { border: "1px solid #B3261E", borderRadius: 8, padding: 12 } : undefined}>
-        <h3>{order.deliveryFor === "recipient" ? "🚨 Delivery Recipient (not the customer)" : "Delivery Recipient (self)"}</h3>
-        <p>{order.delivery.fullName}</p>
-        <p>{order.delivery.phone}</p>
-        <p>
-          {[order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ")}, {order.delivery.city}{" "}
-          {order.delivery.pincode}
-        </p>
-        {order.delivery.landmark && <p>Landmark: {order.delivery.landmark}</p>}
-        {order.delivery.specialInstructions && <p>Instructions: {order.delivery.specialInstructions}</p>}
-      </section>
+        <Card
+          className={order.deliveryFor === "recipient" ? "border-danger/40 bg-danger-soft/40" : undefined}
+          title={order.deliveryFor === "recipient" ? "🚨 Delivery Recipient (not the customer)" : "Delivery Recipient (self)"}
+        >
+          <p className="text-sm font-medium">{order.delivery.fullName}</p>
+          <p className="text-sm">{order.delivery.phone}</p>
+          <p className="text-sm">
+            {[order.delivery.houseNumber, order.delivery.area, order.delivery.address].filter(Boolean).join(", ")},{" "}
+            {order.delivery.city} {order.delivery.pincode}
+          </p>
+          {order.delivery.landmark && <p className="text-sm text-muted">Landmark: {order.delivery.landmark}</p>}
+          {order.delivery.specialInstructions && (
+            <p className="text-sm text-muted">Instructions: {order.delivery.specialInstructions}</p>
+          )}
+        </Card>
 
-      <section>
-        <h3>Items</h3>
-        <ul>
-          {order.items.map((line) => (
-            <li key={line.lineId}>
-              {line.quantity}× {line.signatureName} — ₹{line.unitPrice}
-            </li>
-          ))}
-        </ul>
-      </section>
+        <Card title="Items">
+          <ul className="flex flex-col gap-1.5">
+            {order.items.map((line) => (
+              <li key={line.lineId} className="text-sm">
+                {line.quantity}× {line.signatureName} — ₹{line.unitPrice}
+              </li>
+            ))}
+          </ul>
+        </Card>
 
-      <section>
-        <h3>Totals</h3>
-        <p>Total: ₹{order.totals.total}</p>
-        <p>
-          Payment: {order.payment.method} · {order.payment.status}
-        </p>
-      </section>
+        <Card title="Totals">
+          <p className="text-sm font-semibold">Total: ₹{order.totals.total}</p>
+          <p className="text-sm text-muted">
+            Payment: {order.payment.method} · {order.payment.status}
+          </p>
+        </Card>
 
-      <section>
-        <h3>Update Status</h3>
-        <StatusAdvanceControl status={order.status} onAdvance={handleAdvance} onCancel={handleCancel} />
-      </section>
+        <Card title="Update Status">
+          <StatusAdvanceControl status={order.status} onAdvance={handleAdvance} onCancel={handleCancel} />
+        </Card>
 
-      {order.userId && (
-        <section>
-          <h3>WhatsApp Recommendation</h3>
-          <button onClick={handleRecommend}>Send product recommendation</button>
-          {recommendMessage && <p>{recommendMessage}</p>}
-        </section>
-      )}
+        {order.userId && (
+          <Card title="WhatsApp Recommendation">
+            <Button variant="secondary" onClick={handleRecommend}>
+              Send product recommendation
+            </Button>
+            {recommendMessage && <p className="mt-2 text-sm text-muted">{recommendMessage}</p>}
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

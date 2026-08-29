@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Same tokens as the mobile app's theme.ts (light palette) — one consistent Lickyeat brand
+ * across the customer app and this internal dashboard, rather than the old orange/brown
+ * left over from before the mobile app's rebrand. Admin is light-mode only for now. */
+@theme {
+  --color-primary: #2e9bff;
+  --color-primary-dark: #1a7fe0;
+  --color-accent: #f5a623;
+  --color-background: #ffffff;
+  --color-surface: #f7f3ef;
+  --color-text: #241c15;
+  --color-muted: #8a7b6c;
+  --color-border: #e4dcd3;
+  --color-danger: #b3261e;
+  --color-danger-soft: #fbeae8;
+  --color-success: #1faa59;
+  --color-success-soft: #e9f7ee;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}

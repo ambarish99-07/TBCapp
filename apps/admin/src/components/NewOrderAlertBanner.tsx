@@ -2,6 +2,7 @@ import type { Order } from "@tbc/shared-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { primeAlertSound } from "../notifications/alertSound.js";
+import { Button } from "./ui/Button.js";
 
 interface Props {
   newOrders: Order[];
@@ -26,35 +27,43 @@ export function NewOrderAlertBanner({ newOrders, onDismiss, onDismissAll }: Prop
   return (
     <div>
       {!notificationsEnabled && (
-        <div style={styles.enableBar}>
+        <div className="flex items-center justify-between gap-3 bg-surface px-4 py-2 text-sm text-text">
           <span>Enable desktop alerts so a new order beeps and pops up even if this tab isn't focused.</span>
-          <button onClick={handleEnableAlerts}>Enable Alerts</button>
+          <Button variant="secondary" onClick={handleEnableAlerts}>
+            Enable Alerts
+          </Button>
         </div>
       )}
 
       {newOrders.length > 0 && (
-        <div style={styles.sosBar}>
-          <div style={styles.sosHeader}>
-            <strong>🚨 {newOrders.length} new order{newOrders.length > 1 ? "s" : ""} — start preparing</strong>
-            <button onClick={onDismissAll} style={styles.dismissAllButton}>
+        <div className="bg-danger px-4 py-3 text-white">
+          <div className="mb-2 flex items-center justify-between">
+            <strong>
+              🚨 {newOrders.length} new order{newOrders.length > 1 ? "s" : ""} — start preparing
+            </strong>
+            <button
+              onClick={onDismissAll}
+              className="rounded border border-white px-2 py-0.5 text-sm hover:bg-white/10"
+            >
               Dismiss all
             </button>
           </div>
           {newOrders.map((order) => (
-            <div key={order.id} style={styles.orderRow}>
+            <div key={order.id} className="flex items-center justify-between border-t border-white/30 py-1">
               <span>
                 {order.orderNumber} · {order.delivery.fullName} · ₹{order.totals.total}
               </span>
-              <span>
+              <span className="flex gap-2">
                 <button
                   onClick={() => {
                     onDismiss(order.id);
                     navigate(`/orders/${order.id}`);
                   }}
+                  className="underline underline-offset-2 hover:no-underline"
                 >
                   View
                 </button>
-                <button onClick={() => onDismiss(order.id)} style={{ marginLeft: 8 }}>
+                <button onClick={() => onDismiss(order.id)} className="underline underline-offset-2 hover:no-underline">
                   Dismiss
                 </button>
               </span>
@@ -65,40 +74,3 @@ export function NewOrderAlertBanner({ newOrders, onDismiss, onDismissAll }: Prop
     </div>
   );
 }
-
-const styles = {
-  enableBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    padding: "8px 16px",
-    backgroundColor: "#F7F3EF",
-    fontSize: 13,
-  },
-  sosBar: {
-    padding: "12px 16px",
-    backgroundColor: "#B3261E",
-    color: "#fff",
-  },
-  sosHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  dismissAllButton: {
-    background: "transparent",
-    color: "#fff",
-    border: "1px solid #fff",
-    borderRadius: 4,
-    padding: "2px 8px",
-  },
-  orderRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "4px 0",
-    borderTop: "1px solid rgba(255,255,255,0.3)",
-  },
-} as const;

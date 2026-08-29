@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@tbc/shared-types";
+import { Button } from "./ui/Button.js";
 
 const FORWARD_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   received: "preparing",
@@ -17,12 +18,12 @@ export function StatusAdvanceControl({ status, onAdvance, onCancel }: Props) {
   const isTerminal = status === "delivered" || status === "cancelled";
 
   return (
-    <div style={{ display: "flex", gap: 8 }}>
-      {next && <button onClick={() => onAdvance(next)}>Advance to {next}</button>}
+    <div className="flex gap-2">
+      {next && <Button onClick={() => onAdvance(next)}>Advance to {next}</Button>}
       {!isTerminal && (
-        <button onClick={onCancel} style={{ color: "#B3261E" }}>
+        <Button variant="danger" onClick={onCancel}>
           Cancel order
-        </button>
+        </Button>
       )}
     </div>
   );

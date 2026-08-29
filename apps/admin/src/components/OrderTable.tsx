@@ -1,51 +1,55 @@
 import type { Order } from "@tbc/shared-types";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "./StatusBadge.js";
+import { EmptyState } from "./ui/EmptyState.js";
+import { Table, Td, Th, Thead, Tr } from "./ui/Table.js";
 
 export function OrderTable({ orders }: { orders: Order[] }) {
   if (orders.length === 0) {
-    return <p>No orders match this filter.</p>;
+    return <EmptyState message="No orders match this filter." />;
   }
 
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th align="left">Order #</th>
-          <th align="left">Customer</th>
-          <th align="left">Deliver To</th>
-          <th align="left">Status</th>
-          <th align="left">Total</th>
-          <th align="left">Payment</th>
-        </tr>
-      </thead>
+    <Table>
+      <Thead>
+        <Tr>
+          <Th>Order #</Th>
+          <Th>Customer</Th>
+          <Th>Deliver To</Th>
+          <Th>Status</Th>
+          <Th>Total</Th>
+          <Th>Payment</Th>
+        </Tr>
+      </Thead>
       <tbody>
         {orders.map((order) => {
           const isForRecipient = order.deliveryFor === "recipient";
           return (
-            <tr key={order.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-              <td>
-                <Link to={`/orders/${order.id}`}>{order.orderNumber}</Link>
-              </td>
-              <td>{order.customer?.name ?? order.delivery.fullName}</td>
-              <td>
+            <Tr key={order.id}>
+              <Td>
+                <Link to={`/orders/${order.id}`} className="font-semibold text-primary-dark hover:underline">
+                  {order.orderNumber}
+                </Link>
+              </Td>
+              <Td>{order.customer?.name ?? order.delivery.fullName}</Td>
+              <Td>
                 {isForRecipient ? (
-                  <span style={{ color: "#B3261E", fontWeight: 600 }}>👤 {order.delivery.fullName}</span>
+                  <span className="font-semibold text-danger">👤 {order.delivery.fullName}</span>
                 ) : (
-                  <span style={{ color: "#8A7B6C" }}>Self</span>
+                  <span className="text-muted">Self</span>
                 )}
-              </td>
-              <td>
+              </Td>
+              <Td>
                 <StatusBadge status={order.status} />
-              </td>
-              <td>₹{order.totals.total}</td>
-              <td>
+              </Td>
+              <Td>₹{order.totals.total}</Td>
+              <Td>
                 {order.payment.method} · {order.payment.status}
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           );
         })}
       </tbody>
-    </table>
+    </Table>
   );
 }

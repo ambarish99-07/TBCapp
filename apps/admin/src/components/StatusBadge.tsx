@@ -11,14 +11,8 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 export function StatusBadge({ status }: { status: OrderStatus }) {
   return (
     <span
-      style={{
-        backgroundColor: STATUS_COLORS[status],
-        color: "#fff",
-        borderRadius: 12,
-        padding: "2px 10px",
-        fontSize: 12,
-        fontWeight: 700,
-      }}
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold text-white"
+      style={{ backgroundColor: STATUS_COLORS[status] }}
     >
       {status}
     </span>

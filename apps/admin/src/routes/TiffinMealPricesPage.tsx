@@ -1,6 +1,12 @@
 import { SINGLE_MEAL_TYPES, TIFFIN_MEAL_TIERS, type SingleMealType, type TiffinMealPrice, type TiffinMealTier } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Button } from "../components/ui/Button.js";
+import { Card } from "../components/ui/Card.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Input, Select } from "../components/ui/Input.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const TIER_LABELS: Record<TiffinMealTier, string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
 const MEAL_TYPE_LABELS: Record<SingleMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
@@ -66,60 +72,72 @@ export function TiffinMealPricesPage() {
 
   return (
     <div>
-      <h1>GG Tiffin — Single-Meal Prices</h1>
+      <PageHeader title="GG Tiffin — Single-Meal Prices" />
 
-      <form onSubmit={handleCreate} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24, alignItems: "center" }}>
-        <select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as TiffinMealTier })}>
-          {TIFFIN_MEAL_TIERS.map((tier) => (
-            <option key={tier} value={tier}>
-              {TIER_LABELS[tier]}
-            </option>
-          ))}
-        </select>
-        <select value={form.mealType} onChange={(e) => setForm({ ...form, mealType: e.target.value as SingleMealType })}>
-          {SINGLE_MEAL_TYPES.map((mealType) => (
-            <option key={mealType} value={mealType}>
-              {MEAL_TYPE_LABELS[mealType]}
-            </option>
-          ))}
-        </select>
-        <input type="number" min={1} placeholder="Price (₹)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-        <button type="submit" disabled={isSubmitting}>
-          Add price
-        </button>
-      </form>
-      {error && <p style={{ color: "#B3261E" }}>{error}</p>}
-
-      {isLoading ? (
-        <p>Loading…</p>
-      ) : prices.length === 0 ? (
-        <p>No meal prices yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th align="left">Tier</th>
-              <th align="left">Meal</th>
-              <th align="left">Price</th>
-              <th align="left">Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {prices.map((price) => (
-              <tr key={price.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{TIER_LABELS[price.tier]}</td>
-                <td>{MEAL_TYPE_LABELS[price.mealType]}</td>
-                <td>
-                  <input type="number" defaultValue={price.price} style={{ width: 80 }} onBlur={(e) => handlePriceChange(price, e.target.value)} />
-                </td>
-                <td>
-                  <input type="checkbox" checked={price.active} onChange={() => handleToggleActive(price)} />
-                </td>
-              </tr>
+      <Card title="Add a price" className="mb-6">
+        <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
+          <Select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as TiffinMealTier })}>
+            {TIFFIN_MEAL_TIERS.map((tier) => (
+              <option key={tier} value={tier}>
+                {TIER_LABELS[tier]}
+              </option>
             ))}
-          </tbody>
-        </table>
-      )}
+          </Select>
+          <Select value={form.mealType} onChange={(e) => setForm({ ...form, mealType: e.target.value as SingleMealType })}>
+            {SINGLE_MEAL_TYPES.map((mealType) => (
+              <option key={mealType} value={mealType}>
+                {MEAL_TYPE_LABELS[mealType]}
+              </option>
+            ))}
+          </Select>
+          <Input
+            type="number"
+            min={1}
+            placeholder="Price (₹)"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            required
+            className="w-28"
+          />
+          <Button type="submit" disabled={isSubmitting}>
+            Add price
+          </Button>
+        </form>
+        {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
+      </Card>
+
+      <Card>
+        {isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : prices.length === 0 ? (
+          <EmptyState message="No meal prices yet." />
+        ) : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Tier</Th>
+                <Th>Meal</Th>
+                <Th>Price</Th>
+                <Th>Active</Th>
+              </Tr>
+            </Thead>
+            <tbody>
+              {prices.map((price) => (
+                <Tr key={price.id}>
+                  <Td>{TIER_LABELS[price.tier]}</Td>
+                  <Td>{MEAL_TYPE_LABELS[price.mealType]}</Td>
+                  <Td>
+                    <Input type="number" defaultValue={price.price} className="w-24" onBlur={(e) => handlePriceChange(price, e.target.value)} />
+                  </Td>
+                  <Td>
+                    <input type="checkbox" checked={price.active} onChange={() => handleToggleActive(price)} className="h-4 w-4 accent-primary" />
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

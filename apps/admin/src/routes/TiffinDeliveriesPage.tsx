@@ -7,6 +7,11 @@ import {
 } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Card } from "../components/ui/Card.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Select } from "../components/ui/Input.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const MEAL_STATUS_OPTIONS = TiffinScheduledMealStatusSchema.options;
 const SINGLE_MEAL_ORDER_STATUS_OPTIONS = TiffinSingleMealOrderStatusSchema.options;
@@ -54,132 +59,138 @@ export function TiffinDeliveriesPage() {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }, [meals]);
 
-  if (isLoading) return <p>Loading…</p>;
+  if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
     <div>
-      <h1>GG Tiffin Deliveries</h1>
+      <PageHeader title="GG Tiffin Deliveries" />
 
-      <h2>Today's Prep</h2>
-      {dishCounts.length === 0 ? (
-        <p>No meals scheduled for today.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th align="left">Dish</th>
-              <th align="left">Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dishCounts.map(([dish, count]) => (
-              <tr key={dish} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{dish}</td>
-                <td>{count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="flex flex-col gap-6">
+        <Card title="Today's Prep">
+          {dishCounts.length === 0 ? (
+            <EmptyState message="No meals scheduled for today." />
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Dish</Th>
+                  <Th>Count</Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {dishCounts.map(([dish, count]) => (
+                  <Tr key={dish}>
+                    <Td>{dish}</Td>
+                    <Td>{count}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
 
-      <h2>Today's Deliveries</h2>
-      {meals.length === 0 ? (
-        <p>No deliveries today.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th align="left">Dish</th>
-              <th align="left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {meals.map((meal) => (
-              <tr key={meal.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{meal.dishName}</td>
-                <td>
-                  <select value={meal.status} onChange={(e) => handleStatusChange(meal.id, e.target.value)}>
-                    {MEAL_STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <Card title="Today's Deliveries">
+          {meals.length === 0 ? (
+            <EmptyState message="No deliveries today." />
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Dish</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {meals.map((meal) => (
+                  <Tr key={meal.id}>
+                    <Td>{meal.dishName}</Td>
+                    <Td>
+                      <Select value={meal.status} onChange={(e) => handleStatusChange(meal.id, e.target.value)}>
+                        {MEAL_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </Select>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
 
-      <h2>Today's Single-Meal Orders</h2>
-      {singleMealOrders.length === 0 ? (
-        <p>No single-meal orders today.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-          <thead>
-            <tr>
-              <th align="left">Order #</th>
-              <th align="left">Diet</th>
-              <th align="left">Tier</th>
-              <th align="left">Meal</th>
-              <th align="left">Dish</th>
-              <th align="left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {singleMealOrders.map((order) => (
-              <tr key={order.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{order.orderNumber}</td>
-                <td>{order.dietType}</td>
-                <td>{order.tier}</td>
-                <td>
-                  {order.mealType}
-                  {order.carbChoice ? ` (${order.carbChoice})` : ""}
-                </td>
-                <td>{order.dishName}</td>
-                <td>
-                  <select value={order.status} onChange={(e) => handleSingleMealOrderStatusChange(order.id, e.target.value)}>
-                    {SINGLE_MEAL_ORDER_STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <Card title="Today's Single-Meal Orders">
+          {singleMealOrders.length === 0 ? (
+            <EmptyState message="No single-meal orders today." />
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Order #</Th>
+                  <Th>Diet</Th>
+                  <Th>Tier</Th>
+                  <Th>Meal</Th>
+                  <Th>Dish</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {singleMealOrders.map((order) => (
+                  <Tr key={order.id}>
+                    <Td>{order.orderNumber}</Td>
+                    <Td>{order.dietType}</Td>
+                    <Td>{order.tier}</Td>
+                    <Td>
+                      {order.mealType}
+                      {order.carbChoice ? ` (${order.carbChoice})` : ""}
+                    </Td>
+                    <Td>{order.dishName}</Td>
+                    <Td>
+                      <Select value={order.status} onChange={(e) => handleSingleMealOrderStatusChange(order.id, e.target.value)}>
+                        {SINGLE_MEAL_ORDER_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </Select>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
 
-      <h2>Active Subscribers</h2>
-      {subscriptions.length === 0 ? (
-        <p>No subscriptions yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th align="left">Subscription #</th>
-              <th align="left">Plan</th>
-              <th align="left">Status</th>
-              <th align="left">Start</th>
-              <th align="left">End</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subscriptions.map((sub) => (
-              <tr key={sub.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{sub.subscriptionNumber}</td>
-                <td>{sub.planName}</td>
-                <td>{sub.status}</td>
-                <td>{sub.startDate}</td>
-                <td>{sub.endDate}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <Card title="Active Subscribers">
+          {subscriptions.length === 0 ? (
+            <EmptyState message="No subscriptions yet." />
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Subscription #</Th>
+                  <Th>Plan</Th>
+                  <Th>Status</Th>
+                  <Th>Start</Th>
+                  <Th>End</Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {subscriptions.map((sub) => (
+                  <Tr key={sub.id}>
+                    <Td>{sub.subscriptionNumber}</Td>
+                    <Td>{sub.planName}</Td>
+                    <Td>{sub.status}</Td>
+                    <Td>{sub.startDate}</Td>
+                    <Td>{sub.endDate}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

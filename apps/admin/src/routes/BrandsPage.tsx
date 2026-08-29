@@ -1,6 +1,12 @@
 import type { Brand, BrandStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Button } from "../components/ui/Button.js";
+import { Card } from "../components/ui/Card.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Input, Select } from "../components/ui/Input.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const STATUS_OPTIONS: BrandStatus[] = ["live", "coming-soon"];
 
@@ -59,73 +65,79 @@ export function BrandsPage() {
 
   return (
     <div>
-      <h1>Brands</h1>
+      <PageHeader title="Brands" />
 
-      <form onSubmit={handleCreate} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24, alignItems: "center" }}>
-        <input placeholder="id (e.g. tbc)" value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} required />
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-        <input placeholder="Tagline" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
-        <input
-          placeholder="Primary color (#hex)"
-          value={form.primaryColor}
-          onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-        />
-        <input
-          placeholder="Accent color (#hex)"
-          value={form.accentColor}
-          onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-        />
-        <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as BrandStatus })}>
-          {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-        <button type="submit" disabled={isSubmitting}>
-          Add brand
-        </button>
-      </form>
-      {error && <p style={{ color: "#B3261E" }}>{error}</p>}
-
-      {isLoading ? (
-        <p>Loading…</p>
-      ) : brands.length === 0 ? (
-        <p>No brands yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th align="left">Id</th>
-              <th align="left">Name</th>
-              <th align="left">Tagline</th>
-              <th align="left">Status</th>
-              <th align="left"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {brands.map((brand) => (
-              <tr key={brand.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{brand.id}</td>
-                <td>{brand.name}</td>
-                <td>{brand.tagline ?? "—"}</td>
-                <td>
-                  <select value={brand.status} onChange={(e) => handleStatusChange(brand.id, e.target.value as BrandStatus)}>
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <button onClick={() => handleDelete(brand.id)}>Delete</button>
-                </td>
-              </tr>
+      <Card title="Add a brand" className="mb-6">
+        <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
+          <Input placeholder="id (e.g. tbc)" value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} required />
+          <Input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <Input placeholder="Tagline" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
+          <Input
+            placeholder="Primary color (#hex)"
+            value={form.primaryColor}
+            onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
+          />
+          <Input
+            placeholder="Accent color (#hex)"
+            value={form.accentColor}
+            onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+          />
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as BrandStatus })}>
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
             ))}
-          </tbody>
-        </table>
-      )}
+          </Select>
+          <Button type="submit" disabled={isSubmitting}>
+            Add brand
+          </Button>
+        </form>
+        {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
+      </Card>
+
+      <Card>
+        {isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : brands.length === 0 ? (
+          <EmptyState message="No brands yet." />
+        ) : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Id</Th>
+                <Th>Name</Th>
+                <Th>Tagline</Th>
+                <Th>Status</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
+            <tbody>
+              {brands.map((brand) => (
+                <Tr key={brand.id}>
+                  <Td>{brand.id}</Td>
+                  <Td>{brand.name}</Td>
+                  <Td>{brand.tagline ?? "—"}</Td>
+                  <Td>
+                    <Select value={brand.status} onChange={(e) => handleStatusChange(brand.id, e.target.value as BrandStatus)}>
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </Select>
+                  </Td>
+                  <Td>
+                    <Button variant="danger" onClick={() => handleDelete(brand.id)}>
+                      Delete
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

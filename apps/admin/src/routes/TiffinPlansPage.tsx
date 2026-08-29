@@ -1,6 +1,12 @@
 import { TIFFIN_PLAN_STYLES, type TiffinDietType, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Button } from "../components/ui/Button.js";
+import { Card } from "../components/ui/Card.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Input, Select } from "../components/ui/Input.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const DIET_OPTIONS: TiffinDietType[] = ["veg", "non-veg"];
 
@@ -72,85 +78,86 @@ export function TiffinPlansPage() {
 
   return (
     <div>
-      <h1>GG Tiffin Plans</h1>
+      <PageHeader title="GG Tiffin Plans" />
 
-      <form onSubmit={handleCreate} style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24, alignItems: "center" }}>
-        <input placeholder="Plan name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-        <select value={form.dietType} onChange={(e) => setForm({ ...form, dietType: e.target.value as TiffinDietType })}>
-          {DIET_OPTIONS.map((diet) => (
-            <option key={diet} value={diet}>
-              {diet}
-            </option>
-          ))}
-        </select>
-        <select value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value as TiffinPlanStyle })}>
-          {TIFFIN_PLAN_STYLES.map((style) => (
-            <option key={style} value={style}>
-              {STYLE_LABELS[style]}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={1}
-          placeholder="Duration (days)"
-          value={form.durationDays}
-          onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          min={1}
-          placeholder="Price (₹)"
-          value={form.price}
-          onChange={(e) => setForm({ ...form, price: e.target.value })}
-          required
-        />
-        <button type="submit" disabled={isSubmitting}>
-          Add plan
-        </button>
-      </form>
-      {error && <p style={{ color: "#B3261E" }}>{error}</p>}
-
-      {isLoading ? (
-        <p>Loading…</p>
-      ) : plans.length === 0 ? (
-        <p>No plans yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th align="left">Name</th>
-              <th align="left">Diet</th>
-              <th align="left">Style</th>
-              <th align="left">Duration</th>
-              <th align="left">Price</th>
-              <th align="left">Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {plans.map((plan) => (
-              <tr key={plan.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{plan.name}</td>
-                <td>{plan.dietType}</td>
-                <td>{STYLE_LABELS[plan.style]}</td>
-                <td>{plan.durationDays} days</td>
-                <td>
-                  <input
-                    type="number"
-                    defaultValue={plan.price}
-                    style={{ width: 80 }}
-                    onBlur={(e) => handlePriceChange(plan, e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input type="checkbox" checked={plan.active} onChange={() => handleToggleActive(plan)} />
-                </td>
-              </tr>
+      <Card title="Add a plan" className="mb-6">
+        <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
+          <Input placeholder="Plan name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <Select value={form.dietType} onChange={(e) => setForm({ ...form, dietType: e.target.value as TiffinDietType })}>
+            {DIET_OPTIONS.map((diet) => (
+              <option key={diet} value={diet}>
+                {diet}
+              </option>
             ))}
-          </tbody>
-        </table>
-      )}
+          </Select>
+          <Select value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value as TiffinPlanStyle })}>
+            {TIFFIN_PLAN_STYLES.map((style) => (
+              <option key={style} value={style}>
+                {STYLE_LABELS[style]}
+              </option>
+            ))}
+          </Select>
+          <Input
+            type="number"
+            min={1}
+            placeholder="Duration (days)"
+            value={form.durationDays}
+            onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
+            required
+            className="w-36"
+          />
+          <Input
+            type="number"
+            min={1}
+            placeholder="Price (₹)"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            required
+            className="w-28"
+          />
+          <Button type="submit" disabled={isSubmitting}>
+            Add plan
+          </Button>
+        </form>
+        {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
+      </Card>
+
+      <Card>
+        {isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : plans.length === 0 ? (
+          <EmptyState message="No plans yet." />
+        ) : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Name</Th>
+                <Th>Diet</Th>
+                <Th>Style</Th>
+                <Th>Duration</Th>
+                <Th>Price</Th>
+                <Th>Active</Th>
+              </Tr>
+            </Thead>
+            <tbody>
+              {plans.map((plan) => (
+                <Tr key={plan.id}>
+                  <Td>{plan.name}</Td>
+                  <Td>{plan.dietType}</Td>
+                  <Td>{STYLE_LABELS[plan.style]}</Td>
+                  <Td>{plan.durationDays} days</Td>
+                  <Td>
+                    <Input type="number" defaultValue={plan.price} className="w-24" onBlur={(e) => handlePriceChange(plan, e.target.value)} />
+                  </Td>
+                  <Td>
+                    <input type="checkbox" checked={plan.active} onChange={() => handleToggleActive(plan)} className="h-4 w-4 accent-primary" />
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

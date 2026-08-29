@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider, useAdminAuth } from "./auth/AdminAuthContext.js";
-import { AdminNav } from "./components/AdminNav.js";
+import { Layout } from "./components/Layout.js";
 import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
 import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
 import { BrandsPage } from "./routes/BrandsPage.js";
@@ -14,14 +14,9 @@ import { TiffinPlansPage } from "./routes/TiffinPlansPage.js";
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAdminAuth();
-  if (isLoading) return <p>Loading…</p>;
+  if (isLoading) return <p className="p-8 text-sm text-muted">Loading…</p>;
   if (!user) return <Navigate to="/login" replace />;
-  return (
-    <>
-      <AdminNav />
-      {children}
-    </>
-  );
+  return <Layout>{children}</Layout>;
 }
 
 /** Polls for new orders and shows the SOS-style alert banner for as long as an admin is logged in, on every page. */

@@ -1,6 +1,9 @@
 import type { Brand, Order, OrderStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Card } from "../components/ui/Card.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Select } from "../components/ui/Input.js";
 import { OrderTable } from "../components/OrderTable.js";
 
 const STATUS_FILTERS: { key: OrderStatus | "all"; label: string }[] = [
@@ -44,27 +47,31 @@ export function OrdersPage() {
 
   return (
     <div>
-      <h1>Orders</h1>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        {STATUS_FILTERS.map((filter) => (
-          <button
-            key={filter.key}
-            onClick={() => setStatusFilter(filter.key)}
-            style={{ fontWeight: statusFilter === filter.key ? 700 : 400 }}
-          >
-            {filter.label}
-          </button>
-        ))}
-        <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={{ marginLeft: 16 }}>
-          <option value="all">All brands</option>
-          {brands.map((brand) => (
-            <option key={brand.id} value={brand.id}>
-              {brand.name}
-            </option>
+      <PageHeader title="Orders" />
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {STATUS_FILTERS.map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setStatusFilter(filter.key)}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                statusFilter === filter.key ? "bg-primary text-white" : "bg-surface text-muted hover:text-text"
+              }`}
+            >
+              {filter.label}
+            </button>
           ))}
-        </select>
-      </div>
-      {isLoading ? <p>Loading…</p> : <OrderTable orders={orders} />}
+          <Select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} className="ml-auto">
+            <option value="all">All brands</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {isLoading ? <p className="text-sm text-muted">Loading…</p> : <OrderTable orders={orders} />}
+      </Card>
     </div>
   );
 }

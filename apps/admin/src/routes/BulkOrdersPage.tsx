@@ -1,6 +1,11 @@
 import type { BulkOrderInquiry, BulkOrderInquiryStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
+import { Card } from "../components/ui/Card.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Select } from "../components/ui/Input.js";
+import { PageHeader } from "../components/ui/PageHeader.js";
+import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const STATUS_OPTIONS: BulkOrderInquiryStatus[] = ["new", "contacted", "closed"];
 
@@ -24,59 +29,61 @@ export function BulkOrdersPage() {
     await reload();
   }
 
-  if (isLoading) return <p>Loading…</p>;
-
   return (
     <div>
-      <h1>Bulk Order Inquiries</h1>
-      {inquiries.length === 0 ? (
-        <p>No bulk order inquiries yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th align="left">Name</th>
-              <th align="left">Contact</th>
-              <th align="left">Occasion</th>
-              <th align="left">Quantity</th>
-              <th align="left">Preferred Date</th>
-              <th align="left">Message</th>
-              <th align="left">Received</th>
-              <th align="left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inquiries.map((inquiry) => (
-              <tr key={inquiry.id} style={{ borderTop: "1px solid #E4DCD3" }}>
-                <td>{inquiry.name}</td>
-                <td>
-                  {inquiry.phone}
-                  {inquiry.email && (
-                    <>
-                      <br />
-                      {inquiry.email}
-                    </>
-                  )}
-                </td>
-                <td>{inquiry.occasion ?? "—"}</td>
-                <td>{inquiry.estimatedQuantity ?? "—"}</td>
-                <td>{inquiry.preferredDate ?? "—"}</td>
-                <td>{inquiry.message ?? "—"}</td>
-                <td>{new Date(inquiry.createdAt).toLocaleString()}</td>
-                <td>
-                  <select value={inquiry.status} onChange={(e) => handleStatusChange(inquiry.id, e.target.value as BulkOrderInquiryStatus)}>
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <PageHeader title="Bulk Order Inquiries" />
+      <Card>
+        {isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : inquiries.length === 0 ? (
+          <EmptyState message="No bulk order inquiries yet." />
+        ) : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Name</Th>
+                <Th>Contact</Th>
+                <Th>Occasion</Th>
+                <Th>Quantity</Th>
+                <Th>Preferred Date</Th>
+                <Th>Message</Th>
+                <Th>Received</Th>
+                <Th>Status</Th>
+              </Tr>
+            </Thead>
+            <tbody>
+              {inquiries.map((inquiry) => (
+                <Tr key={inquiry.id}>
+                  <Td>{inquiry.name}</Td>
+                  <Td>
+                    {inquiry.phone}
+                    {inquiry.email && (
+                      <>
+                        <br />
+                        <span className="text-muted">{inquiry.email}</span>
+                      </>
+                    )}
+                  </Td>
+                  <Td>{inquiry.occasion ?? "—"}</Td>
+                  <Td>{inquiry.estimatedQuantity ?? "—"}</Td>
+                  <Td>{inquiry.preferredDate ?? "—"}</Td>
+                  <Td>{inquiry.message ?? "—"}</Td>
+                  <Td>{new Date(inquiry.createdAt).toLocaleString()}</Td>
+                  <Td>
+                    <Select value={inquiry.status} onChange={(e) => handleStatusChange(inquiry.id, e.target.value as BulkOrderInquiryStatus)}>
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </Select>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }
