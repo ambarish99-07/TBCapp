@@ -161,9 +161,17 @@ export function OrderHistoryScreen({ navigation }: Props) {
                 <Text style={styles.orderTotal}>₹{order.totals.total}</Text>
               </View>
 
-              <Pressable style={styles.reorderButton} onPress={() => handleReorder(order)}>
-                <Text style={styles.reorderButtonText}>↻ Reorder</Text>
-              </Pressable>
+              <View style={styles.actionsRow}>
+                <Pressable style={styles.reorderButton} onPress={() => handleReorder(order)}>
+                  <Text style={styles.reorderButtonText}>↻ Reorder</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.feedbackButton}
+                  onPress={() => navigation.navigate("OrderFeedback", { orderId: order.id, brandName: brand?.name ?? "this order" })}
+                >
+                  <Text style={styles.feedbackButtonText}>⭐ Rate & Review</Text>
+                </Pressable>
+              </View>
             </View>
           );
         }}
@@ -216,12 +224,22 @@ const makeStyles = (colors: ColorPalette) =>
     orderDate: { fontSize: 11, color: colors.muted },
     orderStatus: { fontSize: 12, fontWeight: "700", color: colors.primary, marginTop: 2 },
     orderTotal: { fontSize: 15, fontWeight: "800", color: colors.text },
+    actionsRow: { flexDirection: "row", gap: theme.spacing(1), marginTop: theme.spacing(1.5) },
     reorderButton: {
-      marginTop: theme.spacing(1.5),
+      flex: 1,
       backgroundColor: colors.primary,
       borderRadius: theme.radius,
       paddingVertical: theme.spacing(1),
       alignItems: "center",
     },
     reorderButtonText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+    feedbackButton: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      paddingVertical: theme.spacing(1),
+      alignItems: "center",
+    },
+    feedbackButtonText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
   });

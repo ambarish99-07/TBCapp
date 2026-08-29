@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AccountScreen } from "../screens/Account/AccountScreen";
 import { EditProfileScreen } from "../screens/Account/EditProfileScreen";
+import { OrderFeedbackScreen } from "../screens/Account/OrderFeedbackScreen";
 import { OrderHistoryScreen } from "../screens/Account/OrderHistoryScreen";
 import { AddAddressScreen } from "../screens/Address/AddAddressScreen";
 import { AddressScreen } from "../screens/Address/AddressScreen";
@@ -126,6 +127,7 @@ export function RootNavigator() {
               <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
               <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
               <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: "Order History" }} />
+              <Stack.Screen name="OrderFeedback" component={OrderFeedbackScreen} options={{ title: "Rate & Review" }} />
               <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
             </Stack.Navigator>
             <ActiveOrderPills />

@@ -6,6 +6,12 @@ import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import { sendProductRecommendation } from "../../integrations/whatsapp/sendRecommendation.js";
+import { getAnalyticsSummary } from "./analytics.service.js";
+
+export const getAnalytics: RequestHandler = async (_req, res) => {
+  const summary = await getAnalyticsSummary();
+  res.json(summary);
+};
 
 export const listOrders: RequestHandler = async (req, res) => {
   const { status, brandId } = req.query as { status?: string; brandId?: string };

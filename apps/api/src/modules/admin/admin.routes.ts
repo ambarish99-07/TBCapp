@@ -18,11 +18,18 @@ import {
   updateMealPriceAdmin,
   updateSingleMealOrderStatusAdmin,
 } from "../tiffin/singleMeal.controller.js";
-import { advanceOrderStatus, listOrders, recommendToCustomer } from "./admin.controller.js";
+import { listFeedbackAdmin, respondToFeedbackAdmin, updateFeedbackStatusAdmin } from "../feedback/feedback.controller.js";
+import { advanceOrderStatus, getAnalytics, listOrders, recommendToCustomer } from "./admin.controller.js";
 
 export function createAdminRouter(env: Env): Router {
   const router = Router();
   router.use(requireAuth(env.JWT_SECRET), requireAdmin);
+
+  router.get("/analytics", getAnalytics);
+
+  router.get("/feedback", listFeedbackAdmin);
+  router.patch("/feedback/:id/status", updateFeedbackStatusAdmin);
+  router.patch("/feedback/:id/respond", respondToFeedbackAdmin);
 
   router.get("/orders", listOrders);
   router.patch("/orders/:id/status", advanceOrderStatus);

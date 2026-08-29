@@ -1,6 +1,10 @@
 import type { SingleMealType } from "@tbc/shared-types";
+import { addIsoDays, istParts, todayIsoInIst } from "../../utils/istDate.js";
 
-const IST_TIME_ZONE = "Asia/Kolkata";
+// Re-exported so existing importers (singleMeal.service.ts, this file's own test) keep working
+// unchanged — the actual IST date math now lives in the shared utils/istDate.ts (also used by
+// admin analytics for its today/yesterday/last-N-days boundaries).
+export { todayIsoInIst };
 
 /** Local (IST) hour each same-day meal window closes — breakfast has no same-day window, see
  * `resolveSingleMealTargetDate` below. */
@@ -8,30 +12,6 @@ const MEAL_WINDOW_END_HOUR: Partial<Record<SingleMealType, number>> = {
   lunch: 14,
   dinner: 22,
 };
-
-function istParts(date: Date): { isoDate: string; hour: number } {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: IST_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const hour = get("hour");
-  return {
-    isoDate: `${get("year")}-${String(get("month")).padStart(2, "0")}-${String(get("day")).padStart(2, "0")}`,
-    // Some environments render midnight as "24" with hour12:false — normalize to 0.
-    hour: hour === 24 ? 0 : hour,
-  };
-}
-
-function addIsoDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
 
 /**
  * Breakfast is always ordered the night before for next-day delivery — there's no time to prep
@@ -51,10 +31,4 @@ export function resolveSingleMealTargetDate(mealType: SingleMealType, now: Date 
 
   const cutoffHour = endHour - 1;
   return hour < cutoffHour ? isoDate : addIsoDays(isoDate, 1);
-}
-
-/** Same IST-anchored "today" used above — keeps the admin's daily prep list aligned with the
- * dates single-meal orders actually get stored under. */
-export function todayIsoInIst(now: Date = new Date()): string {
-  return istParts(now).isoDate;
 }

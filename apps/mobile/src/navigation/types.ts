@@ -58,6 +58,8 @@ export type RootStackParamList = {
   Login: undefined;
   Account: undefined;
   OrderHistory: undefined;
+  // A delivered order's own combined review/complaint form — reached from Order History.
+  OrderFeedback: { orderId: string; brandName: string };
   EditProfile: undefined;
   Search: undefined;
   // Either a fixed browse category (categoryId) or a free-text query — CategoryResultsScreen

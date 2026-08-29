@@ -9,3 +9,5 @@ export * from "./browseCategory.js";
 export * from "./tiffin.js";
 export * from "./premiumMembership.js";
 export * from "./coupon.js";
+export * from "./analytics.js";
+export * from "./feedback.js";

@@ -10,7 +10,7 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
  * block. Replaces the bare `<section>`/`<div>` wrappers that had no visual separation before. */
 export function Card({ title, action, children, className = "", ...props }: Props) {
   return (
-    <div {...props} className={`rounded-xl border border-border bg-white p-5 shadow-sm ${className}`}>
+    <div {...props} className={`rounded-2xl border border-border bg-white p-5 shadow-sm ${className}`}>
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title && <h2 className="text-sm font-bold text-muted uppercase tracking-wide">{title}</h2>}
