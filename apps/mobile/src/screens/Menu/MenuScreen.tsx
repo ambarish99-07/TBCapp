@@ -412,7 +412,7 @@ const makeStyles = (colors: ColorPalette) =>
     // avatarButton/cartButton so the home icon sits vertically centered with the avatar beside it,
     // not floating above the address text on its own line.
     addressBar: { flexDirection: "row", alignItems: "center", height: 40, flexShrink: 1, maxWidth: 110, marginRight: theme.spacing(1) },
-    addressIcon: { fontSize: 18, marginRight: 4 },
+    addressIcon: { fontSize: 22, marginRight: 4 },
     addressValue: { fontSize: 16, fontWeight: "800", color: colors.primary, flexShrink: 1 },
     addressChevron: { fontSize: 14, fontWeight: "800", color: colors.primary, marginLeft: 4 },
     // Outline style matching the cart button beside it, instead of a solid filled circle.

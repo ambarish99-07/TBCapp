@@ -1,9 +1,15 @@
-import type { AnalyticsSummary } from "@tbc/shared-types";
+import { isComboLineId, type AnalyticsSummary } from "@tbc/shared-types";
 import { BrandModel } from "../../db/models/Brand.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { addIsoDays, istMidnightUtc, istParts, todayIsoInIst } from "../../utils/istDate.js";
+
+interface AnalyticsOrderLine {
+  menuItemId: string;
+  signatureName: string;
+  quantity: number;
+}
 
 interface AnalyticsOrder {
   createdAt: Date;
@@ -11,7 +17,11 @@ interface AnalyticsOrder {
   brandId: string;
   userId: string | null;
   total: number;
+  area: string;
+  items: AnalyticsOrderLine[];
 }
+
+const UNKNOWN_AREA = "Unknown";
 
 /** Order count (always) + revenue (cancelled orders excluded) for orders created in
  * `[since, until)` — either bound omitted means unbounded on that side. */
@@ -24,10 +34,10 @@ function periodStats(orders: AnalyticsOrder[], since: Date | null, until: Date |
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  const [orderDocs, brandDocs, totalMenuItems, totalCombos] = await Promise.all([
-    OrderModel.find().select("createdAt status brandId userId totals.total").lean(),
+  const [orderDocs, brandDocs, menuItemDocs, totalCombos] = await Promise.all([
+    OrderModel.find().select("createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity").lean(),
     BrandModel.find().select("name status").lean(),
-    MenuItemModel.countDocuments(),
+    MenuItemModel.find().select("signatureName brandId").lean(),
     ComboModel.countDocuments(),
   ]);
   const brandNameById = new Map(brandDocs.map((b) => [String(b._id), b.name]));
@@ -38,6 +48,8 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     brandId: o.brandId,
     userId: o.userId ? String(o.userId) : null,
     total: o.totals.total,
+    area: o.delivery?.area?.trim() || UNKNOWN_AREA,
+    items: o.items.map((line) => ({ menuItemId: line.menuItemId, signatureName: line.signatureName, quantity: line.quantity })),
   }));
 
   // All boundaries anchored to IST "today", not server-local time or the request's own instant —
@@ -65,6 +77,20 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   const byBrand = Array.from(byBrandMap.entries())
     .map(([brandId, stats]) => ({ brandId, brandName: brandNameById.get(brandId) ?? brandId, ...stats }))
     .sort((a, b) => b.orders - a.orders);
+
+  // Which delivery area (locality/neighborhood, not pincode) sends the most orders — capped to
+  // the top 10 so a long tail of one-off free-text areas doesn't bloat the payload.
+  const byAreaMap = new Map<string, { orders: number; revenue: number }>();
+  for (const o of orders) {
+    const entry = byAreaMap.get(o.area) ?? { orders: 0, revenue: 0 };
+    entry.orders += 1;
+    if (o.status !== "cancelled") entry.revenue += o.total;
+    byAreaMap.set(o.area, entry);
+  }
+  const byArea = Array.from(byAreaMap.entries())
+    .map(([area, stats]) => ({ area, ...stats }))
+    .sort((a, b) => b.orders - a.orders)
+    .slice(0, 10);
 
   // Monthly revenue trend — always exactly 12 months (oldest to newest), zero-filled for any
   // month with no orders, so a chart never has to special-case a gap.
@@ -104,6 +130,41 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     if (o.status !== "cancelled") hourlyBuckets[parts.hour].revenue += o.total;
   }
   const todayHourlyRevenue = hourlyBuckets.map((stats, hour) => ({ hour, ...stats }));
+
+  // Item preferences — combo lines (synthetic "combo:..." ids) are excluded since they aren't a
+  // single real menu item. `topItems` comes straight from what was actually ordered, so it stays
+  // correct even for an item since renamed or removed from the catalog; `leastItems` instead
+  // starts from the *current* live catalog so it can surface items with zero orders, which
+  // aggregating order lines alone could never reveal.
+  const itemStatsById = new Map<string, { name: string; brandId: string; totalQuantity: number; orderIds: Set<number> }>();
+  orders.forEach((o, orderIndex) => {
+    for (const line of o.items) {
+      if (isComboLineId(line.menuItemId)) continue;
+      const entry = itemStatsById.get(line.menuItemId) ?? { name: line.signatureName, brandId: o.brandId, totalQuantity: 0, orderIds: new Set() };
+      entry.totalQuantity += line.quantity;
+      entry.orderIds.add(orderIndex);
+      itemStatsById.set(line.menuItemId, entry);
+    }
+  });
+
+  const topItems = Array.from(itemStatsById.entries())
+    .map(([menuItemId, stats]) => ({ menuItemId, name: stats.name, brandId: stats.brandId, totalQuantity: stats.totalQuantity, orderCount: stats.orderIds.size }))
+    .sort((a, b) => b.totalQuantity - a.totalQuantity)
+    .slice(0, 5);
+
+  const leastItems = menuItemDocs
+    .map((item) => {
+      const stats = itemStatsById.get(String(item._id));
+      return {
+        menuItemId: String(item._id),
+        name: item.signatureName,
+        brandId: item.brandId,
+        totalQuantity: stats?.totalQuantity ?? 0,
+        orderCount: stats?.orderIds.size ?? 0,
+      };
+    })
+    .sort((a, b) => a.totalQuantity - b.totalQuantity)
+    .slice(0, 5);
 
   // Repeat vs. new customers, repeat vs. first-time orders — registered customers only (a guest
   // checkout has no account to link repeat behavior to; those orders are counted separately as
@@ -152,6 +213,9 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     repeatOrders,
     firstTimeOrders,
     byBrand,
+    byArea,
+    topItems,
+    leastItems,
     monthlyRevenue,
     weeklyRevenue,
     todayHourlyRevenue,
@@ -166,7 +230,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     },
     catalog: {
       totalBrands: brandDocs.filter((b) => b.status === "live").length,
-      totalMenuItems,
+      totalMenuItems: menuItemDocs.length,
       totalCombos,
     },
   };

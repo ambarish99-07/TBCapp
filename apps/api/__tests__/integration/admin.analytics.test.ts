@@ -3,6 +3,7 @@ import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { BrandModel } from "../../src/db/models/Brand.model.js";
+import { MenuItemModel } from "../../src/db/models/MenuItem.model.js";
 import { OrderModel } from "../../src/db/models/Order.model.js";
 import { UserModel } from "../../src/db/models/User.model.js";
 import { addIsoDays, istMidnightUtc, todayIsoInIst } from "../../src/utils/istDate.js";
@@ -155,5 +156,70 @@ describe("GET /admin/analytics", () => {
     expect(summary.catalog.totalBrands).toBe(2);
     expect(summary.catalog.totalMenuItems).toBe(0);
     expect(summary.catalog.totalCombos).toBe(0);
+  });
+
+  it("computes the delivery-area breakdown and best/least ordered items", async () => {
+    await MenuItemModel.create({
+      _id: "choco-crush",
+      brandId: "tbc",
+      signatureName: "Choco Crush",
+      commonName: "Rich Chocolate Shake",
+      description: "d",
+      price: 200,
+      category: "signature-shakes",
+      image: "x",
+    });
+    // Never ordered below — this is what should surface in leastItems with zero quantity, which
+    // aggregating order lines alone could never reveal.
+    await MenuItemModel.create({
+      _id: "mango-tango",
+      brandId: "tbc",
+      signatureName: "Mango Tango",
+      commonName: "Mango Shake",
+      description: "d",
+      price: 200,
+      category: "signature-shakes",
+      image: "x",
+    });
+
+    const area = (name: string) => ({ fullName: "Test", phone: "9999999999", address: "Addr", area: name, city: "Patna", pincode: "800001" });
+
+    await OrderModel.create(orderFixture({ delivery: area("Kankarbagh") }));
+    await OrderModel.create(
+      orderFixture({
+        delivery: area("Kankarbagh"),
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            signatureName: "Choco Crush",
+            commonName: "Rich Chocolate Shake",
+            unitPrice: 200,
+            originalUnitPrice: 200,
+            quantity: 3,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+      })
+    );
+    await OrderModel.create(orderFixture({ delivery: area("Boring Road") }));
+
+    const token = await adminToken();
+    const response = await request(app).get("/admin/analytics").set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    const summary = response.body;
+
+    const kankarbagh = summary.byArea.find((a: { area: string }) => a.area === "Kankarbagh");
+    expect(kankarbagh.orders).toBe(2);
+    const boringRoad = summary.byArea.find((a: { area: string }) => a.area === "Boring Road");
+    expect(boringRoad.orders).toBe(1);
+
+    expect(summary.topItems[0].menuItemId).toBe("choco-crush");
+    expect(summary.topItems[0].totalQuantity).toBe(5); // qty 1 + 3 + 1 across all three orders
+    expect(summary.topItems[0].orderCount).toBe(3); // all three orders include it
+
+    const leastItem = summary.leastItems.find((i: { menuItemId: string }) => i.menuItemId === "mango-tango");
+    expect(leastItem.totalQuantity).toBe(0);
+    expect(leastItem.orderCount).toBe(0);
   });
 });

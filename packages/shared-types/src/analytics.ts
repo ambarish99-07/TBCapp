@@ -62,6 +62,26 @@ export const AnalyticsCatalogStatsSchema = z.object({
 });
 export type AnalyticsCatalogStats = z.infer<typeof AnalyticsCatalogStatsSchema>;
 
+/** One delivery area's totals — `area` is the free-text locality/neighborhood field on the
+ * order's delivery address (e.g. "Kankarbagh"), not the pincode. */
+export const AnalyticsAreaStatsSchema = z.object({
+  area: z.string(),
+  orders: z.number(),
+  revenue: z.number(),
+});
+export type AnalyticsAreaStats = z.infer<typeof AnalyticsAreaStatsSchema>;
+
+/** One menu item's order-preference stats — `orderCount` is the number of distinct orders it
+ * appeared in (not summed with its own quantity across those orders, unlike `totalQuantity`). */
+export const AnalyticsItemStatsSchema = z.object({
+  menuItemId: z.string(),
+  name: z.string(),
+  brandId: z.string(),
+  totalQuantity: z.number(),
+  orderCount: z.number(),
+});
+export type AnalyticsItemStats = z.infer<typeof AnalyticsItemStatsSchema>;
+
 export const AnalyticsSummarySchema = z.object({
   ordersToday: AnalyticsPeriodStatsSchema,
   ordersYesterday: AnalyticsPeriodStatsSchema,
@@ -84,5 +104,13 @@ export const AnalyticsSummarySchema = z.object({
   todayHourlyRevenue: z.array(AnalyticsHourlyStatsSchema),
   customers: AnalyticsCustomerStatsSchema,
   catalog: AnalyticsCatalogStatsSchema,
+  // Sorted desc by order count, capped to the top 10 areas so the payload stays bounded even
+  // with a long tail of one-off free-text localities.
+  byArea: z.array(AnalyticsAreaStatsSchema),
+  // Best-sellers — from real order data, sorted desc by total quantity ordered, top 5.
+  topItems: z.array(AnalyticsItemStatsSchema),
+  // Least preferred among items currently on the menu (includes ones with zero orders, which a
+  // best-sellers-only view could never surface) — sorted asc by total quantity ordered, bottom 5.
+  leastItems: z.array(AnalyticsItemStatsSchema),
 });
 export type AnalyticsSummary = z.infer<typeof AnalyticsSummarySchema>;

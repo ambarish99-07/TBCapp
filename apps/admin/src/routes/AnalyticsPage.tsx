@@ -145,6 +145,76 @@ export function AnalyticsPage() {
         </Card>
       </div>
 
+      <Card title="Delivery Areas" description="Which neighborhood sends the most orders." className="mb-6">
+        {summary.byArea.length === 0 ? (
+          <EmptyState message="No orders yet." />
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {summary.byArea.map((area, i) => {
+              const pct = Math.round((area.orders / summary.byArea[0].orders) * 100);
+              return (
+                <div key={area.area} className="relative overflow-hidden rounded-lg bg-surface">
+                  <div className="absolute inset-y-0 left-0 bg-primary/15" style={{ width: `${pct}%` }} />
+                  <div className="relative flex items-center justify-between px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xs font-bold text-muted">#{i + 1}</span>
+                      <span className="text-sm font-semibold text-text">{area.area}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-text">{area.orders} order{area.orders === 1 ? "" : "s"}</p>
+                      <p className="text-xs text-muted">{formatRupees(area.revenue)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card title="Most Ordered" description="Best sellers, by total quantity ordered.">
+          {summary.topItems.length === 0 ? (
+            <EmptyState message="No orders yet." />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {summary.topItems.map((item, i) => (
+                <div key={item.menuItemId} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success-soft text-xs font-bold text-success">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm font-semibold text-text">{item.name}</span>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted">
+                    {item.totalQuantity} sold · {item.orderCount} order{item.orderCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card title="Least Ordered" description="Includes menu items that have never been ordered.">
+          {summary.leastItems.length === 0 ? (
+            <EmptyState message="No menu items yet." />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {summary.leastItems.map((item) => (
+                <div key={item.menuItemId} className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-text">{item.name}</span>
+                  <span
+                    className={`shrink-0 text-xs font-semibold ${item.totalQuantity === 0 ? "text-danger" : "text-muted"}`}
+                  >
+                    {item.totalQuantity === 0 ? "Never ordered" : `${item.totalQuantity} sold · ${item.orderCount} orders`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
       <Card title="Orders — Repeat vs. First-Time">
         <div className="grid grid-cols-3 gap-4">
           <Metric label="First-Time Orders" value={summary.firstTimeOrders} />
