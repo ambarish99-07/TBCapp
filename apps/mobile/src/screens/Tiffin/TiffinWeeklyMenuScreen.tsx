@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { TiffinDietType, TiffinMealTier, TiffinMealType } from "@tbc/shared-types";
+import type { DayOfWeek, TiffinDietType, TiffinMealTier, TiffinMealType } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTiffinWeeklyMenu } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
 import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
-import { composeFullDishName, singleMealDishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
+import { buildWeeklyMenuLookup, composeFullDishName, singleMealDishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinWeeklyMenu">;
@@ -24,7 +25,7 @@ const DIET_TABS: { key: TiffinDietType; label: string }[] = [
 const MEAL_TYPES: TiffinMealType[] = ["breakfast", "lunch", "dinner"];
 const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
-const JS_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const JS_DAY_NAMES: DayOfWeek[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const todayName = JS_DAY_NAMES[new Date().getDay()];
 
 /** A standalone browsable version of the real curated menu, across all three single-meal tiers —
@@ -35,9 +36,11 @@ export function TiffinWeeklyMenuScreen(_props: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const vegOnly = useTiffinPreferencesStore((state) => state.vegOnly);
+  const { data: dishes, isLoading } = useTiffinWeeklyMenu();
+  const lookup = useMemo(() => buildWeeklyMenuLookup(dishes ?? []), [dishes]);
   const [tier, setTier] = useState<TiffinMealTier>("regular");
   const [dietType, setDietType] = useState<TiffinDietType>("veg");
-  const [selectedDay, setSelectedDay] = useState(todayName);
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayName);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const visibleDietTabs = vegOnly ? DIET_TABS.filter((tab) => tab.key === "veg") : DIET_TABS;
 
@@ -47,7 +50,7 @@ export function TiffinWeeklyMenuScreen(_props: Props) {
     if (vegOnly) setDietType("veg");
   }, [vegOnly]);
 
-  function handlePickDay(day: string) {
+  function handlePickDay(day: DayOfWeek) {
     setSelectedDay(day);
     setDayPickerOpen(false);
   }
@@ -79,19 +82,22 @@ export function TiffinWeeklyMenuScreen(_props: Props) {
           <Text style={styles.daySelectorChevron}>▾</Text>
         </Pressable>
 
-        {MEAL_TYPES.map((mealType) => {
-          const dish = singleMealDishForDay(tier, dietType, selectedDay, mealType);
-          return (
-            <View key={mealType} style={styles.mealRow}>
-              <Text style={styles.mealType}>{MEAL_TYPE_LABELS[mealType]}</Text>
-              {dish ? (
-                <Text style={styles.mealDish}>{composeFullDishName(tier, mealType, dish)}</Text>
-              ) : (
-                <Text style={styles.mealUnavailable}>Not available for Mini Meal</Text>
-              )}
-            </View>
-          );
-        })}
+        {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: theme.spacing(2) }} />}
+
+        {!isLoading &&
+          MEAL_TYPES.map((mealType) => {
+            const dish = singleMealDishForDay(lookup, tier, dietType, selectedDay, mealType);
+            return (
+              <View key={mealType} style={styles.mealRow}>
+                <Text style={styles.mealType}>{MEAL_TYPE_LABELS[mealType]}</Text>
+                {dish ? (
+                  <Text style={styles.mealDish}>{composeFullDishName(tier, mealType, dish)}</Text>
+                ) : (
+                  <Text style={styles.mealUnavailable}>Not available for Mini Meal</Text>
+                )}
+              </View>
+            );
+          })}
       </ScrollView>
 
       <Modal visible={dayPickerOpen} animationType="fade" transparent onRequestClose={() => setDayPickerOpen(false)}>

@@ -160,62 +160,57 @@ export const TIFFIN_CARB_CHOICES = ["rice", "roti"] as const;
 export const TiffinCarbChoiceSchema = z.enum(TIFFIN_CARB_CHOICES);
 export type TiffinCarbChoice = z.infer<typeof TiffinCarbChoiceSchema>;
 
-export interface TiffinDailyMenu {
-  breakfast: string;
-  lunch: string;
-  dinner: string;
-}
+export const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+export const DayOfWeekSchema = z.enum(DAYS_OF_WEEK);
+export type DayOfWeek = z.infer<typeof DayOfWeekSchema>;
 
-/** Curated from the business's real Regular Tiffin weekly menu (veg) — roti + rice + daal + sabzi,
- * a distinct dish for breakfast/lunch/dinner each day. Mini reuses this table's lunch/dinner
- * dishes (same sabzi, just one carb) — it has no separate menu of its own. */
-export const TIFFIN_REGULAR_VEG_MENU: Record<string, TiffinDailyMenu> = {
-  Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
-  Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
-  Wednesday: { breakfast: "Upma", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
-  Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
-  Friday: { breakfast: "Poha", lunch: "Rajma", dinner: "Matar Chole" },
-  Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
-  Sunday: { breakfast: "Puri with Chole & Achar", lunch: "Lauki Masala", dinner: "Dum Aloo" },
-};
+/**
+ * One admin-editable slot in GG Tiffin's single-meal weekly rotation — "on {dayOfWeek}, a
+ * {dietType} {tier} customer's {mealType} is {dishName}." This is the one source of truth for
+ * both the single-meal purchase menu and (via its `tier: "regular"` rows) subscription meal
+ * scheduling — replaces what used to be hardcoded weekly-menu tables plus several cascading
+ * "override" tables duplicated across the API and mobile app. Not every (tier, mealType)
+ * combination has a row — Mini has no breakfast at all.
+ */
+export const TiffinDishSchema = z.object({
+  id: z.string(),
+  tier: TiffinMealTierSchema,
+  dietType: TiffinDietTypeSchema,
+  mealType: SingleMealTypeSchema,
+  dayOfWeek: DayOfWeekSchema,
+  dishName: z.string().min(1),
+  /** Real dish photography — every slot gets one, uploaded from the admin panel. */
+  image: z.string().optional(),
+  /** False only for a dish that's already a complete two-part meal on its own (e.g. "Puri with
+   * Chole") — every other dish offers the usual staples + a top-up as add-ons. */
+  hasAddOns: z.boolean().default(true),
+  /** Only consulted for the Premium tier's staple list — Regular/Mini always offer plain rice. */
+  riceSubstitute: z.enum(["rice", "pulao"]).default("rice"),
+  /** This dish's own "extra portion" add-on name (must match a TiffinAddOnPrice row) — e.g.
+   * "Chicken piece" for a chicken curry. Unset for a plain veg dish: the add-on is then
+   * synthesized as "Extra {dishName}", priced at the shared "Extra Portion" add-on price. */
+  extraAddOnName: z.string().optional(),
+});
+export type TiffinDish = z.infer<typeof TiffinDishSchema>;
 
-/** Curated from the business's real Premium Tiffin weekly menu (veg) — same daily sabzi as
- * Regular, served with paratha + daal fry instead of roti + daal, plus an upgraded Sunday. */
-export const TIFFIN_PREMIUM_VEG_MENU: Record<string, TiffinDailyMenu> = {
-  Monday: { breakfast: "Masala Pasta", lunch: "Aloo Matar", dinner: "Aloo Gobhi" },
-  Tuesday: { breakfast: "Sandwich", lunch: "Aloo Parwal", dinner: "Lauki Masala" },
-  Wednesday: { breakfast: "Upma", lunch: "Aloo Soyabean", dinner: "Matar Paneer" },
-  Thursday: { breakfast: "Aloo Paratha with Curd & Achar", lunch: "Mushroom Masala", dinner: "Dum Aloo" },
-  Friday: { breakfast: "Poha", lunch: "Rajma", dinner: "Matar Chole" },
-  Saturday: { breakfast: "Sattu Paratha with Curd & Achar", lunch: "Aloo Gobhi", dinner: "Matar Mushroom" },
-  Sunday: { breakfast: "Idli / Dosa with Sambar & Chutney", lunch: "Paneer Butter Masala", dinner: "Puri with Chole" },
-};
+export const UpsertTiffinDishRequestSchema = TiffinDishSchema.omit({ id: true });
+export type UpsertTiffinDishRequest = z.infer<typeof UpsertTiffinDishRequestSchema>;
 
-/** Non-veg keeps the old Bread Omelette on Wednesday breakfast instead of veg's Upma — the one
- * breakfast day where non-veg still diverges from veg; every other breakfast day stays shared. */
-export const TIFFIN_NONVEG_BREAKFAST_OVERRIDES: Record<string, string> = {
-  Wednesday: "Bread Omelette",
-};
+/** A named add-on's shared flat price — the same "Rice" costs the same wherever it's offered, so
+ * its price lives here once rather than being repeated on every dish that offers it. Also holds
+ * the generic "Extra Portion" veg top-up price (see `TiffinDish.extraAddOnName`). */
+export const TiffinAddOnPriceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number().positive(),
+});
+export type TiffinAddOnPrice = z.infer<typeof TiffinAddOnPriceSchema>;
 
-/** Regular/Premium single-meal tiers, and every non-veg subscription (always Regular tier), swap
- * in a meat curry at dinner on these days — the real menu never has a non-veg item at both lunch
- * and dinner the same day; every other day/meal falls back to that tier's veg dish. The one
- * source of truth for this — don't duplicate it, two copies drifting apart is how "Monday = Fish"
- * turned into "Monday = Chicken" in one of them before. */
-export const TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES: Record<string, string> = {
-  Monday: "Fish Curry",
-  Wednesday: "Egg Curry",
-  Friday: "Chicken Curry",
-};
-/** Premium's one extra non-veg upgrade beyond Regular's dinner swaps — Mutton at Sunday lunch. */
-export const TIFFIN_PREMIUM_NONVEG_LUNCH_OVERRIDES: Record<string, string> = {
-  Sunday: "Mutton Curry",
-};
-/** Mini deliberately has fewer non-veg days than Regular/Premium — just these two, both dinner. */
-export const TIFFIN_MINI_NONVEG_DINNER_OVERRIDES: Record<string, string> = {
-  Friday: "Egg Curry",
-  Sunday: "Chicken Curry",
-};
+export const UpsertTiffinAddOnPriceRequestSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().positive(),
+});
+export type UpsertTiffinAddOnPriceRequest = z.infer<typeof UpsertTiffinAddOnPriceRequestSchema>;
 
 /** Admin-configurable price per (tier, mealType) — never hardcoded, same convention as
  * `TiffinPlanSchema.price`. Not every combo need exist (e.g. Mini has no breakfast row). */

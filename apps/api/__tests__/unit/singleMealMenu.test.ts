@@ -1,12 +1,53 @@
 import { describe, expect, it } from "vitest";
-import { dayNameForDate, getSingleMealDish, resolveAddOns } from "../../src/modules/tiffin/singleMealMenu.js";
+import { dayNameForDate, resolveAddOns, resolveDishSlot, type DishSlot, type SingleMealDishLookup } from "../../src/modules/tiffin/singleMealMenu.js";
 
 // 2026-08-17 is a Monday, 2026-08-19 is Wednesday, 2026-08-21 is Friday, 2026-08-23 is the
 // following Sunday (same fixed week tiffinSchedule.test.ts uses).
 const MONDAY = "2026-08-17";
 const WEDNESDAY = "2026-08-19";
-const FRIDAY = "2026-08-21";
 const SUNDAY = "2026-08-23";
+
+function slot(overrides: Partial<DishSlot> & Pick<DishSlot, "dishName">): DishSlot {
+  return { hasAddOns: true, riceSubstitute: "rice", ...overrides };
+}
+
+// A small fixture standing in for the DB — real behavior now lives in seeded `TiffinDish` rows
+// (see tiffinDishSeedData.ts), not hardcoded tables, so these tests build just enough of a
+// lookup to exercise resolveDishSlot/resolveAddOns' own logic.
+function fixtureLookup(): SingleMealDishLookup {
+  return new Map<string, DishSlot>([
+    ["regular|veg|breakfast|Monday", slot({ dishName: "Masala Pasta", hasAddOns: false })],
+    ["regular|veg|lunch|Monday", slot({ dishName: "Aloo Matar" })],
+    ["regular|veg|dinner|Monday", slot({ dishName: "Aloo Gobhi" })],
+    ["regular|veg|breakfast|Wednesday", slot({ dishName: "Upma", hasAddOns: false })],
+    ["regular|non-veg|breakfast|Wednesday", slot({ dishName: "Bread Omelette", hasAddOns: false })],
+    ["regular|non-veg|dinner|Monday", slot({ dishName: "Fish Curry", extraAddOnName: "Fish piece" })],
+    ["regular|non-veg|dinner|Wednesday", slot({ dishName: "Egg Curry", extraAddOnName: "Egg piece" })],
+    ["regular|non-veg|lunch|Monday", slot({ dishName: "Aloo Matar" })],
+    ["regular|veg|breakfast|Sunday", slot({ dishName: "Puri with Chole & Achar", hasAddOns: false })],
+    ["premium|veg|breakfast|Sunday", slot({ dishName: "Idli / Dosa with Sambar & Chutney", hasAddOns: false })],
+    ["premium|veg|lunch|Sunday", slot({ dishName: "Paneer Butter Masala", riceSubstitute: "pulao" })],
+    ["premium|veg|dinner|Sunday", slot({ dishName: "Puri with Chole", hasAddOns: false })],
+    ["premium|non-veg|lunch|Sunday", slot({ dishName: "Mutton Curry", riceSubstitute: "pulao", extraAddOnName: "Mutton piece" })],
+    ["premium|non-veg|dinner|Sunday", slot({ dishName: "Puri with Chole", hasAddOns: false })],
+    ["mini|veg|lunch|Monday", slot({ dishName: "Aloo Matar" })],
+    ["mini|veg|dinner|Monday", slot({ dishName: "Aloo Gobhi" })],
+    ["mini|non-veg|dinner|Wednesday", slot({ dishName: "Egg Curry", extraAddOnName: "Egg piece" })],
+  ]);
+}
+
+const addOnPrices = new Map([
+  ["Rice", 20],
+  ["Roti", 10],
+  ["Daal", 20],
+  ["Paratha", 15],
+  ["Pulao", 25],
+  ["Fish piece", 45],
+  ["Egg piece", 15],
+  ["Chicken piece", 40],
+  ["Mutton piece", 60],
+  ["Extra Portion", 30],
+]);
 
 describe("dayNameForDate", () => {
   it("resolves an ISO date to its weekday name", () => {
@@ -15,71 +56,28 @@ describe("dayNameForDate", () => {
   });
 });
 
-describe("getSingleMealDish — veg", () => {
-  it("resolves Regular's breakfast/lunch/dinner from the curated real menu", () => {
-    expect(getSingleMealDish("regular", "veg", "breakfast", MONDAY)).toBe("Masala Pasta");
-    expect(getSingleMealDish("regular", "veg", "lunch", MONDAY)).toBe("Aloo Matar");
-    expect(getSingleMealDish("regular", "veg", "dinner", MONDAY)).toBe("Aloo Gobhi");
+describe("resolveDishSlot", () => {
+  const lookup = fixtureLookup();
+
+  it("resolves a dish from the lookup for a given tier/diet/mealType/date", () => {
+    expect(resolveDishSlot(lookup, "regular", "veg", "lunch", MONDAY)?.dishName).toBe("Aloo Matar");
+    expect(resolveDishSlot(lookup, "regular", "non-veg", "dinner", MONDAY)?.dishName).toBe("Fish Curry");
+    expect(resolveDishSlot(lookup, "premium", "veg", "lunch", SUNDAY)?.dishName).toBe("Paneer Butter Masala");
   });
 
-  it("resolves Premium's upgraded Sunday menu", () => {
-    expect(getSingleMealDish("premium", "veg", "breakfast", SUNDAY)).toBe("Idli / Dosa with Sambar & Chutney");
-    expect(getSingleMealDish("premium", "veg", "lunch", SUNDAY)).toBe("Paneer Butter Masala");
-    expect(getSingleMealDish("premium", "veg", "dinner", SUNDAY)).toBe("Puri with Chole");
+  it("returns null when no row exists for the combination (e.g. Mini + breakfast)", () => {
+    expect(resolveDishSlot(lookup, "mini", "veg", "breakfast", MONDAY)).toBeNull();
   });
 
-  it("Premium matches Regular Monday-Saturday — only Sunday is upgraded", () => {
-    expect(getSingleMealDish("premium", "veg", "lunch", MONDAY)).toBe(getSingleMealDish("regular", "veg", "lunch", MONDAY));
-    expect(getSingleMealDish("premium", "veg", "breakfast", FRIDAY)).toBe("Poha");
-    expect(getSingleMealDish("regular", "veg", "breakfast", FRIDAY)).toBe("Poha");
-  });
-
-  it("Mini reuses Regular's lunch/dinner dish and offers no breakfast", () => {
-    expect(getSingleMealDish("mini", "veg", "lunch", MONDAY)).toBe(getSingleMealDish("regular", "veg", "lunch", MONDAY));
-    expect(getSingleMealDish("mini", "veg", "dinner", MONDAY)).toBe(getSingleMealDish("regular", "veg", "dinner", MONDAY));
-    expect(getSingleMealDish("mini", "veg", "breakfast", MONDAY)).toBeNull();
-  });
-});
-
-describe("getSingleMealDish — non-veg", () => {
-  it("Regular swaps in a meat curry at dinner on Mon/Wed/Fri only", () => {
-    expect(getSingleMealDish("regular", "non-veg", "dinner", MONDAY)).toBe("Fish Curry");
-    expect(getSingleMealDish("regular", "non-veg", "dinner", WEDNESDAY)).toBe("Egg Curry");
-    expect(getSingleMealDish("regular", "non-veg", "dinner", FRIDAY)).toBe("Chicken Curry");
-    // Lunch isn't overridden — falls back to the veg dish, same as any other non-curry day.
-    expect(getSingleMealDish("regular", "non-veg", "lunch", MONDAY)).toBe(getSingleMealDish("regular", "veg", "lunch", MONDAY));
-  });
-
-  it("Regular falls back to the veg dish on days with no non-veg override", () => {
-    expect(getSingleMealDish("regular", "non-veg", "dinner", SUNDAY)).toBe(getSingleMealDish("regular", "veg", "dinner", SUNDAY));
-  });
-
-  it("keeps the old Bread Omelette for non-veg's Wednesday breakfast, while veg gets Upma", () => {
-    expect(getSingleMealDish("regular", "non-veg", "breakfast", WEDNESDAY)).toBe("Bread Omelette");
-    expect(getSingleMealDish("regular", "veg", "breakfast", WEDNESDAY)).toBe("Upma");
-    expect(getSingleMealDish("premium", "non-veg", "breakfast", WEDNESDAY)).toBe("Bread Omelette");
-  });
-
-  it("Premium shares Regular's Mon/Wed/Fri dinner swaps, plus Mutton at Sunday lunch", () => {
-    expect(getSingleMealDish("premium", "non-veg", "dinner", MONDAY)).toBe("Fish Curry");
-    expect(getSingleMealDish("premium", "non-veg", "dinner", WEDNESDAY)).toBe("Egg Curry");
-    expect(getSingleMealDish("premium", "non-veg", "dinner", FRIDAY)).toBe("Chicken Curry");
-    expect(getSingleMealDish("premium", "non-veg", "lunch", SUNDAY)).toBe("Mutton Curry");
-    // Sunday dinner isn't overridden for non-veg — falls back to Premium's veg Sunday dinner.
-    expect(getSingleMealDish("premium", "non-veg", "dinner", SUNDAY)).toBe(getSingleMealDish("premium", "veg", "dinner", SUNDAY));
-  });
-
-  it("Mini has only two non-veg days (Friday and Sunday dinner) — Monday/Wednesday stay veg", () => {
-    expect(getSingleMealDish("mini", "non-veg", "dinner", FRIDAY)).toBe("Egg Curry");
-    expect(getSingleMealDish("mini", "non-veg", "dinner", SUNDAY)).toBe("Chicken Curry");
-    expect(getSingleMealDish("mini", "non-veg", "dinner", MONDAY)).toBe(getSingleMealDish("regular", "veg", "dinner", MONDAY));
-    expect(getSingleMealDish("mini", "non-veg", "breakfast", FRIDAY)).toBeNull();
+  it("keeps the old Bread Omelette for non-veg's Wednesday breakfast, distinct from veg's Upma", () => {
+    expect(resolveDishSlot(lookup, "regular", "non-veg", "breakfast", WEDNESDAY)?.dishName).toBe("Bread Omelette");
+    expect(resolveDishSlot(lookup, "regular", "veg", "breakfast", WEDNESDAY)?.dishName).toBe("Upma");
   });
 });
 
 describe("resolveAddOns", () => {
   it("gives Regular rice, roti, daal, and an extra portion of the sabzi itself — each individually priced", () => {
-    expect(resolveAddOns("regular", "lunch", "Dum Aloo")).toEqual([
+    expect(resolveAddOns(addOnPrices, "regular", "lunch", slot({ dishName: "Dum Aloo" }))).toEqual([
       { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
       { name: "Daal", price: 20 },
@@ -87,47 +85,35 @@ describe("resolveAddOns", () => {
     ]);
   });
 
-  it("gives Premium pulao instead of rice for Mutton Curry and Paneer Butter Masala, and maps protein curries to a priced '{Protein} piece' add-on", () => {
-    expect(resolveAddOns("premium", "lunch", "Mutton Curry")).toEqual([
+  it("gives Premium pulao instead of rice when riceSubstitute is 'pulao', and uses the dish's own extraAddOnName for a protein curry", () => {
+    expect(resolveAddOns(addOnPrices, "premium", "lunch", slot({ dishName: "Mutton Curry", riceSubstitute: "pulao", extraAddOnName: "Mutton piece" }))).toEqual([
       { name: "Pulao", price: 25 },
       { name: "Paratha", price: 15 },
       { name: "Daal", price: 20 },
       { name: "Mutton piece", price: 60 },
     ]);
-    expect(resolveAddOns("premium", "lunch", "Paneer Butter Masala")).toEqual([
+    expect(resolveAddOns(addOnPrices, "premium", "lunch", slot({ dishName: "Paneer Butter Masala", riceSubstitute: "pulao" }))).toEqual([
       { name: "Pulao", price: 25 },
       { name: "Paratha", price: 15 },
       { name: "Daal", price: 20 },
       { name: "Extra Paneer Butter Masala", price: 30 },
     ]);
-    expect(resolveAddOns("premium", "dinner", "Chicken Curry")).toEqual([
+    expect(resolveAddOns(addOnPrices, "premium", "dinner", slot({ dishName: "Chicken Curry", extraAddOnName: "Chicken piece" }))).toEqual([
       { name: "Rice", price: 20 },
       { name: "Paratha", price: 15 },
       { name: "Daal", price: 20 },
       { name: "Chicken piece", price: 40 },
     ]);
-    expect(resolveAddOns("regular", "dinner", "Egg Curry")).toEqual([
-      { name: "Rice", price: 20 },
-      { name: "Roti", price: 10 },
-      { name: "Daal", price: 20 },
-      { name: "Egg piece", price: 15 },
-    ]);
-    expect(resolveAddOns("regular", "dinner", "Fish Curry")).toEqual([
-      { name: "Rice", price: 20 },
-      { name: "Roti", price: 10 },
-      { name: "Daal", price: 20 },
-      { name: "Fish piece", price: 45 },
-    ]);
   });
 
   it("offers Mini the same rice/roti/daal staples as Regular, even though its base meal is just roti + sabzi", () => {
-    expect(resolveAddOns("mini", "lunch", "Aloo Matar")).toEqual([
+    expect(resolveAddOns(addOnPrices, "mini", "lunch", slot({ dishName: "Aloo Matar" }))).toEqual([
       { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
       { name: "Daal", price: 20 },
       { name: "Extra Aloo Matar", price: 30 },
     ]);
-    expect(resolveAddOns("mini", "dinner", "Chicken Curry")).toEqual([
+    expect(resolveAddOns(addOnPrices, "mini", "dinner", slot({ dishName: "Chicken Curry", extraAddOnName: "Chicken piece" }))).toEqual([
       { name: "Rice", price: 20 },
       { name: "Roti", price: 10 },
       { name: "Daal", price: 20 },
@@ -135,9 +121,8 @@ describe("resolveAddOns", () => {
     ]);
   });
 
-  it("returns no add-ons for breakfast or Premium's already-complete Sunday dinner", () => {
-    expect(resolveAddOns("regular", "breakfast", "Masala Pasta")).toEqual([]);
-    expect(resolveAddOns("premium", "breakfast", "Bread Omelette")).toEqual([]);
-    expect(resolveAddOns("premium", "dinner", "Puri with Chole")).toEqual([]);
+  it("returns no add-ons for breakfast or a dish flagged hasAddOns: false", () => {
+    expect(resolveAddOns(addOnPrices, "regular", "breakfast", slot({ dishName: "Masala Pasta", hasAddOns: false }))).toEqual([]);
+    expect(resolveAddOns(addOnPrices, "premium", "dinner", slot({ dishName: "Puri with Chole", hasAddOns: false }))).toEqual([]);
   });
 });

@@ -33,12 +33,20 @@ function periodStats(orders: AnalyticsOrder[], since: Date | null, until: Date |
   };
 }
 
-export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+/** `brandId` scopes every order-derived figure (period stats, revenue, areas, item preferences,
+ * customer behavior) to just that brand — omit it for the combined, all-brands view. Catalog
+ * counts (menu items/combos) are scoped the same way; `totalBrands` stays global either way,
+ * since "how many live brands" isn't a meaningful figure to ask of a single brand. */
+export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSummary> {
   const [orderDocs, brandDocs, menuItemDocs, totalCombos] = await Promise.all([
-    OrderModel.find().select("createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity").lean(),
+    OrderModel.find(brandId ? { brandId } : {})
+      .select("createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity")
+      .lean(),
     BrandModel.find().select("name status").lean(),
-    MenuItemModel.find().select("signatureName brandId").lean(),
-    ComboModel.countDocuments(),
+    MenuItemModel.find(brandId ? { brandId } : {})
+      .select("signatureName brandId")
+      .lean(),
+    ComboModel.countDocuments(brandId ? { brandId } : {}),
   ]);
   const brandNameById = new Map(brandDocs.map((b) => [String(b._id), b.name]));
 

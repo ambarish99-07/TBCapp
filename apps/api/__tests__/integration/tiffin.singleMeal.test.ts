@@ -1,8 +1,8 @@
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { TiffinMealPriceModel } from "../../src/db/models/TiffinMealPrice.model.js";
-import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
+import { clearTestDb, seedTiffinMenu, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 // Own file so it gets its own signup rate-limit budget — needs 5 fresh signups (the limit is 5/15min).
 const env = testEnv();
@@ -10,6 +10,12 @@ const app = createApp(env);
 
 beforeAll(async () => {
   await startTestDb();
+});
+
+// Dish/add-on resolution now reads from the DB instead of a hardcoded table — every test here
+// needs the real menu seeded.
+beforeEach(async () => {
+  await seedTiffinMenu();
 });
 
 afterEach(async () => {

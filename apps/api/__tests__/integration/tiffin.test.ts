@@ -1,14 +1,20 @@
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { TiffinPlanModel } from "../../src/db/models/TiffinPlan.model.js";
-import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
+import { clearTestDb, seedTiffinMenu, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 const env = testEnv();
 const app = createApp(env);
 
 beforeAll(async () => {
   await startTestDb();
+});
+
+// Subscribing generates scheduled meals, which now resolve their dish from the DB (see
+// tiffinSchedule.ts) instead of a hardcoded table — every test here needs the real menu seeded.
+beforeEach(async () => {
+  await seedTiffinMenu();
 });
 
 afterEach(async () => {

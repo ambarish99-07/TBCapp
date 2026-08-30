@@ -19,7 +19,7 @@ import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { generateSubscriptionNumber } from "./subscriptionNumber.js";
-import { computeMealsForRange } from "./tiffinSchedule.js";
+import { buildRegularDishLookup, computeMealsForRange } from "./tiffinSchedule.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
 /** How far in advance a scheduled meal must still be for a customer to skip it — configurable
@@ -69,7 +69,8 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   const startDate = new Date();
   startDate.setUTCHours(0, 0, 0, 0);
   startDate.setUTCDate(startDate.getUTCDate() + 1);
-  const meals = computeMealsForRange(plan.dietType, mealTypes, startDate, plan.durationDays);
+  const dishLookup = await buildRegularDishLookup();
+  const meals = computeMealsForRange(dishLookup, plan.dietType, mealTypes, startDate, plan.durationDays);
 
   const subscription = await TiffinSubscriptionModel.create({
     subscriptionNumber: generateSubscriptionNumber(),
@@ -246,7 +247,8 @@ export async function pauseSubscription(userId: string, subscriptionId: string, 
     const pausedDayCount = new Set(pausedMeals.map((meal) => meal.date)).size;
     const nextDay = new Date(`${subscription.endDate}T00:00:00Z`);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    const extraMeals = computeMealsForRange(subscription.dietType, subscription.mealTypes as TiffinMealType[], nextDay, pausedDayCount);
+    const dishLookup = await buildRegularDishLookup();
+    const extraMeals = computeMealsForRange(dishLookup, subscription.dietType, subscription.mealTypes as TiffinMealType[], nextDay, pausedDayCount);
     await TiffinScheduledMealModel.insertMany(extraMeals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
     subscription.endDate = extraMeals[extraMeals.length - 1].date;
   }

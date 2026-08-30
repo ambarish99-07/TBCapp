@@ -45,6 +45,25 @@ export const MenuItemSchema = z.object({
 });
 export type MenuItem = z.infer<typeof MenuItemSchema>;
 
+/** Admin create/update payload — `id` is the slug (auto-generated from `signatureName` for a new
+ * item; unchanged for an edit, since it's also the Mongo `_id` and other records key off it). */
+export const UpsertMenuItemRequestSchema = z.object({
+  id: z.string().min(1),
+  brandId: z.string().min(1),
+  signatureName: z.string().min(1),
+  commonName: z.string().min(1),
+  description: z.string().min(1),
+  price: z.number().positive(),
+  category: MenuCategorySchema,
+  image: z.string().min(1),
+  flavorBadges: z.array(z.string()).default([]),
+  isPopular: z.boolean().optional(),
+  isNew: z.boolean().optional(),
+  isStaffPick: z.boolean().optional(),
+  salePercent: z.number().min(1).max(99).optional(),
+});
+export type UpsertMenuItemRequest = z.infer<typeof UpsertMenuItemRequestSchema>;
+
 /**
  * Fixed/curated combo (e.g. "Chocolate Duo", always exactly two shakes). No
  * stored price — always computed live as 15% off the sum of the constituent

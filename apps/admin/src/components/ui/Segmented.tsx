@@ -1,5 +1,5 @@
 interface Props<T extends string> {
-  options: { key: T; label: string }[];
+  options: readonly { key: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
 }

@@ -8,8 +8,9 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendProductRecommendation } from "../../integrations/whatsapp/sendRecommendation.js";
 import { getAnalyticsSummary } from "./analytics.service.js";
 
-export const getAnalytics: RequestHandler = async (_req, res) => {
-  const summary = await getAnalyticsSummary();
+export const getAnalytics: RequestHandler = async (req, res) => {
+  const { brandId } = req.query as { brandId?: string };
+  const summary = await getAnalyticsSummary(brandId || undefined);
   res.json(summary);
 };
 

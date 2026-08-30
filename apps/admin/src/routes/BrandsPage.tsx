@@ -1,5 +1,6 @@
 import type { Brand, BrandStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
 import { Button } from "../components/ui/Button.js";
 import { Card } from "../components/ui/Card.js";
@@ -110,6 +111,7 @@ export function BrandsPage() {
                 <Th>Tagline</Th>
                 <Th>Status</Th>
                 <Th></Th>
+                <Th></Th>
               </Tr>
             </Thead>
             <tbody>
@@ -126,6 +128,13 @@ export function BrandsPage() {
                         </option>
                       ))}
                     </Select>
+                  </Td>
+                  <Td>
+                    {/* GG Tiffin has no MenuItem catalog of its own — its "menu" is the single-meal
+                        weekly rotation, a differently-shaped thing with its own dedicated page. */}
+                    <Link to={brand.id === "gg-tiffin" ? "/tiffin-menu" : `/brands/${brand.id}/menu-items`}>
+                      <Button variant="secondary">Manage Menu ›</Button>
+                    </Link>
                   </Td>
                   <Td>
                     <Button variant="danger" onClick={() => handleDelete(brand.id)}>

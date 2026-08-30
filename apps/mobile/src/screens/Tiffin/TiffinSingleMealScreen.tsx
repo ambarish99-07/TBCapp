@@ -24,6 +24,18 @@ const DIET_TABS: { key: TiffinDietType; label: string }[] = [
   { key: "non-veg", label: "🔴 Non-Veg" },
 ];
 
+/** composeFullDishName needs a dish's hasAddOns/riceSubstitute flags — a purchasable
+ * SingleMealMenuItem doesn't carry those fields directly, but its own already-resolved `addOns`
+ * array implies them: empty means hasAddOns is false, and the first staple (when present) is
+ * "Pulao" only when riceSubstitute is "pulao" (see singleMealMenu.ts#resolveAddOns' ordering). */
+function dishDisplayShape(item: SingleMealMenuItem): { dishName: string; hasAddOns: boolean; riceSubstitute: "rice" | "pulao" } {
+  return {
+    dishName: item.dishName,
+    hasAddOns: item.addOns.length > 0,
+    riceSubstitute: item.addOns[0]?.name === "Pulao" ? "pulao" : "rice",
+  };
+}
+
 const TIER_TABS: { key: TiffinMealTier; label: string }[] = [
   { key: "regular", label: "Regular" },
   { key: "mini", label: "Mini Meal" },
@@ -161,7 +173,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
               <Text style={styles.mealType}>
                 {MEAL_TYPE_LABELS[item.mealType]} · {deliveryDayLabel(item.date)}
               </Text>
-              <Text style={styles.mealDish}>{composeFullDishName(item.tier, item.mealType, item.dishName)}</Text>
+              <Text style={styles.mealDish}>{composeFullDishName(item.tier, item.mealType, dishDisplayShape(item))}</Text>
               {item.addOns.length > 0 && <Text style={styles.addOnsHint}>Add-ons available</Text>}
             </View>
             <Text style={styles.mealPrice}>₹{item.price}</Text>
@@ -181,7 +193,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
                   {MEAL_TYPE_LABELS[customizeItem.mealType]} · {deliveryDayLabel(customizeItem.date)}
                 </Text>
                 <Text style={styles.sheetDishName}>
-                  {composeFullDishName(customizeItem.tier, customizeItem.mealType, customizeItem.dishName)}
+                  {composeFullDishName(customizeItem.tier, customizeItem.mealType, dishDisplayShape(customizeItem))}
                 </Text>
 
                 {customizeItem.carbChoiceRequired && (

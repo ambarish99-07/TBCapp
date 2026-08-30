@@ -3,6 +3,7 @@ import type {
   CreateTiffinSubscriptionRequest,
   PauseTiffinSubscriptionRequest,
   SingleMealMenuItem,
+  TiffinDish,
   TiffinPlan,
   TiffinScheduledMeal,
   TiffinSingleMealOrder,
@@ -19,6 +20,19 @@ export function useTiffinPlans() {
       const { data } = await apiClient.get<{ plans: TiffinPlan[] }>("/tiffin/plans");
       return data.plans;
     },
+  });
+}
+
+/** The full single-meal weekly rotation — powers the menu-browsing screens (Weekly Menu, plan
+ * preview) directly from the admin-editable source of truth, instead of a local hardcoded copy. */
+export function useTiffinWeeklyMenu() {
+  return useQuery({
+    queryKey: ["tiffin-weekly-menu"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ dishes: TiffinDish[] }>("/tiffin/weekly-menu");
+      return data.dishes;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

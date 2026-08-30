@@ -222,4 +222,44 @@ describe("GET /admin/analytics", () => {
     expect(leastItem.totalQuantity).toBe(0);
     expect(leastItem.orderCount).toBe(0);
   });
+
+  it("scopes every figure to one brand when ?brandId= is given", async () => {
+    await BrandModel.create({ _id: "tbc", name: "The Blenders Club", status: "live" });
+    await BrandModel.create({ _id: "alchemy", name: "The Alchemy Tails", status: "live" });
+    await MenuItemModel.create({
+      _id: "tbc-item",
+      brandId: "tbc",
+      signatureName: "TBC Item",
+      commonName: "d",
+      description: "d",
+      price: 100,
+      category: "signature-shakes",
+      image: "x",
+    });
+    await MenuItemModel.create({
+      _id: "alchemy-item",
+      brandId: "alchemy",
+      signatureName: "Alchemy Item",
+      commonName: "d",
+      description: "d",
+      price: 100,
+      category: "mocktails",
+      image: "x",
+    });
+
+    await OrderModel.create(orderFixture({ brandId: "tbc" }));
+    await OrderModel.create(orderFixture({ brandId: "tbc" }));
+    await OrderModel.create(orderFixture({ brandId: "alchemy" }));
+
+    const token = await adminToken();
+    const response = await request(app).get("/admin/analytics").query({ brandId: "tbc" }).set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    const summary = response.body;
+    expect(summary.totalOrders).toBe(2);
+    expect(summary.byBrand).toEqual([expect.objectContaining({ brandId: "tbc", orders: 2 })]);
+    expect(summary.catalog.totalMenuItems).toBe(1);
+    // Global catalog metric, not scoped by the brand filter.
+    expect(summary.catalog.totalBrands).toBe(2);
+  });
 });

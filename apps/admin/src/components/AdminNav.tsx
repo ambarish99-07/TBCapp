@@ -7,6 +7,7 @@ import {
   Store,
   Tag,
   Truck,
+  UtensilsCrossed,
   Utensils,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: Lu
   {
     label: "GG Tiffin",
     links: [
+      { to: "/tiffin-menu", label: "Menu", icon: UtensilsCrossed },
       { to: "/tiffin-plans", label: "Plans", icon: Tag },
       { to: "/tiffin-deliveries", label: "Deliveries", icon: Truck },
       { to: "/tiffin-meal-prices", label: "Meal Prices", icon: Utensils },

@@ -2,10 +2,10 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useTiffinPlans } from "../../api/tiffin.api";
+import { useTiffinPlans, useTiffinWeeklyMenu } from "../../api/tiffin.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
-import { composeFullDishName, dishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
+import { buildWeeklyMenuLookup, composeFullDishName, dishForDay, WEEK_DAYS } from "../../utils/tiffinDishForDay";
 import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -33,10 +33,12 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: plans, isLoading } = useTiffinPlans();
+  const { data: dishes, isLoading: isMenuLoading } = useTiffinWeeklyMenu();
+  const lookup = useMemo(() => buildWeeklyMenuLookup(dishes ?? []), [dishes]);
   const plan = plans?.find((p) => p.id === route.params.planId);
   const [mealType, setMealType] = useState<TiffinMealType>("lunch");
 
-  if (isLoading) {
+  if (isLoading || isMenuLoading) {
     return (
       <View style={[styles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} />
@@ -105,7 +107,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
           {scheduledMealTypes.map((type) => (
             <View key={type} style={styles.scheduleRow}>
               <Text style={styles.scheduleMealType}>{scheduledMealTypes.length > 1 ? MEAL_TYPE_LABELS[type] : ""}</Text>
-              <Text style={styles.scheduleDish}>{composeFullDishName("regular", type, dishForDay(plan.dietType, day, type))}</Text>
+              <Text style={styles.scheduleDish}>{composeFullDishName("regular", type, dishForDay(lookup, plan.dietType, day, type))}</Text>
             </View>
           ))}
         </View>

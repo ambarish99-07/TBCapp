@@ -19,6 +19,13 @@ import {
   updateSingleMealOrderStatusAdmin,
 } from "../tiffin/singleMeal.controller.js";
 import { listFeedbackAdmin, respondToFeedbackAdmin, updateFeedbackStatusAdmin } from "../feedback/feedback.controller.js";
+import {
+  listAddOnPricesAdmin,
+  listTiffinDishesAdmin,
+  upsertAddOnPriceAdmin,
+  upsertTiffinDishAdmin,
+} from "../tiffin/tiffinMenu.controller.js";
+import { handleTiffinDishImageUpload, uploadTiffinDishImage } from "../tiffin/upload.js";
 import { advanceOrderStatus, getAnalytics, listOrders, recommendToCustomer } from "./admin.controller.js";
 
 export function createAdminRouter(env: Env): Router {
@@ -55,6 +62,12 @@ export function createAdminRouter(env: Env): Router {
   router.get("/tiffin/meal-prices", listMealPricesAdmin);
   router.post("/tiffin/meal-prices", createMealPriceAdmin);
   router.put("/tiffin/meal-prices/:id", updateMealPriceAdmin);
+
+  router.get("/tiffin/dishes", listTiffinDishesAdmin);
+  router.put("/tiffin/dishes", upsertTiffinDishAdmin);
+  router.post("/tiffin/dishes/upload-image", uploadTiffinDishImage, handleTiffinDishImageUpload);
+  router.get("/tiffin/add-on-prices", listAddOnPricesAdmin);
+  router.put("/tiffin/add-on-prices", upsertAddOnPriceAdmin);
 
   return router;
 }

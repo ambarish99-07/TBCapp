@@ -9,10 +9,12 @@ import { DashboardPage } from "./routes/DashboardPage.js";
 import { FeedbackPage } from "./routes/FeedbackPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { LoginPage } from "./routes/LoginPage.js";
+import { MenuItemsPage } from "./routes/MenuItemsPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
 import { TiffinDeliveriesPage } from "./routes/TiffinDeliveriesPage.js";
 import { TiffinMealPricesPage } from "./routes/TiffinMealPricesPage.js";
+import { TiffinMenuPage } from "./routes/TiffinMenuPage.js";
 import { TiffinPlansPage } from "./routes/TiffinPlansPage.js";
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
@@ -90,6 +92,22 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <BrandsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/brands/:brandId/menu-items"
+          element={
+            <RequireAdmin>
+              <MenuItemsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-menu"
+          element={
+            <RequireAdmin>
+              <TiffinMenuPage />
             </RequireAdmin>
           }
         />

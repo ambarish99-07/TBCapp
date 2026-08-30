@@ -6,11 +6,14 @@ import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
 import { CouponModel } from "./models/Coupon.model.js";
+import { TiffinAddOnPriceModel } from "./models/TiffinAddOnPrice.model.js";
+import { TiffinDishModel } from "./models/TiffinDish.model.js";
 import { TiffinMealPriceModel } from "./models/TiffinMealPrice.model.js";
 import { TiffinPlanModel } from "./models/TiffinPlan.model.js";
 import { TiffinScheduledMealModel } from "./models/TiffinScheduledMeal.model.js";
 import { TiffinSingleMealOrderModel } from "./models/TiffinSingleMealOrder.model.js";
 import { TiffinSubscriptionModel } from "./models/TiffinSubscription.model.js";
+import { TIFFIN_ADD_ON_PRICE_SEED_DATA, TIFFIN_DISH_SEED_DATA } from "./tiffinDishSeedData.js";
 
 const TBC_BRAND_ID = "tbc";
 const ALCHEMY_TAILS_BRAND_ID = "alchemy-tails";
@@ -605,6 +608,16 @@ function buildTiffinMealPrices() {
   ];
 }
 
+/** GG Tiffin's single-meal weekly rotation, one row per (tier, dietType, mealType, dayOfWeek)
+ * slot — see tiffinDishSeedData.ts for where this data actually comes from. */
+function buildTiffinDishes(env: ReturnType<typeof loadEnv>) {
+  return TIFFIN_DISH_SEED_DATA.map(({ imageSlug, ...dish }) => ({ ...dish, image: tiffinImageUrl(env, imageSlug) }));
+}
+
+function buildTiffinAddOnPrices() {
+  return TIFFIN_ADD_ON_PRICE_SEED_DATA;
+}
+
 async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
@@ -617,6 +630,8 @@ async function seed() {
   await TiffinPlanModel.deleteMany({});
   await TiffinSingleMealOrderModel.deleteMany({});
   await TiffinMealPriceModel.deleteMany({});
+  await TiffinDishModel.deleteMany({});
+  await TiffinAddOnPriceModel.deleteMany({});
   await CouponModel.deleteMany({});
 
   const brands = buildBrands(env);
@@ -657,10 +672,12 @@ async function seed() {
 
   const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans(env));
   const tiffinMealPrices = await TiffinMealPriceModel.insertMany(buildTiffinMealPrices());
+  const tiffinDishes = await TiffinDishModel.insertMany(buildTiffinDishes(env));
+  const tiffinAddOnPrices = await TiffinAddOnPriceModel.insertMany(buildTiffinAddOnPrices());
   const coupons = await CouponModel.insertMany(buildCoupons());
 
   console.log(
-    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, ${tiffinMealPrices.length} single-meal prices, and ${coupons.length} coupons.`
+    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, ${tiffinMealPrices.length} single-meal prices, ${tiffinDishes.length} tiffin dishes, ${tiffinAddOnPrices.length} tiffin add-on prices, and ${coupons.length} coupons.`
   );
   await disconnectFromDatabase();
 }

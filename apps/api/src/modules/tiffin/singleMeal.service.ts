@@ -15,66 +15,12 @@ import { sendNewSingleMealOrderAlert } from "../../integrations/whatsapp/sendNew
 import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
-import { getSingleMealDish, PROTEIN_PIECE_NAMES, resolveAddOns } from "./singleMealMenu.js";
+import { buildAddOnPriceLookup, buildSingleMealDishLookup, resolveAddOns, resolveDishSlot } from "./singleMealMenu.js";
 import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
-
-/** Real dish photography (served from public/tiffin-images/, same static route the plan-card
- * photos use), keyed by the bare dish name — shared by Regular and Premium, which serve the same
- * sabzi/curry. Mini gets its own distinct photos below (different box/portioning), checked first. */
-const DISH_IMAGE_SLUGS: Record<string, string> = {
-  "Masala Pasta": "masala-pasta",
-  Sandwich: "sandwich",
-  "Aloo Paratha with Curd & Achar": "aloo-paratha-with-dahi-and-achar",
-  Poha: "poha",
-  "Sattu Paratha with Curd & Achar": "sattu-paratha-with-dahi-and-achar",
-  "Puri with Chole & Achar": "puri-chola",
-  "Puri with Chole": "puri-chola",
-  "Idli / Dosa with Sambar & Chutney": "idli-with-sambar-and-chutney",
-  "Bread Omelette": "bread-omelete",
-  "Aloo Matar": "aloo-matar",
-  "Aloo Gobhi": "aloo-gobhi",
-  "Aloo Soyabean": "aloo-soyabean",
-  "Dum Aloo": "dum-aloo",
-  "Matar Paneer": "matar-paneer",
-  "Mushroom Masala": "mushroom-masala",
-  Rajma: "rajma",
-  "Matar Mushroom": "matar-mushroom",
-  "Fish Curry": "fish-curry",
-  "Egg Curry": "egg-curry",
-  "Mutton Curry": "mutton-and-pulao",
-  "Paneer Butter Masala": "paneer-butter-masala-and-pulao",
-  Upma: "upma",
-  "Chicken Curry": "chicken-curry",
-  "Aloo Parwal": "aloo-parwal",
-  "Lauki Masala": "lauki-masala",
-  "Matar Chole": "matar-chole",
-};
-
-/** Mini's own photos (smaller box, single carb) — checked before the shared table above. Not
- * every Mini dish has a dedicated photo yet; those fall through to the shared table instead. */
-const MINI_DISH_IMAGE_SLUGS: Record<string, string> = {
-  "Aloo Matar": "aloo-matar-mini",
-  "Aloo Gobhi": "aloo-gobhi-mini",
-  "Aloo Soyabean": "aloo-soyabean-mini",
-  "Dum Aloo": "dum-aloo-mini",
-  "Matar Paneer": "matar-paneer-mini",
-  "Mushroom Masala": "mushroom-masala-mini",
-  Rajma: "rajma-mini",
-  "Egg Curry": "egg-curry-mini",
-  "Chicken Curry": "chicken-curry-mini",
-  "Fish Curry": "fish-curry-mini",
-  "Aloo Parwal": "aloo-parwal-mini",
-  "Lauki Masala": "lauki-masala-mini",
-  "Matar Chole": "matar-chole-mini",
-};
-
-function tiffinDishImageUrl(env: Env, slug: string): string {
-  return `http://localhost:${env.PORT}/tiffin-images/${slug}.png`;
-}
 
 /** There's no real rider app/dispatch system in this project — a rider is picked from this fixed
  * demo pool, deterministically by order id, once an order moves to "out-for-delivery". */
@@ -90,38 +36,16 @@ function pickDeliveryPartner(orderId: string): DeliveryPartner {
   return DELIVERY_PARTNER_POOL[seed % DELIVERY_PARTNER_POOL.length];
 }
 
-/**
- * Mini checks its own photos first, then falls back to the shared Regular/Premium photo for the
- * same dish (still a real, accurate photo — just not Mini's own box). Every dish on the schedule
- * now has a dedicated photo at every tier that serves it — the generic tiffin-box fallbacks below
- * exist for the hypothetical unphotographed future menu addition, not any current dish: Mini gets
- * its own smaller single-curry box (matching what it actually serves — no rice, no second sabzi),
- * everything else gets the veg/non-veg thali photo.
- *
- * The veg/non-veg choice is made from the *resolved dish itself* (is bareDishName a protein
- * curry?), never from the diet-tab parameter — a "non-veg" tab with no override for today still
- * serves that day's veg dish (see getSingleMealDish), and showing the chicken-curry stock photo
- * next to a vegetable dish's name would be a straight-up lie about what's in the box. Mini's non-
- * veg dishes all have their own dedicated photos already (see MINI_DISH_IMAGE_SLUGS), so its
- * generic fallback is checked for protein first too — it should never actually be needed, but if
- * a future menu change added an unphotographed Mini non-veg dish, this keeps it honest rather
- * than silently mislabeling it veg.
- */
-export function resolveDishImageSlug(tier: SingleMealMenuItem["tier"], mealType: SingleMealMenuItem["mealType"], bareDishName: string): string | undefined {
-  if (tier === "mini" && MINI_DISH_IMAGE_SLUGS[bareDishName]) return MINI_DISH_IMAGE_SLUGS[bareDishName];
-  if (DISH_IMAGE_SLUGS[bareDishName]) return DISH_IMAGE_SLUGS[bareDishName];
-  if (mealType === "breakfast") return "breakfast-tiffin";
-  const isNonVegDish = bareDishName in PROTEIN_PIECE_NAMES;
-  if (isNonVegDish) return "non-veg-tiffin";
-  return tier === "mini" ? "mini-tiffin" : "veg-tiffin";
-}
-
 /** Two rows (veg + non-veg) per active price — the price is shared across diets, only the dish
  * differs. Each meal type resolves its own target date (see mealOrderingWindow.ts) — lunch/dinner
  * can be today or tomorrow depending on the ordering cutoff, breakfast is always tomorrow. */
-export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]> {
+export async function getSingleMealMenu(_env: Env): Promise<SingleMealMenuItem[]> {
   const now = new Date();
-  const prices = await TiffinMealPriceModel.find({ active: true }).sort({ tier: 1, mealType: 1 });
+  const [prices, dishLookup, addOnPrices] = await Promise.all([
+    TiffinMealPriceModel.find({ active: true }).sort({ tier: 1, mealType: 1 }),
+    buildSingleMealDishLookup(),
+    buildAddOnPriceLookup(),
+  ]);
 
   const items: SingleMealMenuItem[] = [];
   for (const price of prices) {
@@ -129,19 +53,18 @@ export async function getSingleMealMenu(env: Env): Promise<SingleMealMenuItem[]>
     const mealType = price.mealType as SingleMealMenuItem["mealType"];
     const date = resolveSingleMealTargetDate(mealType, now);
     for (const dietType of DIET_TYPES) {
-      const bareDishName = getSingleMealDish(tier, dietType, mealType, date);
-      if (!bareDishName) continue;
-      const imageSlug = resolveDishImageSlug(tier, mealType, bareDishName);
+      const dish = resolveDishSlot(dishLookup, tier, dietType, mealType, date);
+      if (!dish) continue;
       items.push({
         tier,
         mealType,
         dietType,
         date,
-        dishName: bareDishName,
+        dishName: dish.dishName,
         price: price.price,
         carbChoiceRequired: tier === "mini",
-        imageUrl: imageSlug ? tiffinDishImageUrl(env, imageSlug) : undefined,
-        addOns: resolveAddOns(tier, mealType, bareDishName),
+        imageUrl: dish.image,
+        addOns: resolveAddOns(addOnPrices, tier, mealType, dish),
       });
     }
   }
@@ -158,14 +81,15 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
   }
 
   const date = resolveSingleMealTargetDate(request.mealType, new Date());
-  const bareDishName = getSingleMealDish(request.tier, request.dietType, request.mealType, date);
-  if (!bareDishName) {
+  const [dishLookup, addOnPrices] = await Promise.all([buildSingleMealDishLookup(), buildAddOnPriceLookup()]);
+  const dish = resolveDishSlot(dishLookup, request.tier, request.dietType, request.mealType, date);
+  if (!dish) {
     throw new TiffinValidationError("This meal isn't available right now");
   }
 
   // Re-resolve the add-on catalog server-side and keep only what the customer actually picked —
   // names and prices are never trusted from the client.
-  const availableAddOns = resolveAddOns(request.tier, request.mealType, bareDishName);
+  const availableAddOns = resolveAddOns(addOnPrices, request.tier, request.mealType, dish);
   const selectedAddOns = availableAddOns.filter((addOn) => request.selectedAddOns.includes(addOn.name));
 
   // Same zone check every TBC/TAT order and tiffin subscription already goes through.
@@ -182,7 +106,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     dietType: request.dietType,
     carbChoice: request.tier === "mini" ? request.carbChoice : undefined,
     date,
-    dishName: bareDishName,
+    dishName: dish.dishName,
     addOns: selectedAddOns,
     status: "placed",
     statusHistory: [{ status: "placed", at: new Date().toISOString() }],

@@ -1,4 +1,4 @@
-import type { AnalyticsSummary } from "@tbc/shared-types";
+import type { AnalyticsSummary, Brand } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
@@ -6,6 +6,7 @@ import { TrendChart } from "../components/TrendChart.js";
 import { Card } from "../components/ui/Card.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
+import { Segmented } from "../components/ui/Segmented.js";
 import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 import { monthLabel } from "../utils/chartLabels.js";
 
@@ -46,11 +47,24 @@ function Metric({ label, value, sub }: { label: string; value: number; sub?: str
 
 export function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandFilter, setBrandFilter] = useState("all");
   const location = useLocation();
 
   useEffect(() => {
-    adminClient.get<AnalyticsSummary>("/admin/analytics").then((res) => setSummary(res.data));
+    adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
   }, []);
+
+  useEffect(() => {
+    const params = brandFilter === "all" ? {} : { brandId: brandFilter };
+    adminClient.get<AnalyticsSummary>("/admin/analytics", { params }).then((res) => setSummary(res.data));
+  }, [brandFilter]);
+
+  const brandOptions = useMemo(
+    () => [{ key: "all", label: "All Brands" }, ...brands.map((b) => ({ key: b.id, label: b.name }))],
+    [brands]
+  );
+  const selectedBrandName = brandFilter === "all" ? null : (brands.find((b) => b.id === brandFilter)?.name ?? brandFilter);
 
   // Arriving via a link like /analytics#revenue (the Dashboard's stat cards do this) — scroll the
   // matching section into view once its data has actually rendered, not before.
@@ -74,7 +88,7 @@ export function AnalyticsPage() {
   if (!summary) {
     return (
       <div>
-        <PageHeader title="Analytics" />
+        <PageHeader title="Analytics" action={<Segmented options={brandOptions} value={brandFilter} onChange={setBrandFilter} />} />
         <p className="text-sm text-muted">Loading…</p>
       </div>
     );
@@ -84,7 +98,11 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <PageHeader title="Analytics" description="Orders, revenue, and customer behavior across every brand." />
+      <PageHeader
+        title="Analytics"
+        description={selectedBrandName ? `Orders, revenue, and customer behavior for ${selectedBrandName}.` : "Orders, revenue, and customer behavior across every brand."}
+        action={<Segmented options={brandOptions} value={brandFilter} onChange={setBrandFilter} />}
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Today" orders={summary.ordersToday.orders} revenue={summary.ordersToday.revenue} dark />
@@ -103,31 +121,33 @@ export function AnalyticsPage() {
         <TrendChart points={monthlyPoints} formatValue={formatRupees} />
       </Card>
 
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title="Orders by Restaurant">
-          {summary.byBrand.length === 0 ? (
-            <EmptyState message="No orders yet." />
-          ) : (
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Restaurant</Th>
-                  <Th>Orders</Th>
-                  <Th>Revenue</Th>
-                </Tr>
-              </Thead>
-              <tbody>
-                {summary.byBrand.map((brand) => (
-                  <Tr key={brand.brandId}>
-                    <Td className="font-semibold">{brand.brandName}</Td>
-                    <Td>{brand.orders}</Td>
-                    <Td>{formatRupees(brand.revenue)}</Td>
+      <div className={`mb-6 grid grid-cols-1 gap-6 ${selectedBrandName ? "" : "lg:grid-cols-2"}`}>
+        {!selectedBrandName && (
+          <Card title="Orders by Restaurant">
+            {summary.byBrand.length === 0 ? (
+              <EmptyState message="No orders yet." />
+            ) : (
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Restaurant</Th>
+                    <Th>Orders</Th>
+                    <Th>Revenue</Th>
                   </Tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </Card>
+                </Thead>
+                <tbody>
+                  {summary.byBrand.map((brand) => (
+                    <Tr key={brand.brandId}>
+                      <Td className="font-semibold">{brand.brandName}</Td>
+                      <Td>{brand.orders}</Td>
+                      <Td>{formatRupees(brand.revenue)}</Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
+        )}
 
         <Card id="customers" title="Customers" className="scroll-mt-6">
           <div className="grid grid-cols-2 gap-y-5">

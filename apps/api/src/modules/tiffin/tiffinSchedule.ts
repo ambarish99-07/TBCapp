@@ -1,10 +1,5 @@
-import {
-  TIFFIN_NONVEG_BREAKFAST_OVERRIDES,
-  TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES,
-  TIFFIN_REGULAR_VEG_MENU,
-  type TiffinDietType,
-  type TiffinMealType,
-} from "@tbc/shared-types";
+import type { DayOfWeek, TiffinDietType, TiffinMealType } from "@tbc/shared-types";
+import { TiffinDishModel } from "../../db/models/TiffinDish.model.js";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -18,33 +13,25 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Keyed by `${dietType}|${dayOfWeek}|${mealType}` — subscriptions are always Regular tier, so
+ * this only ever needs that one tier's rows out of the full `TiffinDish` collection. */
+export type RegularDishLookup = Map<string, string>;
+
+export async function buildRegularDishLookup(): Promise<RegularDishLookup> {
+  const dishes = await TiffinDishModel.find({ tier: "regular" }).select("dietType dayOfWeek mealType dishName").lean();
+  return new Map(dishes.map((d) => [`${d.dietType}|${d.dayOfWeek}|${d.mealType}`, d.dishName]));
+}
+
 /**
  * What GG Tiffin serves on a given day/meal, per the real curated Regular Tiffin menu
- * (subscriptions are always Regular tier — see `TIFFIN_REGULAR_VEG_MENU`). Matches
- * singleMealMenu.ts#getSingleMealDish's Regular-tier behavior exactly, so a subscription and a
- * one-off single-meal order for the same day/diet/meal never disagree:
- * - Breakfast is shared between diets except Wednesday, where non-veg keeps the old Bread
- *   Omelette instead of veg's Upma (`TIFFIN_NONVEG_BREAKFAST_OVERRIDES`).
- * - Veg lunch/dinner follows the curated menu directly, every day including Sunday (fixed, no
- *   customer choice).
- * - Non-veg swaps in a meat curry at DINNER only, on Mon/Wed/Fri
- *   (`TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES` — the same table singleMealMenu.ts uses for
- *   Regular's dinner, so the two never drift apart) — the real menu only ever has one non-veg
- *   item a day, never both lunch and dinner. Regular tier has no special Sunday non-veg dish
- *   (Mutton is a Premium-only, single-meal-only upgrade) — every other day/meal falls back to the
- *   same curated veg dish.
+ * (subscriptions are always Regular tier). Matches singleMealMenu.ts#resolveDishSlot's
+ * Regular-tier behavior exactly, since both now read from the same `TiffinDish` collection — a
+ * subscription and a one-off single-meal order for the same day/diet/meal never disagree.
  */
-export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
-  if (mealType === "breakfast") {
-    if (dietType === "non-veg" && TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName]) {
-      return TIFFIN_NONVEG_BREAKFAST_OVERRIDES[dayName];
-    }
-    return TIFFIN_REGULAR_VEG_MENU[dayName].breakfast;
-  }
-  if (dietType === "non-veg" && mealType === "dinner" && TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES[dayName]) {
-    return TIFFIN_REGULAR_NONVEG_DINNER_OVERRIDES[dayName];
-  }
-  return TIFFIN_REGULAR_VEG_MENU[dayName][mealType];
+export function dishForDay(lookup: RegularDishLookup, dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
+  const dish = lookup.get(`${dietType}|${dayName}|${mealType}`);
+  if (!dish) throw new Error(`No Regular-tier dish configured for ${dietType}/${dayName}/${mealType}`);
+  return dish;
 }
 
 /**
@@ -55,6 +42,7 @@ export function dishForDay(dietType: TiffinDietType, dayName: string, mealType: 
  * there's no scheduler process to generate these day-by-day, so the full set has to exist up front.
  */
 export function computeMealsForRange(
+  lookup: RegularDishLookup,
   dietType: TiffinDietType,
   mealTypes: TiffinMealType[],
   startDate: Date,
@@ -64,9 +52,9 @@ export function computeMealsForRange(
   for (let i = 0; i < durationDays; i++) {
     const date = new Date(startDate);
     date.setUTCDate(date.getUTCDate() + i);
-    const dayName = DAY_NAMES[date.getUTCDay()];
+    const dayName = DAY_NAMES[date.getUTCDay()] as DayOfWeek;
     for (const mealType of mealTypes) {
-      meals.push({ date: toIsoDate(date), mealType, dishName: dishForDay(dietType, dayName, mealType) });
+      meals.push({ date: toIsoDate(date), mealType, dishName: dishForDay(lookup, dietType, dayName, mealType) });
     }
   }
   return meals;

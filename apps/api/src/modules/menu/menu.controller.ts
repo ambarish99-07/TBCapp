@@ -1,3 +1,4 @@
+import { UpsertMenuItemRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { browseCategorySummaries, listAllCombos, listCombos, listMenuItems, searchMenuItemsAcrossBrands } from "./menu.service.js";
@@ -44,13 +45,16 @@ export const searchMenu: RequestHandler = async (req, res) => {
   res.json({ items: items.map(withId) });
 };
 
-/** Minimal admin CRUD — menu content is small/static, so no bulk-edit UI is provided here. */
+/** Admin create/update — the admin panel's Menu Items page uses this for both, since a new
+ * item's id (slug) never collides with an existing one in practice, and editing needs the exact
+ * same set of fields anyway. */
 export const upsertMenuItem: RequestHandler = async (req, res) => {
-  const { id, ...update } = req.body;
-  if (!id) {
-    res.status(400).json({ error: "id is required" });
+  const parsed = UpsertMenuItemRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid menu item payload", details: parsed.error.flatten() });
     return;
   }
+  const { id, ...update } = parsed.data;
   const item = await MenuItemModel.findByIdAndUpdate(id, update, { upsert: true, new: true, runValidators: true });
   res.json({ item: item ? withId(item.toObject()) : null });
 };

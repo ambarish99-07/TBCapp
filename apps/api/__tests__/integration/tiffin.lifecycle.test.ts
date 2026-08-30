@@ -1,9 +1,9 @@
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { TiffinPlanModel } from "../../src/db/models/TiffinPlan.model.js";
 import { TiffinScheduledMealModel } from "../../src/db/models/TiffinScheduledMeal.model.js";
-import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
+import { clearTestDb, seedTiffinMenu, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 // Split into its own file (separate from tiffin.test.ts) so each file gets its own signup
 // rate-limit budget (5 per 15min) — this file alone needs 5 fresh signups.
@@ -12,6 +12,12 @@ const app = createApp(env);
 
 beforeAll(async () => {
   await startTestDb();
+});
+
+// Subscribing generates scheduled meals, which now resolve their dish from the DB instead of a
+// hardcoded table — every test here needs the real menu seeded.
+beforeEach(async () => {
+  await seedTiffinMenu();
 });
 
 afterEach(async () => {
