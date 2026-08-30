@@ -23,16 +23,16 @@ const TOP_LINKS: { to: string; label: string; icon: LucideIcon }[] = [
 // list of links, and leaves room to grow each section independently later.
 const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: LucideIcon }[] }[] = [
   {
+    label: "Catalog",
+    links: [{ to: "/brands", label: "Brands", icon: Store }],
+  },
+  {
     label: "Operations",
     links: [
       { to: "/orders", label: "Orders", icon: ShoppingBag },
       { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
       { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
     ],
-  },
-  {
-    label: "Catalog",
-    links: [{ to: "/brands", label: "Brands", icon: Store }],
   },
   {
     label: "GG Tiffin",
