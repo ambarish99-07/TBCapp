@@ -26,7 +26,16 @@ import {
   upsertTiffinDishAdmin,
 } from "../tiffin/tiffinMenu.controller.js";
 import { handleTiffinDishImageUpload, uploadTiffinDishImage } from "../tiffin/upload.js";
-import { advanceOrderStatus, getAnalytics, listOrders, recommendToCustomer } from "./admin.controller.js";
+import { createCouponAdmin, deleteCouponAdmin, listCouponsAdmin, updateCouponAdmin } from "../coupons/coupons.controller.js";
+import {
+  advanceOrderStatus,
+  getAnalytics,
+  getCustomerAdmin,
+  listCustomersAdmin,
+  listOrders,
+  recommendToCustomer,
+  sendManualRecommendationAdmin,
+} from "./admin.controller.js";
 
 export function createAdminRouter(env: Env): Router {
   const router = Router();
@@ -41,6 +50,10 @@ export function createAdminRouter(env: Env): Router {
   router.get("/orders", listOrders);
   router.patch("/orders/:id/status", advanceOrderStatus);
   router.post("/orders/:id/recommend", recommendToCustomer(env));
+
+  router.get("/customers", listCustomersAdmin);
+  router.get("/customers/:id", getCustomerAdmin);
+  router.post("/customers/:id/recommend", sendManualRecommendationAdmin(env));
 
   router.get("/bulk-order-inquiries", listBulkOrderInquiries);
   router.patch("/bulk-order-inquiries/:id/status", updateBulkOrderInquiryStatus);
@@ -68,6 +81,11 @@ export function createAdminRouter(env: Env): Router {
   router.post("/tiffin/dishes/upload-image", uploadTiffinDishImage, handleTiffinDishImageUpload);
   router.get("/tiffin/add-on-prices", listAddOnPricesAdmin);
   router.put("/tiffin/add-on-prices", upsertAddOnPriceAdmin);
+
+  router.get("/coupons", listCouponsAdmin);
+  router.post("/coupons", createCouponAdmin);
+  router.put("/coupons/:id", updateCouponAdmin);
+  router.delete("/coupons/:id", deleteCouponAdmin);
 
   return router;
 }

@@ -8,6 +8,9 @@ import { BrandsPage } from "./routes/BrandsPage.js";
 import { DashboardPage } from "./routes/DashboardPage.js";
 import { FeedbackPage } from "./routes/FeedbackPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
+import { CouponsPage } from "./routes/CouponsPage.js";
+import { CustomerDetailPage } from "./routes/CustomerDetailPage.js";
+import { CustomersPage } from "./routes/CustomersPage.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { MenuItemsPage } from "./routes/MenuItemsPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
@@ -84,6 +87,30 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <FeedbackPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/customers"
+          element={
+            <RequireAdmin>
+              <CustomersPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/customers/:id"
+          element={
+            <RequireAdmin>
+              <CustomerDetailPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/coupons"
+          element={
+            <RequireAdmin>
+              <CouponsPage />
             </RequireAdmin>
           }
         />

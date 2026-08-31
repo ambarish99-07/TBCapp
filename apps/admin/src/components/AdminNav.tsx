@@ -6,7 +6,9 @@ import {
   ShoppingBag,
   Store,
   Tag,
+  Ticket,
   Truck,
+  Users,
   UtensilsCrossed,
   Utensils,
   type LucideIcon,
@@ -31,9 +33,14 @@ const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: Lu
     label: "Operations",
     links: [
       { to: "/orders", label: "Orders", icon: ShoppingBag },
+      { to: "/customers", label: "Customers", icon: Users },
       { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
       { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
     ],
+  },
+  {
+    label: "Marketing",
+    links: [{ to: "/coupons", label: "Coupons", icon: Ticket }],
   },
   {
     label: "GG Tiffin",

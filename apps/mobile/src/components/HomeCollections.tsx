@@ -45,7 +45,7 @@ function findQuickAddLine(lines: CartLine[], itemId: string) {
   );
 }
 
-export function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onPress: () => void; isReorder?: boolean }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeCardStyles(colors), [colors]);
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
@@ -107,7 +107,7 @@ export function ItemMiniCard({ item, onPress }: { item: MenuItem; onPress: () =>
         </View>
         {quantity === 0 ? (
           <Pressable style={styles.quickAddButton} onPress={handleIncrement}>
-            <Text style={styles.quickAddButtonText}>ADD</Text>
+            <Text style={styles.quickAddButtonText}>{isReorder ? "↻ ORDER AGAIN" : "ADD"}</Text>
           </Pressable>
         ) : (
           <View style={styles.quickAddStepper}>
@@ -220,14 +220,23 @@ interface Props {
 /**
  * Home-page discovery rows, each derived from data already on hand (no extra fetches) and
  * each hidden entirely when it has nothing to show rather than an empty section:
- * Recommended (isPopular), Mostly Ordered (repeat customer history), Offers (this brand's
- * combos), Discounts (salePercent items), Signature (signature-shakes category), Premium
- * Picks (isStaffPick). The Restaurants row lives separately (see RestaurantsRow below) — it's
- * cross-brand and shouldn't disappear just because the brand currently being browsed (e.g. GG
- * Tiffin) has no MenuItem-based rows of its own.
+ * Recommended (this customer's own repeat-order history first, each with an "Order Again"
+ * button — topped up with admin-curated isPopular items, plain "Add" button, for guests/
+ * first-timers with no history yet), Offers (this brand's combos), Discounts (salePercent
+ * items), Signature (signature-shakes category), Premium Picks (isStaffPick). The Restaurants
+ * row lives separately (see RestaurantsRow below) — it's cross-brand and shouldn't disappear
+ * just because the brand currently being browsed (e.g. GG Tiffin) has no MenuItem-based rows
+ * of its own.
  */
 export function HomeCollections({ items, combos, onItemPress, onChooseCombo, mostlyOrdered }: Props) {
-  const recommended = useMemo(() => items.filter((item) => item.isPopular), [items]);
+  // Personal reorder history first, then admin-picked popular items to fill the rest — never the
+  // same item twice if it happens to be both.
+  const recommended = useMemo(() => {
+    const reorderIds = new Set(mostlyOrdered.map((item) => item.id));
+    const popularFillIns = items.filter((item) => item.isPopular && !reorderIds.has(item.id));
+    return [...mostlyOrdered, ...popularFillIns];
+  }, [items, mostlyOrdered]);
+  const reorderIds = useMemo(() => new Set(mostlyOrdered.map((item) => item.id)), [mostlyOrdered]);
   const discounts = useMemo(() => items.filter((item) => item.salePercent), [items]);
   const signature = useMemo(() => items.filter((item) => item.category === "signature-shakes"), [items]);
   const premium = useMemo(() => items.filter((item) => item.isStaffPick), [items]);
@@ -238,8 +247,12 @@ export function HomeCollections({ items, combos, onItemPress, onChooseCombo, mos
 
   return (
     <View>
-      <Row title="Recommended For You" data={recommended} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
-      <Row title="Mostly Ordered" data={mostlyOrdered} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
+      <Row
+        title="Recommended For You"
+        data={recommended}
+        keyExtractor={(item) => item.id}
+        renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} isReorder={reorderIds.has(item.id)} />}
+      />
       <Row title="Offers" data={combos} keyExtractor={(combo) => combo.id} renderItem={(combo) => <ComboMiniCard combo={combo} itemPrice={itemPrice} onChoosePress={() => onChooseCombo(combo)} />} />
       <Row title="Discounts" data={discounts} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />
       <Row title="Signature" data={signature} keyExtractor={(item) => item.id} renderItem={(item) => <ItemMiniCard item={item} onPress={() => onItemPress(item)} />} />

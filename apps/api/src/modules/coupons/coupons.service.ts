@@ -1,5 +1,5 @@
 import { round } from "@tbc/pricing";
-import type { Coupon } from "@tbc/shared-types";
+import type { Coupon, CreateCouponRequest, UpdateCouponRequest } from "@tbc/shared-types";
 import { CouponModel } from "../../db/models/Coupon.model.js";
 import { CouponValidationError } from "./coupons.errors.js";
 
@@ -38,4 +38,32 @@ export async function resolveCoupon(code: string, brandId: string, subtotal: num
   const discountAmount = Math.min(round(cappedDiscount), subtotal);
 
   return { code: coupon.code, discountAmount };
+}
+
+// --- Admin ---
+
+export async function listAllCoupons() {
+  return CouponModel.find().sort({ createdAt: -1 });
+}
+
+export async function createCoupon(data: CreateCouponRequest) {
+  const code = data.code.trim().toUpperCase();
+  const existing = await CouponModel.findOne({ code });
+  if (existing) {
+    throw new CouponValidationError(`A coupon with code "${code}" already exists`);
+  }
+  return CouponModel.create({ ...data, code });
+}
+
+export async function updateCoupon(id: string, data: UpdateCouponRequest) {
+  const update = { ...data, ...(data.code ? { code: data.code.trim().toUpperCase() } : {}) };
+  const coupon = await CouponModel.findByIdAndUpdate(id, update, { new: true, runValidators: true });
+  if (!coupon) {
+    throw new CouponValidationError("Coupon not found");
+  }
+  return coupon;
+}
+
+export async function deleteCoupon(id: string) {
+  await CouponModel.findByIdAndDelete(id);
 }

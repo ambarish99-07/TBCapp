@@ -22,6 +22,23 @@ export const CouponSchema = z.object({
 });
 export type Coupon = z.infer<typeof CouponSchema>;
 
+/** Admin create/update payload. `expiresAt`, when set, is an ISO date string ("YYYY-MM-DD" or a
+ * full timestamp) — parsed to a real expiry moment server-side. */
+export const CreateCouponRequestSchema = z.object({
+  code: z.string().min(1),
+  type: CouponTypeSchema,
+  value: z.number().positive(),
+  minOrderAmount: z.number().nonnegative().default(0),
+  maxDiscountAmount: z.number().positive().optional(),
+  brandId: z.string().optional(),
+  expiresAt: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+export type CreateCouponRequest = z.infer<typeof CreateCouponRequestSchema>;
+
+export const UpdateCouponRequestSchema = CreateCouponRequestSchema.partial();
+export type UpdateCouponRequest = z.infer<typeof UpdateCouponRequestSchema>;
+
 export const ValidateCouponRequestSchema = z.object({
   code: z.string().min(1),
   brandId: z.string().min(1),

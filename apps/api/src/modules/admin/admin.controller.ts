@@ -15,13 +15,74 @@ export const getAnalytics: RequestHandler = async (req, res) => {
 };
 
 export const listOrders: RequestHandler = async (req, res) => {
-  const { status, brandId } = req.query as { status?: string; brandId?: string };
+  const { status, brandId, userId } = req.query as { status?: string; brandId?: string; userId?: string };
   const filter: Record<string, string> = {};
   if (status) filter.status = status;
   if (brandId) filter.brandId = brandId;
+  if (userId) filter.userId = userId;
   const orders = await OrderModel.find(filter).sort({ createdAt: -1 });
   res.json({ orders });
 };
+
+/** Escapes regex metacharacters so free-text search input can't be interpreted as a pattern —
+ * same helper menu.service.ts's cross-brand search already uses, duplicated rather than shared
+ * since it's a two-line utility not worth a new module for. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Finds a registered customer by name, phone, or email — the admin panel's entry point into a
+ * specific customer's order history and manual recommendation tool. */
+export const listCustomersAdmin: RequestHandler = async (req, res) => {
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (!q) {
+    res.json({ customers: [] });
+    return;
+  }
+  const re = new RegExp(escapeRegExp(q), "i");
+  const customers = await UserModel.find({ role: "customer", $or: [{ fullName: re }, { phone: re }, { email: re }] })
+    .select("fullName phone email createdAt")
+    .sort({ fullName: 1 })
+    .limit(25);
+  res.json({ customers });
+};
+
+export const getCustomerAdmin: RequestHandler = async (req, res) => {
+  const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" }).select("fullName phone email createdAt");
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  res.json({ customer });
+};
+
+/**
+ * The admin-panel counterpart to `recommendToCustomer` above — that one auto-computes item names
+ * from purchase history via getRecommendations; this one sends whatever specific item names the
+ * admin picked by hand, after reviewing the customer's own order history first.
+ */
+export function sendManualRecommendationAdmin(env: Env): RequestHandler {
+  return async (req, res) => {
+    const { itemNames } = req.body as { itemNames?: string[] };
+    if (!Array.isArray(itemNames) || itemNames.length === 0) {
+      res.status(400).json({ error: "Please choose at least one item to recommend" });
+      return;
+    }
+
+    const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" });
+    if (!customer) {
+      res.status(404).json({ error: "Customer not found" });
+      return;
+    }
+    if (!customer.phone) {
+      res.status(400).json({ error: "Customer has no phone number on file" });
+      return;
+    }
+
+    await sendProductRecommendation(env, { customerPhone: customer.phone, recommendedItemNames: itemNames });
+    res.json({ recommendedItemNames: itemNames });
+  };
+}
 
 const ADVANCEABLE_STATUSES = ["received", "preparing", "out-for-delivery", "delivered", "cancelled"];
 
