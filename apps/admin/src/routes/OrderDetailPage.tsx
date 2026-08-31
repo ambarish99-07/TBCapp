@@ -1,21 +1,26 @@
 import type { Order, OrderStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
 import { StatusAdvanceControl } from "../components/StatusAdvanceControl.js";
 import { StatusBadge } from "../components/StatusBadge.js";
-import { Button } from "../components/ui/Button.js";
 import { Card } from "../components/ui/Card.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
 
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
-  const [recommendMessage, setRecommendMessage] = useState<string | null>(null);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why — `order` only ever got set on the success path.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function reload() {
-    const { data } = await adminClient.get<{ order: Order }>(`/orders/${id}`);
-    setOrder(data.order);
+    try {
+      const { data } = await adminClient.get<{ order: Order }>(`/orders/${id}`);
+      setOrder(data.order);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load this order");
+    }
   }
 
   useEffect(() => {
@@ -33,13 +38,14 @@ export function OrderDetailPage() {
     await reload();
   }
 
-  async function handleRecommend() {
-    setRecommendMessage(null);
-    const { data } = await adminClient.post<{ recommendedItemNames: string[] }>(`/admin/orders/${id}/recommend`);
-    setRecommendMessage(
-      data.recommendedItemNames.length > 0
-        ? `Sent recommendation: ${data.recommendedItemNames.join(", ")}`
-        : "No recommendations could be generated for this customer yet."
+  if (loadError) {
+    return (
+      <div>
+        <PageHeader title="Couldn't load this order" action={<Link to="/orders" className="text-sm font-semibold text-primary-dark hover:underline">‹ Back to Orders</Link>} />
+        <Card>
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        </Card>
+      </div>
     );
   }
 
@@ -60,6 +66,14 @@ export function OrderDetailPage() {
           <p className="text-sm font-medium">{order.customer?.name ?? order.delivery.fullName}</p>
           {order.customer?.phone && <p className="text-sm text-muted">{order.customer.phone}</p>}
           {!order.customer && <p className="text-sm text-muted">Guest checkout — no account</p>}
+          {/* Order history, recommendations (manual, purchase-history-suggested, and the persisted
+              in-app "Recommended For You" pick), and the WhatsApp tool all live on the Customer
+              page now — one place to review and edit, rather than scattered per order. */}
+          {order.userId && (
+            <Link to={`/customers/${order.userId}`} className="mt-2 inline-block text-sm font-semibold text-primary-dark hover:underline">
+              View Customer & Recommendations ›
+            </Link>
+          )}
         </Card>
 
         <Card
@@ -98,15 +112,6 @@ export function OrderDetailPage() {
         <Card title="Update Status">
           <StatusAdvanceControl status={order.status} onAdvance={handleAdvance} onCancel={handleCancel} />
         </Card>
-
-        {order.userId && (
-          <Card title="WhatsApp Recommendation">
-            <Button variant="secondary" onClick={handleRecommend}>
-              Send product recommendation
-            </Button>
-            {recommendMessage && <p className="mt-2 text-sm text-muted">{recommendMessage}</p>}
-          </Card>
-        )}
       </div>
     </div>
   );

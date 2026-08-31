@@ -63,7 +63,7 @@ describe("GET /admin/customers", () => {
   });
 
   it("finds a customer by partial name, phone, or email, but never an admin", async () => {
-    await UserModel.create({ fullName: "Priya Sharma", phone: "9812345678", email: "priya@example.com", passwordHash: "x", role: "customer" });
+    const seeded = await UserModel.create({ fullName: "Priya Sharma", phone: "9812345678", email: "priya@example.com", passwordHash: "x", role: "customer" });
     await UserModel.create({ fullName: "Rahul Verma", phone: "9898765432", passwordHash: "x", role: "customer" });
     await UserModel.create({ fullName: "Priya Admin", email: "priya-admin@test.com", passwordHash: "x", role: "admin" });
 
@@ -74,12 +74,53 @@ describe("GET /admin/customers", () => {
     expect(byName.status).toBe(200);
     expect(byName.body.customers).toHaveLength(1);
     expect(byName.body.customers[0].fullName).toBe("Priya Sharma");
+    // Regression guard: a search result with no usable `id` navigates the admin panel to
+    // `/customers/undefined`, which then 400s trying to cast "undefined" to an ObjectId — this
+    // silently happened for months because every other test here fetches a profile by an id
+    // taken directly from `UserModel.create()`, never from a search result's own response body.
+    expect(byName.body.customers[0].id).toBe(String(seeded._id));
+    expect(byName.body.customers[0]._id).toBeUndefined();
 
     const byPhone = await request(app).get("/admin/customers").query({ q: "981234" }).set("Authorization", authHeader);
     expect(byPhone.body.customers).toHaveLength(1);
 
-    const empty = await request(app).get("/admin/customers").set("Authorization", authHeader);
-    expect(empty.body.customers).toHaveLength(0);
+    // No `q` at all browses every customer instead of returning nothing — an admin looking for
+    // someone to recommend to shouldn't need to already know who they're searching for.
+    const all = await request(app).get("/admin/customers").set("Authorization", authHeader);
+    expect(all.body.customers).toHaveLength(2);
+    expect(all.body.customers.map((c: { fullName: string }) => c.fullName)).toEqual(["Priya Sharma", "Rahul Verma"]);
+    expect(all.body.total).toBe(2);
+  });
+
+  it("paginates the full customer list", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await UserModel.create({ fullName: `Customer ${i}`, phone: `98000000${i}${i}`, passwordHash: "x", role: "customer" });
+    }
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const page1 = await request(app).get("/admin/customers").query({ page: 1, pageSize: 2 }).set("Authorization", authHeader);
+    expect(page1.body.total).toBe(3);
+    expect(page1.body.customers).toHaveLength(2);
+
+    const page2 = await request(app).get("/admin/customers").query({ page: 2, pageSize: 2 }).set("Authorization", authHeader);
+    expect(page2.body.customers.length).toBeGreaterThan(0);
+    const allIds = new Set([...page1.body.customers, ...page2.body.customers].map((c: { id: string }) => c.id));
+    expect(allIds.size).toBe(3); // no overlap, nothing lost across the page boundary
+  });
+
+  it("a search result's own id can be used to fetch that customer's profile (the real admin-panel click-through path)", async () => {
+    await UserModel.create({ fullName: "Asd", phone: "8678575785", passwordHash: "x", role: "customer" });
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const search = await request(app).get("/admin/customers").query({ q: "Asd" }).set("Authorization", authHeader);
+    const foundId = search.body.customers[0].id;
+    expect(foundId).toBeTruthy();
+
+    const profile = await request(app).get(`/admin/customers/${foundId}`).set("Authorization", authHeader);
+    expect(profile.status).toBe(200);
+    expect(profile.body.customer.fullName).toBe("Asd");
   });
 });
 
@@ -97,10 +138,72 @@ describe("GET /admin/customers/:id and GET /admin/orders?userId=", () => {
     const profile = await request(app).get(`/admin/customers/${customer._id}`).set("Authorization", authHeader);
     expect(profile.status).toBe(200);
     expect(profile.body.customer.fullName).toBe("Priya Sharma");
+    expect(profile.body.customer.id).toBe(String(customer._id));
 
     const orders = await request(app).get("/admin/orders").query({ userId: String(customer._id) }).set("Authorization", authHeader);
     expect(orders.status).toBe(200);
     expect(orders.body.orders).toHaveLength(2);
+  });
+});
+
+describe("GET /admin/customers/:id/suggested-items", () => {
+  it("rejects a non-admin caller", async () => {
+    const customer = await UserModel.create({ fullName: "Customer", passwordHash: "x", role: "customer" });
+    const token = jwt.sign({ userId: String(customer._id), role: "customer" }, env.JWT_SECRET, { expiresIn: "1h" });
+    const response = await request(app).get(`/admin/customers/${customer._id}/suggested-items`).set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(403);
+  });
+
+  it("404s for a customer that doesn't exist", async () => {
+    const token = await adminToken();
+    const response = await request(app)
+      .get("/admin/customers/6a0000000000000000000000/suggested-items")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(404);
+  });
+
+  it("suggests an item paired with what the customer has ordered, across every one of their orders", async () => {
+    await MenuItemModel.create([
+      {
+        _id: "choco-crush",
+        brandId: "tbc",
+        signatureName: "Choco Crush",
+        commonName: "Rich Chocolate Shake",
+        description: "desc",
+        price: 200,
+        category: "signature-shakes",
+        image: "https://example.com/a.jpg",
+        flavorBadges: [],
+        pairsWith: ["mango-tango"],
+      },
+      {
+        _id: "mango-tango",
+        brandId: "tbc",
+        signatureName: "Mango Tango",
+        commonName: "Mango Shake",
+        description: "desc",
+        price: 220,
+        category: "signature-shakes",
+        image: "https://example.com/b.jpg",
+        flavorBadges: [],
+      },
+    ]);
+    const customer = await UserModel.create({ fullName: "Priya Sharma", phone: "9812345678", passwordHash: "x", role: "customer" });
+    await OrderModel.create(orderFixture({ userId: customer._id }));
+
+    const token = await adminToken();
+    const response = await request(app).get(`/admin/customers/${customer._id}/suggested-items`).set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.itemNames).toEqual(["Mango Tango"]);
+  });
+
+  it("returns no suggestions for a customer with no order history and nothing popular to fall back on", async () => {
+    const customer = await UserModel.create({ fullName: "Fresh Customer", passwordHash: "x", role: "customer" });
+    const token = await adminToken();
+    const response = await request(app).get(`/admin/customers/${customer._id}/suggested-items`).set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    expect(response.body.itemNames).toEqual([]);
   });
 });
 

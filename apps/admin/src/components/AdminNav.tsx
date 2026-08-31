@@ -1,9 +1,11 @@
 import {
+  AlertTriangle,
   BarChart3,
   LayoutDashboard,
   MessageSquareWarning,
   Package,
   PartyPopper,
+  Power,
   ShoppingBag,
   Store,
   Tag,
@@ -21,6 +23,7 @@ import { Link, useLocation } from "react-router-dom";
 const TOP_LINKS: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/store-status", label: "Store Status", icon: Power },
 ];
 
 // Grouped with small-caps section labels — reads more like a real product's nav than one flat
@@ -51,6 +54,7 @@ const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: Lu
       { to: "/tiffin-plans", label: "Plans", icon: Tag },
       { to: "/tiffin-deliveries", label: "Deliveries", icon: Truck },
       { to: "/tiffin-meal-prices", label: "Meal Prices", icon: Utensils },
+      { to: "/tiffin-closures", label: "Emergency Closure", icon: AlertTriangle },
     ],
   },
 ];

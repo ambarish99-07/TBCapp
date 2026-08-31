@@ -7,10 +7,12 @@ import { useBrands } from "../../api/brands.api";
 import { useAllMenuItems, useMenuItems } from "../../api/menu.api";
 import { createOrderRequest } from "../../api/orders.api";
 import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
+import { useStoreStatus } from "../../api/storeStatus.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { EditCartItemModal } from "../../components/EditCartItemModal";
 import { CARD_WIDTH, ItemMiniCard } from "../../components/HomeCollections";
 import { PriceBreakdown } from "../../components/PriceBreakdown";
+import { StoreClosedBanner } from "../../components/StoreClosedBanner";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { useBrandStore } from "../../state/brandStore";
@@ -70,8 +72,13 @@ export function CartScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [placedAccessToken, thumbScale, clearCart, navigation]);
 
+  // Every line in this cart belongs to one catalog brand (TBC, TAT, ...) — GG Tiffin bypasses
+  // cartStore entirely — so gating checkout on this is always correct here, no brand check needed.
+  const { data: storeStatus } = useStoreStatus();
+  const storeOpen = storeStatus?.isOpen ?? true;
+
   const profileComplete = hasCompleteAddress(user);
-  const canProceed = profileComplete && !!selectedPaymentOption;
+  const canProceed = profileComplete && !!selectedPaymentOption && storeOpen;
 
   const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
   const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
@@ -121,7 +128,7 @@ export function CartScreen({ navigation }: Props) {
   );
 
   async function submitOrder() {
-    if (!profileComplete || !selectedPaymentOption || !user) return;
+    if (!profileComplete || !selectedPaymentOption || !user || !storeOpen) return;
 
     setSubmitting(true);
     try {
@@ -289,6 +296,8 @@ export function CartScreen({ navigation }: Props) {
         <PriceBreakdown result={result} couponCode={appliedCoupon?.code} />
       </ScrollView>
 
+      <StoreClosedBanner status={storeStatus} colors={colors} style={styles.storeClosedBanner} />
+
       <View style={styles.actionRow}>
         <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod")}>
           <Text style={styles.payUsingLabel}>Pay using</Text>
@@ -332,6 +341,7 @@ const makeStyles = (colors: ColorPalette) =>
     screen: { flex: 1, backgroundColor: colors.background },
     scroll: { flex: 1 },
     scrollContent: { padding: theme.spacing(2), paddingBottom: theme.spacing(2) },
+    storeClosedBanner: { marginHorizontal: theme.spacing(2), marginBottom: 0 },
     suggestionsWrap: { marginBottom: theme.spacing(2) },
     suggestionsTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     suggestionsRow: { position: "relative" },

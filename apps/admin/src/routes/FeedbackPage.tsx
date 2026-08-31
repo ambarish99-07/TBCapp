@@ -128,6 +128,9 @@ export function FeedbackPage() {
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request silently looked identical to "no feedback yet" — no way to
+  // tell the difference.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
@@ -135,12 +138,14 @@ export function FeedbackPage() {
 
   function reload() {
     setIsLoading(true);
+    setLoadError(null);
     const params: Record<string, string> = {};
     if (typeFilter !== "all") params.type = typeFilter;
     if (statusFilter !== "all") params.status = statusFilter;
     adminClient
       .get<{ feedback: Feedback[] }>("/admin/feedback", { params })
       .then((res) => setFeedback(res.data.feedback))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load feedback"))
       .finally(() => setIsLoading(false));
   }
 
@@ -177,7 +182,9 @@ export function FeedbackPage() {
         </Select>
       </div>
 
-      {isLoading ? (
+      {loadError ? (
+        <p className="text-sm font-medium text-danger">{loadError}</p>
+      ) : isLoading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : feedback.length === 0 ? (
         <Card>

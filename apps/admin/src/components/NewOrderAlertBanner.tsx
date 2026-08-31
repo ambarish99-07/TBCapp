@@ -8,29 +8,62 @@ interface Props {
   newOrders: Order[];
   onDismiss: (orderId: string) => void;
   onDismissAll: () => void;
+  onSendTestAlert: () => void;
 }
 
-export function NewOrderAlertBanner({ newOrders, onDismiss, onDismissAll }: Props) {
+type PermissionState = "granted" | "denied" | "default" | "unsupported";
+
+function currentPermission(): PermissionState {
+  if (typeof Notification === "undefined") return "unsupported";
+  return Notification.permission;
+}
+
+export function NewOrderAlertBanner({ newOrders, onDismiss, onDismissAll, onSendTestAlert }: Props) {
   const navigate = useNavigate();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(
-    typeof Notification !== "undefined" && Notification.permission === "granted"
-  );
+  const [permission, setPermission] = useState<PermissionState>(currentPermission());
 
   async function handleEnableAlerts() {
     primeAlertSound();
     if (typeof Notification !== "undefined") {
       const result = await Notification.requestPermission();
-      setNotificationsEnabled(result === "granted");
+      setPermission(result);
     }
+  }
+
+  function handleTestAlert() {
+    primeAlertSound();
+    onSendTestAlert();
   }
 
   return (
     <div>
-      {!notificationsEnabled && (
+      {permission === "denied" && (
+        <div className="flex items-center justify-between gap-3 bg-danger-soft px-4 py-2 text-sm text-danger">
+          <span>
+            Desktop alerts are blocked for this site. Click the lock/info icon in the browser's address bar → Notifications
+            → Allow, then reload this page.
+          </span>
+        </div>
+      )}
+      {(permission === "default" || permission === "unsupported") && (
         <div className="flex items-center justify-between gap-3 bg-surface px-4 py-2 text-sm text-text">
-          <span>Enable desktop alerts so a new order beeps and pops up even if this tab isn't focused.</span>
+          <span>
+            Enable desktop alerts so a new order beeps and pops up on screen — even over another app or a full-screen
+            game — as long as this browser stays open (it can be minimized).
+          </span>
           <Button variant="secondary" onClick={handleEnableAlerts}>
             Enable Alerts
+          </Button>
+        </div>
+      )}
+      {permission === "granted" && (
+        <div className="flex items-center justify-between gap-3 bg-surface px-4 py-2 text-sm text-text">
+          <span>
+            Desktop alerts are on. On Windows, check that Focus Assist isn't set to silence notifications during
+            full-screen apps, or a game could still block the popup.
+          </span>
+          <Button variant="secondary" onClick={handleTestAlert} title="Shows the full alert — banner, beep, and desktop popup — just like a real order">
+            Send Test Alert
           </Button>
         </div>
       )}

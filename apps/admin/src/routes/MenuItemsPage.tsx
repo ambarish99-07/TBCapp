@@ -227,6 +227,9 @@ export function MenuItemsPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [addOnPrices, setAddOnPrices] = useState<MenuAddOnPrice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [newItemAddOns, setNewItemAddOns] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -237,15 +240,21 @@ export function MenuItemsPage() {
 
   async function reload() {
     setIsLoading(true);
-    const [brandsRes, itemsRes, addOnPricesRes] = await Promise.all([
-      adminClient.get<{ brands: Brand[] }>("/admin/brands"),
-      adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
-      adminClient.get<{ addOnPrices: MenuAddOnPrice[] }>("/menu/add-on-prices"),
-    ]);
-    setBrand(brandsRes.data.brands.find((b) => b.id === brandId) ?? null);
-    setItems(itemsRes.data.items);
-    setAddOnPrices(addOnPricesRes.data.addOnPrices);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const [brandsRes, itemsRes, addOnPricesRes] = await Promise.all([
+        adminClient.get<{ brands: Brand[] }>("/admin/brands"),
+        adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
+        adminClient.get<{ addOnPrices: MenuAddOnPrice[] }>("/menu/add-on-prices"),
+      ]);
+      setBrand(brandsRes.data.brands.find((b) => b.id === brandId) ?? null);
+      setItems(itemsRes.data.items);
+      setAddOnPrices(addOnPricesRes.data.addOnPrices);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load menu items");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -455,7 +464,9 @@ export function MenuItemsPage() {
         ))}
       </datalist>
 
-      {isLoading ? (
+      {loadError ? (
+        <p className="text-sm font-medium text-danger">{loadError}</p>
+      ) : isLoading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : items.length === 0 ? (
         <Card>

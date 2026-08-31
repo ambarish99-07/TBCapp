@@ -29,6 +29,7 @@ import {
   upsertTiffinDishAdmin,
 } from "../tiffin/tiffinMenu.controller.js";
 import { handleTiffinDishImageUpload, uploadTiffinDishImage } from "../tiffin/upload.js";
+import { declareClosureAdmin, listClosuresAdmin } from "../tiffin/tiffinClosure.controller.js";
 import { createCouponAdmin, deleteCouponAdmin, listCouponsAdmin, updateCouponAdmin } from "../coupons/coupons.controller.js";
 import {
   advanceOrderStatus,
@@ -37,10 +38,11 @@ import {
   listCustomerRecommendationsAdmin,
   listCustomersAdmin,
   listOrders,
-  recommendToCustomer,
   sendManualRecommendationAdmin,
+  suggestItemsForCustomerAdmin,
   upsertCustomerRecommendationAdmin,
 } from "./admin.controller.js";
+import { getStoreSettingsAdmin, putStoreSettingsAdmin } from "../storeSettings/storeSettings.controller.js";
 
 export function createAdminRouter(env: Env): Router {
   const router = Router();
@@ -48,16 +50,19 @@ export function createAdminRouter(env: Env): Router {
 
   router.get("/analytics", getAnalytics);
 
+  router.get("/store-settings", getStoreSettingsAdmin);
+  router.put("/store-settings", putStoreSettingsAdmin);
+
   router.get("/feedback", listFeedbackAdmin);
   router.patch("/feedback/:id/status", updateFeedbackStatusAdmin);
   router.patch("/feedback/:id/respond", respondToFeedbackAdmin);
 
   router.get("/orders", listOrders);
   router.patch("/orders/:id/status", advanceOrderStatus);
-  router.post("/orders/:id/recommend", recommendToCustomer(env));
 
   router.get("/customers", listCustomersAdmin);
   router.get("/customers/:id", getCustomerAdmin);
+  router.get("/customers/:id/suggested-items", suggestItemsForCustomerAdmin);
   router.post("/customers/:id/recommend", sendManualRecommendationAdmin(env));
   router.get("/customers/:id/recommendations", listCustomerRecommendationsAdmin);
   router.put("/customers/:id/recommendations", upsertCustomerRecommendationAdmin);
@@ -92,6 +97,9 @@ export function createAdminRouter(env: Env): Router {
   router.get("/tiffin/festival-specials", listFestivalSpecialsAdmin);
   router.put("/tiffin/festival-specials", upsertFestivalSpecialAdmin);
   router.delete("/tiffin/festival-specials/:id", deleteFestivalSpecialAdmin);
+
+  router.get("/tiffin/closures", listClosuresAdmin);
+  router.post("/tiffin/closures", declareClosureAdmin);
 
   router.get("/coupons", listCouponsAdmin);
   router.post("/coupons", createCouponAdmin);

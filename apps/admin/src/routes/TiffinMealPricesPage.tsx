@@ -23,15 +23,24 @@ const emptyForm = {
 export function TiffinMealPricesPage() {
   const [prices, setPrices] = useState<TiffinMealPrice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const { data } = await adminClient.get<{ prices: TiffinMealPrice[] }>("/admin/tiffin/meal-prices");
-    setPrices(data.prices);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const { data } = await adminClient.get<{ prices: TiffinMealPrice[] }>("/admin/tiffin/meal-prices");
+      setPrices(data.prices);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load meal prices");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -107,7 +116,9 @@ export function TiffinMealPricesPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : prices.length === 0 ? (
           <EmptyState message="No meal prices yet." />

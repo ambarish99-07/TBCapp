@@ -12,12 +12,21 @@ const STATUS_OPTIONS: BulkOrderInquiryStatus[] = ["new", "contacted", "closed"];
 export function BulkOrdersPage() {
   const [inquiries, setInquiries] = useState<BulkOrderInquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const { data } = await adminClient.get<{ inquiries: BulkOrderInquiry[] }>("/admin/bulk-order-inquiries");
-    setInquiries(data.inquiries);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const { data } = await adminClient.get<{ inquiries: BulkOrderInquiry[] }>("/admin/bulk-order-inquiries");
+      setInquiries(data.inquiries);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load bulk order inquiries");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -33,7 +42,9 @@ export function BulkOrdersPage() {
     <div>
       <PageHeader title="Bulk Order Inquiries" />
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : inquiries.length === 0 ? (
           <EmptyState message="No bulk order inquiries yet." />

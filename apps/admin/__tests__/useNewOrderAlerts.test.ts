@@ -1,7 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminClient } from "../src/api/adminClient.js";
 import { useNewOrderAlerts } from "../src/notifications/useNewOrderAlerts.js";
+
+// The hook calls useNavigate() (to jump to an order when its notification is clicked), which
+// throws outside a Router context — same reason App.tsx only ever renders it inside one.
+const wrapper = MemoryRouter;
 
 vi.mock("../src/api/adminClient.js", () => ({
   adminClient: { get: vi.fn() },
@@ -58,7 +63,7 @@ describe("useNewOrderAlerts", () => {
   it("does not alert on orders that already existed at the first poll (the baseline)", async () => {
     vi.mocked(adminClient.get).mockResolvedValue({ data: { orders: [makeOrder("a")] } });
 
-    const { result } = renderHook(() => useNewOrderAlerts(true));
+    const { result } = renderHook(() => useNewOrderAlerts(true), { wrapper });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -69,7 +74,7 @@ describe("useNewOrderAlerts", () => {
 
   it("alerts on an order that appears in a later poll but wasn't there at baseline", async () => {
     vi.mocked(adminClient.get).mockResolvedValueOnce({ data: { orders: [makeOrder("a")] } });
-    const { result } = renderHook(() => useNewOrderAlerts(true));
+    const { result } = renderHook(() => useNewOrderAlerts(true), { wrapper });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -84,7 +89,7 @@ describe("useNewOrderAlerts", () => {
 
   it("dismiss removes just that order; dismissAll clears everything", async () => {
     vi.mocked(adminClient.get).mockResolvedValueOnce({ data: { orders: [] } });
-    const { result } = renderHook(() => useNewOrderAlerts(true));
+    const { result } = renderHook(() => useNewOrderAlerts(true), { wrapper });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });

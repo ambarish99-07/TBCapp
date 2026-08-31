@@ -32,29 +32,56 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Finds a registered customer by name, phone, or email — the admin panel's entry point into a
- * specific customer's order history and manual recommendation tool. */
+/** Mongoose documents carry `_id`, but the shared User schema the client relies on expects `id` —
+ * same convention menu.controller.ts's own `withId` uses. Missing this here (as these two
+ * customer endpoints originally were) meant every search result's `customer.id` was `undefined`,
+ * so clicking "View" on the admin panel navigated to `/customers/undefined` and 400'd. */
+function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: string } {
+  const { _id, ...rest } = doc;
+  return { ...rest, id: String(_id) };
+}
+
+const DEFAULT_CUSTOMERS_PAGE_SIZE = 50;
+const MAX_CUSTOMERS_PAGE_SIZE = 200;
+
+/**
+ * Finds a registered customer by name, phone, or email — the admin panel's entry point into a
+ * specific customer's order history and manual recommendation tool. With no `q`, browses every
+ * customer (paginated, alphabetical by name) instead of returning nothing — so the admin panel
+ * can be used as a plain phone-book of every customer's number, not just a search box that
+ * requires already knowing who you're looking for.
+ */
 export const listCustomersAdmin: RequestHandler = async (req, res) => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  if (!q) {
-    res.json({ customers: [] });
-    return;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const pageSize = Math.min(MAX_CUSTOMERS_PAGE_SIZE, Math.max(1, Number(req.query.pageSize) || DEFAULT_CUSTOMERS_PAGE_SIZE));
+
+  const filter: Record<string, unknown> = { role: "customer" };
+  if (q) {
+    const re = new RegExp(escapeRegExp(q), "i");
+    filter.$or = [{ fullName: re }, { phone: re }, { email: re }];
   }
-  const re = new RegExp(escapeRegExp(q), "i");
-  const customers = await UserModel.find({ role: "customer", $or: [{ fullName: re }, { phone: re }, { email: re }] })
-    .select("fullName phone email createdAt")
-    .sort({ fullName: 1 })
-    .limit(25);
-  res.json({ customers });
+
+  const [customers, total] = await Promise.all([
+    UserModel.find(filter)
+      .select("fullName phone email createdAt")
+      .sort({ fullName: 1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean(),
+    UserModel.countDocuments(filter),
+  ]);
+
+  res.json({ customers: customers.map(withId), total, page, pageSize });
 };
 
 export const getCustomerAdmin: RequestHandler = async (req, res) => {
-  const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" }).select("fullName phone email createdAt");
+  const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" }).select("fullName phone email createdAt").lean();
   if (!customer) {
     res.status(404).json({ error: "Customer not found" });
     return;
   }
-  res.json({ customer });
+  res.json({ customer: withId(customer) });
 };
 
 /** Every brand this customer currently has an admin-curated "Recommended For You" pick for —
@@ -160,54 +187,40 @@ export const advanceOrderStatus: RequestHandler = async (req, res) => {
 };
 
 /**
- * Manual trigger for the purchase-history-based recommendation (spec §6). The
- * scoring itself is the pure getRecommendations function from @tbc/pricing;
- * this handler's only job is gathering inputs (order history, menu, popularity
- * fallback) and handing the side effect off to sendProductRecommendation. A
- * future scheduled/automatic version can call getRecommendations the same way.
+ * Read-only purchase-history-based suggestion (spec §6's scoring, via the pure getRecommendations
+ * function from @tbc/pricing) for one customer — across every order they've ever placed, not just
+ * one. Lives here (not on an individual order) so it's reachable from the same Customer Detail
+ * page as the manual WhatsApp picker and the persisted in-app "Recommended For You" tool: one
+ * place to review a customer's history and decide what to recommend, instead of a scattered
+ * per-order trigger. Never sends anything itself — just returns names for the admin to review
+ * (and deselect/add to) before choosing to send via the manual tool below it.
  */
-export function recommendToCustomer(env: Env): RequestHandler {
-  return async (req, res) => {
-    const order = await OrderModel.findById(req.params.id);
-    if (!order) {
-      res.status(404).json({ error: "Order not found" });
-      return;
-    }
-    if (!order.userId) {
-      res.status(400).json({ error: "Recommendations require a registered customer" });
-      return;
-    }
+export const suggestItemsForCustomerAdmin: RequestHandler = async (req, res) => {
+  const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" });
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
 
-    const [user, userOrders, allMenuItems] = await Promise.all([
-      UserModel.findById(order.userId),
-      OrderModel.find({ userId: order.userId }),
-      MenuItemModel.find().lean(),
-    ]);
-    if (!user) {
-      res.status(404).json({ error: "Customer not found" });
-      return;
-    }
-    if (!user.phone) {
-      res.status(400).json({ error: "Customer has no phone number on file" });
-      return;
-    }
+  const [customerOrders, allMenuItems] = await Promise.all([
+    OrderModel.find({ userId: req.params.id }),
+    MenuItemModel.find().lean(),
+  ]);
 
-    const orderedMenuItemIds = Array.from(
-      new Set(
-        userOrders
-          .flatMap((o) => o.items.map((line) => line.menuItemId))
-          .filter((id) => !isComboLineId(id))
-      )
-    );
-    const pairableItems = allMenuItems.map((item) => ({ id: String(item._id), pairsWith: item.pairsWith }));
-    const popularityFallbackIds = allMenuItems.filter((item) => item.isPopular).map((item) => String(item._id));
+  const orderedMenuItemIds = Array.from(
+    new Set(
+      customerOrders
+        .flatMap((o) => o.items.map((line) => line.menuItemId))
+        .filter((id) => !isComboLineId(id))
+    )
+  );
+  const pairableItems = allMenuItems.map((item) => ({ id: String(item._id), pairsWith: item.pairsWith }));
+  const popularityFallbackIds = allMenuItems.filter((item) => item.isPopular).map((item) => String(item._id));
 
-    const recommendedIds = getRecommendations(orderedMenuItemIds, pairableItems, popularityFallbackIds, 3);
-    const recommendedItemNames = recommendedIds
-      .map((id) => allMenuItems.find((item) => String(item._id) === id)?.signatureName)
-      .filter((name): name is string => Boolean(name));
+  const suggestedIds = getRecommendations(orderedMenuItemIds, pairableItems, popularityFallbackIds, 3);
+  const itemNames = suggestedIds
+    .map((id) => allMenuItems.find((item) => String(item._id) === id)?.signatureName)
+    .filter((name): name is string => Boolean(name));
 
-    await sendProductRecommendation(env, { customerPhone: user.phone, recommendedItemNames });
-    res.json({ recommendedItemNames });
-  };
-}
+  res.json({ itemNames });
+};

@@ -18,6 +18,7 @@ import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { buildAddOnPriceLookup, buildSingleMealDishLookup, resolveAddOns, resolveDishSlot } from "./singleMealMenu.js";
 import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow.js";
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
+import { getUpcomingClosedDates, isDateClosed } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
@@ -41,10 +42,11 @@ function pickDeliveryPartner(orderId: string): DeliveryPartner {
  * can be today or tomorrow depending on the ordering cutoff, breakfast is always tomorrow. */
 export async function getSingleMealMenu(_env: Env): Promise<SingleMealMenuItem[]> {
   const now = new Date();
-  const [prices, dishLookup, addOnPrices] = await Promise.all([
+  const [prices, dishLookup, addOnPrices, closedDates] = await Promise.all([
     TiffinMealPriceModel.find({ active: true }).sort({ tier: 1, mealType: 1 }),
     buildSingleMealDishLookup(),
     buildAddOnPriceLookup(),
+    getUpcomingClosedDates(),
   ]);
 
   const items: SingleMealMenuItem[] = [];
@@ -52,6 +54,9 @@ export async function getSingleMealMenu(_env: Env): Promise<SingleMealMenuItem[]
     const tier = price.tier as SingleMealMenuItem["tier"];
     const mealType = price.mealType as SingleMealMenuItem["mealType"];
     const date = resolveSingleMealTargetDate(mealType, now);
+    // An admin-declared emergency closure — the slot just disappears from the menu rather than
+    // showing as orderable and rejecting at checkout.
+    if (closedDates.has(date)) continue;
     for (const dietType of DIET_TYPES) {
       const dish = resolveDishSlot(dishLookup, tier, dietType, mealType, date);
       if (!dish) continue;
@@ -82,6 +87,9 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
   }
 
   const date = resolveSingleMealTargetDate(request.mealType, new Date());
+  if (await isDateClosed(date)) {
+    throw new TiffinValidationError("GG Tiffin is closed on this date due to an emergency — please check back once it reopens.");
+  }
   const [dishLookup, addOnPrices] = await Promise.all([buildSingleMealDishLookup(), buildAddOnPriceLookup()]);
   const dish = resolveDishSlot(dishLookup, request.tier, request.dietType, request.mealType, date);
   if (!dish) {

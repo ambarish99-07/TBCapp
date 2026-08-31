@@ -16,15 +16,24 @@ const emptyForm = { id: "", name: "", tagline: "", primaryColor: "", accentColor
 export function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const { data } = await adminClient.get<{ brands: Brand[] }>("/admin/brands");
-    setBrands(data.brands);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const { data } = await adminClient.get<{ brands: Brand[] }>("/admin/brands");
+      setBrands(data.brands);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load brands");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -98,7 +107,9 @@ export function BrandsPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : brands.length === 0 ? (
           <EmptyState message="No brands yet." />

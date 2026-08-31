@@ -21,18 +21,27 @@ export function TiffinDeliveriesPage() {
   const [subscriptions, setSubscriptions] = useState<TiffinSubscription[]>([]);
   const [singleMealOrders, setSingleMealOrders] = useState<TiffinSingleMealOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const [mealsRes, subscriptionsRes, singleMealOrdersRes] = await Promise.all([
-      adminClient.get<{ meals: TiffinScheduledMeal[] }>("/admin/tiffin/deliveries/today"),
-      adminClient.get<{ subscriptions: TiffinSubscription[] }>("/admin/tiffin/subscriptions"),
-      adminClient.get<{ orders: TiffinSingleMealOrder[] }>("/admin/tiffin/single-meal/orders/today"),
-    ]);
-    setMeals(mealsRes.data.meals);
-    setSubscriptions(subscriptionsRes.data.subscriptions);
-    setSingleMealOrders(singleMealOrdersRes.data.orders);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const [mealsRes, subscriptionsRes, singleMealOrdersRes] = await Promise.all([
+        adminClient.get<{ meals: TiffinScheduledMeal[] }>("/admin/tiffin/deliveries/today"),
+        adminClient.get<{ subscriptions: TiffinSubscription[] }>("/admin/tiffin/subscriptions"),
+        adminClient.get<{ orders: TiffinSingleMealOrder[] }>("/admin/tiffin/single-meal/orders/today"),
+      ]);
+      setMeals(mealsRes.data.meals);
+      setSubscriptions(subscriptionsRes.data.subscriptions);
+      setSingleMealOrders(singleMealOrdersRes.data.orders);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load deliveries");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -59,6 +68,7 @@ export function TiffinDeliveriesPage() {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }, [meals]);
 
+  if (loadError) return <p className="text-sm font-medium text-danger">{loadError}</p>;
   if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (

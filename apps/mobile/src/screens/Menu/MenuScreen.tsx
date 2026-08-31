@@ -9,10 +9,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
 import { useAllCombos, useAllMenuItems, useBrowseCategories, useMenuItems, useMyRecommendations } from "../../api/menu.api";
 import { fetchMyOrders } from "../../api/orders.api";
+import { useStoreStatus } from "../../api/storeStatus.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { HomeCollections, RestaurantsRow } from "../../components/HomeCollections";
+import { StoreClosedBanner } from "../../components/StoreClosedBanner";
 import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
 import { WelcomeOfferModal } from "../../components/WelcomeOfferModal";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
@@ -56,6 +58,7 @@ export function MenuScreen({ navigation }: Props) {
   // as long as *any* live brand has combos, since tapping it now opens a cross-brand page.
   const { data: combos } = useAllCombos();
   const { data: adminRecommendedItemIds } = useMyRecommendations();
+  const { data: storeStatus } = useStoreStatus();
   const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -242,6 +245,9 @@ export function MenuScreen({ navigation }: Props) {
         return (
           <View>
             <BrandCarousel colors={colors} navigation={navigation} onOpenRestaurant={handleOpenRestaurant} paused={isBrandPickerOpen} />
+
+            {/* GG Tiffin has its own separate ordering cutoffs — this switch/schedule never applies there. */}
+            {selectedBrandId !== "gg-tiffin" && <StoreClosedBanner status={storeStatus} colors={colors} />}
 
             {selectedBrandId === "gg-tiffin" ? (
               <TiffinHomeCollections

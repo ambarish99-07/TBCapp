@@ -99,19 +99,32 @@ function StatCard({
   return <div className={className}>{content}</div>;
 }
 
+function loadErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "Failed to load";
+}
+
 export function DashboardPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [revenueGranularity, setRevenueGranularity] = useState<Granularity>("monthly");
   const [ordersGranularity, setOrdersGranularity] = useState<Granularity>("weekly");
   const [recentPeriod, setRecentPeriod] = useState<RecentPeriod>("today");
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why — `summary`/`orders` only ever got set on the success path.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   function reloadOrders() {
-    adminClient.get<{ orders: Order[] }>("/admin/orders").then((res) => setOrders(res.data.orders));
+    adminClient
+      .get<{ orders: Order[] }>("/admin/orders")
+      .then((res) => setOrders(res.data.orders))
+      .catch((err) => setLoadError(loadErrorMessage(err)));
   }
 
   useEffect(() => {
-    adminClient.get<AnalyticsSummary>("/admin/analytics").then((res) => setSummary(res.data));
+    adminClient
+      .get<AnalyticsSummary>("/admin/analytics")
+      .then((res) => setSummary(res.data))
+      .catch((err) => setLoadError(loadErrorMessage(err)));
     reloadOrders();
   }, []);
 
@@ -130,6 +143,18 @@ export function DashboardPage() {
     if (!confirm("Cancel this order?")) return;
     await adminClient.patch(`/admin/orders/${orderId}/status`, { status: "cancelled" });
     reloadOrders();
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" />
+        <Card>
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+          <p className="mt-2 text-sm text-muted">Try refreshing the page, or logging out and back in.</p>
+        </Card>
+      </div>
+    );
   }
 
   if (!summary) {

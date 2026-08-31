@@ -53,13 +53,19 @@ export function OrdersPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the table stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Unfiltered, fetched once — the counts in the stat row above the table need to reflect every
   // order regardless of whatever status/brand filter is currently applied to the table below.
   const [allOrders, setAllOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
-    adminClient.get<{ orders: Order[] }>("/admin/orders").then((res) => setAllOrders(res.data.orders));
+    adminClient
+      .get<{ orders: Order[] }>("/admin/orders")
+      .then((res) => setAllOrders(res.data.orders))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load"));
   }, []);
 
   // Respects the period filter too, so the tiles stay in sync with whatever the table below is
@@ -75,12 +81,18 @@ export function OrdersPage() {
 
   async function reloadFilteredOrders() {
     setIsLoading(true);
-    const params: Record<string, string> = {};
-    if (statusFilter !== "all") params.status = statusFilter;
-    if (brandFilter !== "all") params.brandId = brandFilter;
-    const res = await adminClient.get<{ orders: Order[] }>("/admin/orders", { params });
-    setOrders(res.data.orders);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const params: Record<string, string> = {};
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (brandFilter !== "all") params.brandId = brandFilter;
+      const res = await adminClient.get<{ orders: Order[] }>("/admin/orders", { params });
+      setOrders(res.data.orders);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load orders");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -135,7 +147,13 @@ export function OrdersPage() {
             ))}
           </Select>
         </div>
-        {isLoading ? <p className="text-sm text-muted">Loading…</p> : <OrderTable orders={periodFilteredOrders} onCancel={handleCancel} />}
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : (
+          <OrderTable orders={periodFilteredOrders} onCancel={handleCancel} />
+        )}
       </Card>
     </div>
   );

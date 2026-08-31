@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useTiffinPlans } from "../../api/tiffin.api";
+import { useUpcomingTiffinClosures } from "../../api/tiffinClosure.api";
+import { TiffinClosureBanner } from "../../components/TiffinClosureBanner";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
 import { useTiffinPreferencesStore } from "../../state/tiffinPreferencesStore";
@@ -25,6 +27,7 @@ export function TiffinLandingScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: plans, isLoading } = useTiffinPlans();
   const { data: brands } = useBrands();
+  const { data: upcomingClosures } = useUpcomingTiffinClosures();
   const ggTiffinLogoUrl = brands?.find((brand) => brand.id === "gg-tiffin")?.logoUrl;
   const vegOnly = useTiffinPreferencesStore((state) => state.vegOnly);
   const setVegOnly = useTiffinPreferencesStore((state) => state.setVegOnly);
@@ -48,6 +51,9 @@ export function TiffinLandingScreen({ navigation }: Props) {
         </View>
       </View>
       <Text style={styles.tagline}>Ghar jaise swad, roz ki yaad.</Text>
+
+      <TiffinClosureBanner closures={upcomingClosures} colors={colors} />
+
       <Text style={styles.description}>
         Home-style veg and non-veg meals, delivered daily — breakfast, lunch, dinner, or all three. Subscribe once
         for a week or a month; every day has its own dish. Skip a day whenever you need to, or pause the whole plan

@@ -23,6 +23,7 @@ import {
   postSingleMealRazorpayVerify,
 } from "./singleMeal.controller.js";
 import { getWeeklyMenu } from "./tiffinMenu.controller.js";
+import { getUpcomingClosuresPublic } from "./tiffinClosure.controller.js";
 
 /** GG Tiffin's own module — subscribing requires an account, same as the rest of ordering. */
 export function createTiffinRouter(env: Env): Router {
@@ -32,6 +33,9 @@ export function createTiffinRouter(env: Env): Router {
   // The full single-meal weekly rotation — public, same as /plans and /single-meal/menu — powers
   // the mobile app's menu-browsing screens (Weekly Menu, plan preview) directly, no local copy.
   router.get("/weekly-menu", getWeeklyMenu);
+  // Public — powers a "closed" banner on the mobile app's GG Tiffin screens, same spirit as
+  // /store/status for the catalog brands.
+  router.get("/closures/upcoming", getUpcomingClosuresPublic);
   router.post("/subscriptions", requireAuth(env.JWT_SECRET), postSubscription(env));
   router.get("/subscriptions/mine", requireAuth(env.JWT_SECRET), getMySubscriptions);
   router.get("/subscriptions/:id/meals", requireAuth(env.JWT_SECRET), getUpcomingMeals);

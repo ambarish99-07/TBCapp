@@ -10,6 +10,7 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
 import { markCouponUsed, resolveCoupon } from "../coupons/coupons.service.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
+import { getStoreStatus } from "../storeSettings/storeSettings.service.js";
 import { generateAccessToken } from "./accessToken.js";
 import { assertWithinDeliveryZone } from "./deliveryZone.js";
 import { estimateDeliveryMinutes } from "./estimateDeliveryTime.js";
@@ -19,7 +20,30 @@ import { OrderValidationError } from "./orders.errors.js";
 
 export { OrderValidationError };
 
+/** Re-checked here, server-side, even though the mobile app already reads /store/status to show
+ * its own closed banner — never trust a client to have honored that, same reasoning as every other
+ * server-side validation in this function. Only gates catalog-brand ordering (this function); GG
+ * Tiffin has its own separate cutoff system and isn't affected by this switch. */
+async function assertStoreOpenForOrdering(): Promise<void> {
+  const status = await getStoreStatus();
+  if (status.isOpen) return;
+  if (status.reason === "manually-closed") {
+    throw new OrderValidationError("We're not accepting orders right now — please check back shortly.");
+  }
+  const { openHour, closeHour } = status.settings;
+  const formatHour = (h: number) => {
+    const hourOfDay = h % 24; // 24 (midnight, as a closeHour) normalizes to 0
+    const hour12 = hourOfDay % 12 === 0 ? 12 : hourOfDay % 12;
+    const suffix = hourOfDay < 12 ? "AM" : "PM";
+    return `${hour12} ${suffix}`;
+  };
+  throw new OrderValidationError(
+    `We're closed right now — we're open ${formatHour(openHour)} to ${formatHour(closeHour)} daily.`
+  );
+}
+
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
+  await assertStoreOpenForOrdering();
   const { resolvedLines, pricingLines } = await resolveCartLines(request.items, request.brandId);
   assertWithinDeliveryZone(request.delivery);
 

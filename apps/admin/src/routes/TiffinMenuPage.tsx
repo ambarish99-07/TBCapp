@@ -46,19 +46,28 @@ export function TiffinMenuPage() {
   const [dishes, setDishes] = useState<TiffinDish[]>([]);
   const [addOnPrices, setAddOnPrices] = useState<TiffinAddOnPrice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tier, setTier] = useState<TiffinMealTier>("regular");
   const [dietType, setDietType] = useState<TiffinDietType>("veg");
   const [selected, setSelected] = useState<TiffinDish | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const [dishesRes, addOnsRes] = await Promise.all([
-      adminClient.get<{ dishes: TiffinDish[] }>("/admin/tiffin/dishes"),
-      adminClient.get<{ addOnPrices: TiffinAddOnPrice[] }>("/admin/tiffin/add-on-prices"),
-    ]);
-    setDishes(dishesRes.data.dishes);
-    setAddOnPrices(addOnsRes.data.addOnPrices);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const [dishesRes, addOnsRes] = await Promise.all([
+        adminClient.get<{ dishes: TiffinDish[] }>("/admin/tiffin/dishes"),
+        adminClient.get<{ addOnPrices: TiffinAddOnPrice[] }>("/admin/tiffin/add-on-prices"),
+      ]);
+      setDishes(dishesRes.data.dishes);
+      setAddOnPrices(addOnsRes.data.addOnPrices);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load the menu");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -103,6 +112,15 @@ export function TiffinMenuPage() {
   async function saveAddOnPrice(name: string, price: number) {
     const { data } = await adminClient.put<{ addOnPrice: TiffinAddOnPrice }>("/admin/tiffin/add-on-prices", { name, price });
     setAddOnPrices((prev) => prev.map((p) => (p.id === data.addOnPrice.id ? data.addOnPrice : p)));
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <PageHeader title="GG Tiffin — Menu" />
+        <p className="text-sm font-medium text-danger">{loadError}</p>
+      </div>
+    );
   }
 
   if (isLoading) {

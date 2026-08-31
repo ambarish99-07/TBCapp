@@ -182,16 +182,25 @@ export function TiffinFestivalSpecialsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const [specialsRes, dishesRes] = await Promise.all([
-      adminClient.get<{ specials: TiffinFestivalSpecial[] }>("/admin/tiffin/festival-specials"),
-      adminClient.get<{ dishes: TiffinDish[] }>("/admin/tiffin/dishes"),
-    ]);
-    setSpecials(specialsRes.data.specials);
-    setRegularDishes(dishesRes.data.dishes);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const [specialsRes, dishesRes] = await Promise.all([
+        adminClient.get<{ specials: TiffinFestivalSpecial[] }>("/admin/tiffin/festival-specials"),
+        adminClient.get<{ dishes: TiffinDish[] }>("/admin/tiffin/dishes"),
+      ]);
+      setSpecials(specialsRes.data.specials);
+      setRegularDishes(dishesRes.data.dishes);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load festival specials");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -325,7 +334,9 @@ export function TiffinFestivalSpecialsPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : upcoming.length === 0 ? (
           <EmptyState message="No festival specials yet — plan a day above for an upcoming date." />

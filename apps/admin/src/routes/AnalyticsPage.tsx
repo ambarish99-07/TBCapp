@@ -49,15 +49,24 @@ export function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandFilter, setBrandFilter] = useState("all");
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why — `summary` only ever got set on the success path.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
-    adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
+    adminClient
+      .get<{ brands: Brand[] }>("/admin/brands")
+      .then((res) => setBrands(res.data.brands))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load"));
   }, []);
 
   useEffect(() => {
     const params = brandFilter === "all" ? {} : { brandId: brandFilter };
-    adminClient.get<AnalyticsSummary>("/admin/analytics", { params }).then((res) => setSummary(res.data));
+    adminClient
+      .get<AnalyticsSummary>("/admin/analytics", { params })
+      .then((res) => setSummary(res.data))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load"));
   }, [brandFilter]);
 
   const brandOptions = useMemo(
@@ -84,6 +93,18 @@ export function AnalyticsPage() {
       })),
     [summary]
   );
+
+  if (loadError) {
+    return (
+      <div>
+        <PageHeader title="Analytics" />
+        <Card>
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+          <p className="mt-2 text-sm text-muted">Try refreshing the page, or logging out and back in.</p>
+        </Card>
+      </div>
+    );
+  }
 
   if (!summary) {
     return (

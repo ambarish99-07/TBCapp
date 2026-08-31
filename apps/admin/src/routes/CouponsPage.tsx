@@ -41,15 +41,24 @@ export function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
-    const { data } = await adminClient.get<{ coupons: Coupon[] }>("/admin/coupons");
-    setCoupons(data.coupons);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const { data } = await adminClient.get<{ coupons: Coupon[] }>("/admin/coupons");
+      setCoupons(data.coupons);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load coupons");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -184,7 +193,9 @@ export function CouponsPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : coupons.length === 0 ? (
           <EmptyState message="No coupons yet — add the first one above." />

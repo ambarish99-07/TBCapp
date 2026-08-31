@@ -19,7 +19,8 @@ import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { generateSubscriptionNumber } from "./subscriptionNumber.js";
-import { buildRegularDishLookup, computeMealsForRange } from "./tiffinSchedule.js";
+import { buildRegularDishLookup, computeMealsForRange, computeMealsForRangeSkippingClosedDates } from "./tiffinSchedule.js";
+import { getUpcomingClosedDates } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
 /** How far in advance a scheduled meal must still be for a customer to skip it — configurable
@@ -69,8 +70,11 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   const startDate = new Date();
   startDate.setUTCHours(0, 0, 0, 0);
   startDate.setUTCDate(startDate.getUTCDate() + 1);
-  const dishLookup = await buildRegularDishLookup();
-  const meals = computeMealsForRange(dishLookup, plan.dietType, mealTypes, startDate, plan.durationDays);
+  const [dishLookup, closedDates] = await Promise.all([buildRegularDishLookup(), getUpcomingClosedDates()]);
+  // A brand-new subscription skips any already-declared closure from day one — it's generated
+  // correctly the first time instead of needing the same retroactive extension declareClosure
+  // applies to subscriptions that already existed when the closure was announced.
+  const meals = computeMealsForRangeSkippingClosedDates(dishLookup, plan.dietType, mealTypes, startDate, plan.durationDays, closedDates);
 
   const subscription = await TiffinSubscriptionModel.create({
     subscriptionNumber: generateSubscriptionNumber(),

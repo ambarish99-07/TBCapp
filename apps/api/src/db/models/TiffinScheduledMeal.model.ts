@@ -11,7 +11,7 @@ const TiffinScheduledMealSchema = new Schema(
     dishName: { type: String, required: true },
     status: {
       type: String,
-      enum: ["scheduled", "skipped", "preparing", "out-for-delivery", "delivered", "cancelled"],
+      enum: ["scheduled", "skipped", "closed", "preparing", "out-for-delivery", "delivered", "cancelled"],
       required: true,
       default: "scheduled",
     },

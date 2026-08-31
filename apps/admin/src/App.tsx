@@ -16,6 +16,8 @@ import { LoginPage } from "./routes/LoginPage.js";
 import { MenuItemsPage } from "./routes/MenuItemsPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
+import { StoreSettingsPage } from "./routes/StoreSettingsPage.js";
+import { TiffinClosuresPage } from "./routes/TiffinClosuresPage.js";
 import { TiffinDeliveriesPage } from "./routes/TiffinDeliveriesPage.js";
 import { TiffinFestivalSpecialsPage } from "./routes/TiffinFestivalSpecialsPage.js";
 import { TiffinMealPricesPage } from "./routes/TiffinMealPricesPage.js";
@@ -32,10 +34,17 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 /** Polls for new orders and shows the SOS-style alert banner for as long as an admin is logged in, on every page. */
 function NewOrderAlerts() {
   const { user } = useAdminAuth();
-  const { newOrders, dismiss, dismissAll } = useNewOrderAlerts(!!user);
+  const { newOrders, dismiss, dismissAll, sendTestAlert } = useNewOrderAlerts(!!user);
 
   if (!user) return null;
-  return <NewOrderAlertBanner newOrders={newOrders} onDismiss={dismiss} onDismissAll={dismissAll} />;
+  return (
+    <NewOrderAlertBanner
+      newOrders={newOrders}
+      onDismiss={dismiss}
+      onDismissAll={dismissAll}
+      onSendTestAlert={sendTestAlert}
+    />
+  );
 }
 
 function AppRoutes() {
@@ -57,6 +66,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <AnalyticsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/store-status"
+          element={
+            <RequireAdmin>
+              <StoreSettingsPage />
             </RequireAdmin>
           }
         />
@@ -169,6 +186,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <TiffinDeliveriesPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-closures"
+          element={
+            <RequireAdmin>
+              <TiffinClosuresPage />
             </RequireAdmin>
           }
         />

@@ -11,3 +11,4 @@ export * from "./premiumMembership.js";
 export * from "./coupon.js";
 export * from "./analytics.js";
 export * from "./feedback.js";
+export * from "./storeSettings.js";

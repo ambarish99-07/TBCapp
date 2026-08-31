@@ -74,6 +74,10 @@ export type UpdateTiffinPlanRequest = z.infer<typeof UpdateTiffinPlanRequestSche
 export const TiffinScheduledMealStatusSchema = z.enum([
   "scheduled",
   "skipped",
+  // Set only by an admin-declared emergency closure (see TiffinClosure below) — distinct from
+  // "skipped" (the customer's own choice) so both the customer and the admin can tell why a day
+  // didn't get delivered, and the subscription was extended to make up for it either way.
+  "closed",
   "preparing",
   "out-for-delivery",
   "delivered",
@@ -370,3 +374,46 @@ export const TiffinSingleMealOrderSchema = z.object({
   createdAt: z.string(),
 });
 export type TiffinSingleMealOrder = z.infer<typeof TiffinSingleMealOrderSchema>;
+
+// --- Emergency closure (kitchen outage, staff unavailable, etc.) ---
+
+/**
+ * An admin-declared "GG Tiffin is closed" window (a day, a few days, a week) — entirely separate
+ * from the TBC/TAT StoreSettings switch, since GG Tiffin already has its own per-meal ordering
+ * cutoffs and a fundamentally different fulfillment model (paid-upfront subscriptions, not
+ * per-order delivery). Declaring one is a one-time action, applied immediately: every affected
+ * subscriber's scheduled meals in range are marked "closed" and their subscription's `endDate` is
+ * pushed out by the same number of days, so a 30-day plan interrupted by a 2-day closure still
+ * delivers 30 days of meals, just over 32 calendar days. Any single-meal order already placed for
+ * a date in range is auto-cancelled with a full refund. New single-meal ordering and new
+ * subscriptions both skip closed dates automatically for as long as the closure record exists.
+ * There is no "undo" — once declared and processed, the extension/cancellation has already
+ * happened; a mistaken closure needs to be corrected by hand via the existing admin tools.
+ */
+export const TiffinClosureSchema = z.object({
+  id: z.string(),
+  /** Both ISO calendar dates (yyyy-mm-dd), inclusive. */
+  startDate: z.string(),
+  endDate: z.string(),
+  reason: z.string().max(300).optional(),
+  createdAt: z.string(),
+});
+export type TiffinClosure = z.infer<typeof TiffinClosureSchema>;
+
+export const DeclareTiffinClosureRequestSchema = z
+  .object({
+    startDate: z.string(),
+    endDate: z.string(),
+    reason: z.string().max(300).optional(),
+  })
+  .refine((data) => data.startDate <= data.endDate, { message: "End date must be on or after the start date", path: ["endDate"] });
+export type DeclareTiffinClosureRequest = z.infer<typeof DeclareTiffinClosureRequestSchema>;
+
+/** What declareClosure hands back so the admin panel can show exactly what just happened. */
+export const TiffinClosureResultSchema = z.object({
+  closure: TiffinClosureSchema,
+  extendedSubscriptionCount: z.number().int().nonnegative(),
+  cancelledSingleMealOrderCount: z.number().int().nonnegative(),
+  refundedAmount: z.number().nonnegative(),
+});
+export type TiffinClosureResult = z.infer<typeof TiffinClosureResultSchema>;

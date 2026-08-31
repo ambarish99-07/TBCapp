@@ -28,6 +28,9 @@ const emptyForm = {
 export function TiffinPlansPage() {
   const [plans, setPlans] = useState<TiffinPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +38,15 @@ export function TiffinPlansPage() {
 
   async function reload() {
     setIsLoading(true);
-    const { data } = await adminClient.get<{ plans: TiffinPlan[] }>("/admin/tiffin/plans");
-    setPlans(data.plans);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const { data } = await adminClient.get<{ plans: TiffinPlan[] }>("/admin/tiffin/plans");
+      setPlans(data.plans);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load plans");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -154,7 +163,9 @@ export function TiffinPlansPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {loadError ? (
+          <p className="text-sm font-medium text-danger">{loadError}</p>
+        ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : plans.length === 0 ? (
           <EmptyState message="No plans yet." />

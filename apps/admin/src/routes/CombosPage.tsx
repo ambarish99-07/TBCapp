@@ -197,6 +197,9 @@ export function CombosPage() {
   const [combos, setCombos] = useState<Combo[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Without this, a failed request left the page stuck on "Loading…" forever with no way to
+  // tell why.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -205,15 +208,21 @@ export function CombosPage() {
 
   async function reload() {
     setIsLoading(true);
-    const [brandsRes, combosRes, itemsRes] = await Promise.all([
-      adminClient.get<{ brands: Brand[] }>("/admin/brands"),
-      adminClient.get<{ combos: Combo[] }>("/menu/combos", { params: { brandId } }),
-      adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
-    ]);
-    setBrand(brandsRes.data.brands.find((b) => b.id === brandId) ?? null);
-    setCombos(combosRes.data.combos);
-    setItems(itemsRes.data.items);
-    setIsLoading(false);
+    setLoadError(null);
+    try {
+      const [brandsRes, combosRes, itemsRes] = await Promise.all([
+        adminClient.get<{ brands: Brand[] }>("/admin/brands"),
+        adminClient.get<{ combos: Combo[] }>("/menu/combos", { params: { brandId } }),
+        adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
+      ]);
+      setBrand(brandsRes.data.brands.find((b) => b.id === brandId) ?? null);
+      setCombos(combosRes.data.combos);
+      setItems(itemsRes.data.items);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load combos");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -337,7 +346,9 @@ export function CombosPage() {
         {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
       </Card>
 
-      {isLoading ? (
+      {loadError ? (
+        <p className="text-sm font-medium text-danger">{loadError}</p>
+      ) : isLoading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : combos.length === 0 ? (
         <Card>

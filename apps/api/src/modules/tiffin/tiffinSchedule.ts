@@ -80,3 +80,44 @@ export function computeMealsForRange(
   }
   return meals;
 }
+
+/**
+ * Same as `computeMealsForRange`, but any calendar date in `closedDates` (an admin-declared
+ * emergency closure — see tiffinClosure.service.ts) is skipped entirely and pushed to the end,
+ * so the subscriber still gets exactly `durationDays` worth of actual delivery days. Used only at
+ * subscribe time, so a brand-new subscription that happens to start during (or run into) an
+ * already-declared closure is correct from day one — it never needs the separate retroactive
+ * skip-and-extend that declareClosure applies to subscriptions that existed before the closure.
+ */
+export function computeMealsForRangeSkippingClosedDates(
+  lookup: RegularDishLookup,
+  dietType: TiffinDietType,
+  mealTypes: TiffinMealType[],
+  startDate: Date,
+  durationDays: number,
+  closedDates: ReadonlySet<string>
+): ScheduledMealDraft[] {
+  if (closedDates.size === 0) return computeMealsForRange(lookup, dietType, mealTypes, startDate, durationDays);
+
+  const meals: ScheduledMealDraft[] = [];
+  let deliverableDaysGenerated = 0;
+  let dayOffset = 0;
+  // Bounded so a pathological (e.g. permanently open-ended) closure record can't spin forever —
+  // real closures are a handful of days, so this ceiling is never remotely approached in practice.
+  const MAX_DAY_OFFSET = 3650;
+  while (deliverableDaysGenerated < durationDays && dayOffset < MAX_DAY_OFFSET) {
+    const date = new Date(startDate);
+    date.setUTCDate(date.getUTCDate() + dayOffset);
+    dayOffset += 1;
+    const isoDate = toIsoDate(date);
+    if (closedDates.has(isoDate)) continue;
+
+    const dayName = DAY_NAMES[date.getUTCDay()] as DayOfWeek;
+    for (const mealType of mealTypes) {
+      const dishName = lookup.get(`${dietType}|${isoDate}|${mealType}`) ?? dishForDay(lookup, dietType, dayName, mealType);
+      meals.push({ date: isoDate, mealType, dishName });
+    }
+    deliverableDaysGenerated += 1;
+  }
+  return meals;
+}
