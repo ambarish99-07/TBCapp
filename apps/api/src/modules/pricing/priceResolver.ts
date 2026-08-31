@@ -1,8 +1,8 @@
-import { ADD_ON_PRICES, computeComboPrice, round, type CartLineInput, type DrinkCategory } from "@tbc/pricing";
-import { CROSS_BRAND_ID, isComboLineId, type AddOnId, type CartLineRequest, type ResolvedCartLine } from "@tbc/shared-types";
+import { computeComboPrice, round, type CartLineInput, type DrinkCategory } from "@tbc/pricing";
+import { CROSS_BRAND_ID, isComboLineId, type CartLineRequest, type ResolvedCartLine } from "@tbc/shared-types";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
-import { liveBrandIds } from "../menu/menu.service.js";
+import { buildAddOnPriceLookup, liveBrandIds } from "../menu/menu.service.js";
 
 export class PriceResolutionError extends Error {}
 
@@ -77,6 +77,12 @@ function toDrinkCategory(category: string): DrinkCategory | undefined {
 export async function resolveCartLines(lines: CartLineRequest[], brandId: string): Promise<ResolvedCart> {
   const resolvedLines: ResolvedCartLine[] = [];
   const pricingLines: CartLineInput[] = [];
+  // Fetched once per order, not once per add-on — same DB-driven lookup menu.service.ts's
+  // withResolvedAddOns uses for the browsable menu, so a cart never disagrees with the menu on
+  // what an add-on costs. No longer a fixed, closed list (see @tbc/shared-types' Customization
+  // doc-comment), so a brand new food category's own add-ons (e.g. "Extra Raita") just need a row
+  // in the shared MenuAddOnPrice catalog, not a code change.
+  const addOnPriceLookup = await buildAddOnPriceLookup();
 
   for (const line of lines) {
     if (isComboLineId(line.menuItemId)) {
@@ -107,7 +113,7 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       // and a per-item sale are separate mechanisms and shouldn't stack.
       const basePrices = constituentIds.map((id) => constituentItems.find((item) => item._id === id)!.price);
       const fullPriceSum = basePrices.reduce((sum, price) => sum + price, 0);
-      const comboPrice = computeComboPrice(basePrices);
+      const comboPrice = computeComboPrice(basePrices, combo.discountPercent ?? undefined);
 
       resolvedLines.push({
         lineId: line.lineId,
@@ -135,10 +141,10 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       throw new PriceResolutionError(`Unknown menu item: ${line.menuItemId}`);
     }
 
-    const addOnPrices = line.customization.addOnIds.map((addOnId) => {
-      const price = ADD_ON_PRICES[addOnId as AddOnId];
+    const addOnPrices = line.customization.addOnIds.map((addOnName) => {
+      const price = addOnPriceLookup.get(addOnName);
       if (price === undefined) {
-        throw new PriceResolutionError(`Unknown add-on: ${addOnId}`);
+        throw new PriceResolutionError(`Unknown add-on: ${addOnName}`);
       }
       return price;
     });

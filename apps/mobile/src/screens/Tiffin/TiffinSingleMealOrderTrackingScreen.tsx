@@ -95,6 +95,7 @@ export function TiffinSingleMealOrderTrackingScreen({ route, navigation }: Props
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.orderNumber}>{order.orderNumber}</Text>
+        {order.specialLabel && <Text style={styles.specialBadge}>{order.specialLabel}</Text>}
         <Text style={styles.dishName}>
           {order.dishName}
           {order.quantity > 1 ? ` × ${order.quantity}` : ""}
@@ -197,6 +198,7 @@ const makeStyles = (colors: ColorPalette) =>
     centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
     errorText: { color: colors.danger, fontSize: 14 },
     orderNumber: { fontSize: 13, fontWeight: "700", color: colors.muted },
+    specialBadge: { fontSize: 12, fontWeight: "800", color: colors.accent, marginTop: theme.spacing(1) },
     dishName: { fontSize: 20, fontWeight: "800", color: colors.text, marginTop: 2, marginBottom: theme.spacing(2) },
     card: {
       backgroundColor: colors.surface,

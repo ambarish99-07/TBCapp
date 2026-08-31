@@ -344,11 +344,33 @@ export function listAllPlansAdmin() {
 }
 
 export function createPlan(data: CreateTiffinPlanRequest) {
+  if (data.salePercent != null && data.durationDays !== TIFFIN_PLAN_DURATIONS.monthly) {
+    throw new TiffinValidationError("Discounts are only available on monthly plans");
+  }
   return TiffinPlanModel.create(data);
 }
 
 export async function updatePlan(id: string, data: UpdateTiffinPlanRequest) {
-  const plan = await TiffinPlanModel.findByIdAndUpdate(id, data, { new: true });
+  const { salePercent, ...rest } = data;
+  if (salePercent != null) {
+    // durationDays isn't necessarily part of this (partial) update payload — fall back to the
+    // plan's own already-stored duration rather than assuming weekly/monthly from the patch alone.
+    const durationDays = rest.durationDays ?? (await TiffinPlanModel.findById(id).select("durationDays").lean())?.durationDays;
+    if (durationDays !== TIFFIN_PLAN_DURATIONS.monthly) {
+      throw new TiffinValidationError("Discounts are only available on monthly plans");
+    }
+  }
+
+  // null ⇒ explicitly clear the discount (back to no discount); undefined ⇒ leave it untouched.
+  const set: Record<string, unknown> = { ...rest };
+  const unset: Record<string, unknown> = {};
+  if (salePercent === null) {
+    unset.salePercent = "";
+  } else if (salePercent !== undefined) {
+    set.salePercent = salePercent;
+  }
+
+  const plan = await TiffinPlanModel.findByIdAndUpdate(id, { $set: set, $unset: unset }, { new: true, runValidators: true });
   if (!plan) throw new TiffinValidationError("Plan not found");
   return plan;
 }

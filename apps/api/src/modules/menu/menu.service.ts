@@ -1,5 +1,6 @@
-import { BROWSE_CATEGORIES, CROSS_BRAND_ID } from "@tbc/shared-types";
+import { BROWSE_CATEGORIES, CROSS_BRAND_ID, type MenuAddOn, type UpsertMenuAddOnPriceRequest } from "@tbc/shared-types";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
+import { MenuAddOnPriceModel } from "../../db/models/MenuAddOnPrice.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { BrandModel } from "../../db/models/Brand.model.js";
 
@@ -9,6 +10,37 @@ export function listMenuItems(brandId: string) {
 
 export function findMenuItemById(id: string) {
   return MenuItemModel.findById(id).lean();
+}
+
+// --- Add-on price catalog (shared across every brand's menu, GG Tiffin's own catalog is separate) ---
+
+export function listAddOnPrices() {
+  return MenuAddOnPriceModel.find().sort({ name: 1 });
+}
+
+export function upsertAddOnPrice(data: UpsertMenuAddOnPriceRequest) {
+  return MenuAddOnPriceModel.findOneAndUpdate({ name: data.name }, data, { new: true, upsert: true, runValidators: true });
+}
+
+/** Fetched once per request (not once per item) — same pattern GG Tiffin's buildAddOnPriceLookup uses. */
+export async function buildAddOnPriceLookup(): Promise<Map<string, number>> {
+  const prices = await MenuAddOnPriceModel.find().lean();
+  return new Map(prices.map((p) => [p.name, p.price]));
+}
+
+/** Resolves an item's `addOnNames` into priced `{name, price}` pairs — any name whose price has
+ * since been deleted from the catalog is dropped rather than shown at a misleading ₹0. */
+export function resolveItemAddOns(addOnNames: string[], lookup: Map<string, number>): MenuAddOn[] {
+  return addOnNames
+    .map((name) => ({ name, price: lookup.get(name) }))
+    .filter((addOn): addOn is MenuAddOn => addOn.price !== undefined);
+}
+
+/** Attaches the resolved `addOns` field to every item in one batch — the shared last step for
+ * every read path (list, search, single lookup) so none of them can forget it. */
+export async function withResolvedAddOns<T extends { addOnNames?: string[] | null }>(items: T[]): Promise<(T & { addOns: MenuAddOn[] })[]> {
+  const lookup = await buildAddOnPriceLookup();
+  return items.map((item) => ({ ...item, addOns: resolveItemAddOns(item.addOnNames ?? [], lookup) }));
 }
 
 export function listCombos(brandId: string) {

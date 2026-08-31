@@ -71,6 +71,7 @@ function SingleMealOrdersSection({
               {MEAL_TYPE_LABELS[order.mealType] ?? order.mealType}
             </Text>
             <Text style={styles.mealDish}>
+              {order.specialLabel ? `${order.specialLabel} — ` : ""}
               {order.dishName}
               {order.quantity > 1 ? ` × ${order.quantity}` : ""}
             </Text>

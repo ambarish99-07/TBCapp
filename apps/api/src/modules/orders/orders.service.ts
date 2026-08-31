@@ -1,4 +1,4 @@
-import { cartSubtotal, computePricing } from "@tbc/pricing";
+import { computePricing } from "@tbc/pricing";
 import {
   ORDER_CANCELLATION_DELIVERED_REFUND_PERCENT,
   ORDER_CANCELLATION_DISPATCHED_REFUND_PERCENT,
@@ -8,7 +8,7 @@ import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
-import { resolveCoupon } from "../coupons/coupons.service.js";
+import { markCouponUsed, resolveCoupon } from "../coupons/coupons.service.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
 import { generateAccessToken } from "./accessToken.js";
 import { assertWithinDeliveryZone } from "./deliveryZone.js";
@@ -48,7 +48,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   let couponResult: { code: string; discountAmount: number } | undefined;
   if (request.couponCode) {
     try {
-      couponResult = await resolveCoupon(request.couponCode, request.brandId, cartSubtotal(pricingLines));
+      couponResult = await resolveCoupon(request.couponCode, request.brandId, pricingLines, userId);
     } catch (err) {
       throw new OrderValidationError(err instanceof Error ? err.message : "Invalid coupon code");
     }
@@ -98,6 +98,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
     // COD orders are trusted at face value — genuinely "complete" immediately.
     if (userId) {
       await advanceLoyaltyOrderCount(userId);
+      if (couponResult) await markCouponUsed(couponResult.code, userId);
     }
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,

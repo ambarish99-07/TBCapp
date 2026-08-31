@@ -39,7 +39,8 @@ export const TiffinPlanSchema = z.object({
   /** Flat price for the whole plan duration — never hardcoded in application code, always admin-editable. */
   price: z.number().positive(),
   /** A few plans may carry a discount — the charged price is the marked-down one, `price` stays
-   * the strikethrough display value. Mirrors MenuItem's salePercent exactly. */
+   * the strikethrough display value. Mirrors MenuItem's salePercent exactly. Admin-editable, and
+   * (see tiffin.service.ts#createPlan/updatePlan) only ever settable on a monthly-duration plan. */
   salePercent: z.number().min(1).max(99).optional(),
   /** Thumbnail shown on the plan card — same veg/non-veg tiffin photo shared across every plan
    * of that diet, not a per-plan photo (there's no per-plan dish to photograph). */
@@ -61,7 +62,13 @@ export const CreateTiffinPlanRequestSchema = z.object({
 });
 export type CreateTiffinPlanRequest = z.infer<typeof CreateTiffinPlanRequestSchema>;
 
-export const UpdateTiffinPlanRequestSchema = CreateTiffinPlanRequestSchema.partial();
+export const UpdateTiffinPlanRequestSchema = CreateTiffinPlanRequestSchema.partial().extend({
+  // Explicit `null` clears a previously-set discount back to "no discount"; omitting the field
+  // entirely leaves whatever's stored untouched — same undefined-vs-null distinction
+  // UpsertComboRequestSchema's discountPercent uses, for the same reason (a bare `undefined`
+  // never survives JSON.stringify, so the key would just be missing and look like "don't touch").
+  salePercent: z.number().min(1).max(99).nullable().optional(),
+});
 export type UpdateTiffinPlanRequest = z.infer<typeof UpdateTiffinPlanRequestSchema>;
 
 export const TiffinScheduledMealStatusSchema = z.enum([
@@ -196,6 +203,37 @@ export type TiffinDish = z.infer<typeof TiffinDishSchema>;
 export const UpsertTiffinDishRequestSchema = TiffinDishSchema.omit({ id: true });
 export type UpsertTiffinDishRequest = z.infer<typeof UpsertTiffinDishRequestSchema>;
 
+/**
+ * A one-off override for a single calendar date — e.g. swapping Premium/veg/lunch's usual
+ * Thursday dish for a "Diwali Special" on 2026-10-20. Same shape as `TiffinDish`, but keyed to an
+ * exact `date` instead of a recurring `dayOfWeek`; resolved with priority over the regular weekly
+ * rotation for that one date only (see singleMealMenu.ts#resolveDishSlot), then the slot reverts
+ * to normal the next day on its own — no cleanup needed. Not every (tier, dietType, mealType)
+ * needs a row for a given festival — only whichever slots the admin actually wants to swap out.
+ */
+export const TiffinFestivalSpecialSchema = z.object({
+  id: z.string(),
+  /** ISO calendar date (yyyy-mm-dd) this special applies to. */
+  date: z.string(),
+  /** Shown to customers as a badge on the menu, e.g. "🪔 Diwali Special". */
+  label: z.string().min(1),
+  tier: TiffinMealTierSchema,
+  dietType: TiffinDietTypeSchema,
+  mealType: SingleMealTypeSchema,
+  dishName: z.string().min(1),
+  image: z.string().optional(),
+  hasAddOns: z.boolean().default(true),
+  riceSubstitute: z.enum(["rice", "pulao"]).default("rice"),
+  extraAddOnName: z.string().optional(),
+  /** Lets the admin pull a special from the menu without deleting/losing it (e.g. sold out early
+   * or the festival was postponed) — same convention as TiffinPlan/TiffinMealPrice's `active`. */
+  active: z.boolean().default(true),
+});
+export type TiffinFestivalSpecial = z.infer<typeof TiffinFestivalSpecialSchema>;
+
+export const UpsertTiffinFestivalSpecialRequestSchema = TiffinFestivalSpecialSchema.omit({ id: true });
+export type UpsertTiffinFestivalSpecialRequest = z.infer<typeof UpsertTiffinFestivalSpecialRequestSchema>;
+
 /** A named add-on's shared flat price — the same "Rice" costs the same wherever it's offered, so
  * its price lives here once rather than being repeated on every dish that offers it. Also holds
  * the generic "Extra Portion" veg top-up price (see `TiffinDish.extraAddOnName`). */
@@ -259,6 +297,9 @@ export const SingleMealMenuItemSchema = z.object({
    * protein) — a catalog to choose from in the customize pop-up, not what's included by default.
    * Empty for breakfast and Premium's already-complete Sunday dinner, which have nothing to add. */
   addOns: z.array(SingleMealAddOnSchema),
+  /** Set only when `dishName` is a festival special for `date` (see TiffinFestivalSpecialSchema)
+   * instead of the regular weekly dish — e.g. "🪔 Diwali Special". Absent on an ordinary day. */
+  specialLabel: z.string().optional(),
 });
 export type SingleMealMenuItem = z.infer<typeof SingleMealMenuItemSchema>;
 
@@ -312,6 +353,8 @@ export const TiffinSingleMealOrderSchema = z.object({
   date: z.string(),
   /** Snapshotted at order time — a later menu/price edit shouldn't retroactively rewrite what was ordered. */
   dishName: z.string(),
+  /** Snapshotted at order time — set only when `dishName` was a festival special, e.g. "🪔 Diwali Special". */
+  specialLabel: z.string().optional(),
   /** The add-ons the customer actually chose, snapshotted with their price at order time — add to
    * price × quantity for the amount actually charged. */
   addOns: z.array(SingleMealAddOnSchema),

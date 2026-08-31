@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   MessageSquareWarning,
   Package,
+  PartyPopper,
   ShoppingBag,
   Store,
   Tag,
@@ -46,6 +47,7 @@ const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: Lu
     label: "GG Tiffin",
     links: [
       { to: "/tiffin-menu", label: "Menu", icon: UtensilsCrossed },
+      { to: "/tiffin-festival-specials", label: "Festival Specials", icon: PartyPopper },
       { to: "/tiffin-plans", label: "Plans", icon: Tag },
       { to: "/tiffin-deliveries", label: "Deliveries", icon: Truck },
       { to: "/tiffin-meal-prices", label: "Meal Prices", icon: Utensils },

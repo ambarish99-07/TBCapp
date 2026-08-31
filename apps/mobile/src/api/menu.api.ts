@@ -61,6 +61,21 @@ export function useBrowseCategories() {
   });
 }
 
+/** This customer's admin-curated "Recommended For You" pick for the selected brand (set from the
+ * admin panel's Customer Detail page) — empty for most customers, since the admin hasn't
+ * necessarily set one. Requires login, same as the personal reorder history it's shown alongside. */
+export function useMyRecommendations() {
+  const brandId = useBrandStore((state) => state.selectedBrandId);
+  return useQuery({
+    queryKey: ["my-recommendations", brandId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ itemIds: string[] }>("/menu/my-recommendations");
+      return data.itemIds;
+    },
+    enabled: !!brandId,
+  });
+}
+
 /** Cross-brand item search — unlike useMenuItems, NOT scoped to the currently selected brand. */
 export function useMenuSearch(params: { q?: string; category?: string }) {
   const q = params.q?.trim() ?? "";

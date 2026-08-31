@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AddOnIdSchema, MenuCategorySchema } from "./menu.js";
+import { MenuCategorySchema } from "./menu.js";
 
 export const MAX_LINE_ITEMS_PER_ORDER = 50;
 export const MAX_QUANTITY_PER_LINE = 20;
@@ -11,9 +11,14 @@ export const IceLevelSchema = z.enum(["less", "regular", "extra"]);
 export type IceLevel = z.infer<typeof IceLevelSchema>;
 
 export const CustomizationSchema = z.object({
-  sugarLevel: SugarLevelSchema,
-  iceLevel: IceLevelSchema,
-  addOnIds: z.array(AddOnIdSchema),
+  /** Absent for an item with no sugar/ice concept at all (see MenuItem.hasSugarIceCustomization)
+   * — never defaulted to "regular" under the hood, since that would misleadingly imply the
+   * customer chose something for, say, a biryani. */
+  sugarLevel: SugarLevelSchema.optional(),
+  iceLevel: IceLevelSchema.optional(),
+  /** Names from the shared MenuAddOnPrice catalog (see menu.ts) — no longer a closed enum, so a
+   * new brand's own add-ons (e.g. "Extra Raita") need no shared-types change to exist. */
+  addOnIds: z.array(z.string()),
   /** Free-text notes from the customer (e.g. "extra hot", "no straw") — shown to the kitchen as-is, never parsed. */
   comment: z.string().max(200).optional(),
 });

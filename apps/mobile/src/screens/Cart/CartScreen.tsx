@@ -48,8 +48,7 @@ export function CartScreen({ navigation }: Props) {
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
   const [suggestionPage, setSuggestionPage] = useState(0);
-  const editingMenuItem = editingLine ? menuItems?.find((item) => item.id === editingLine.menuItemId) : null;
-  const editingCategory = editingMenuItem?.category ?? null;
+  const editingMenuItem = editingLine ? (menuItems?.find((item) => item.id === editingLine.menuItemId) ?? null) : null;
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
   const { data: brands } = useBrands();
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
@@ -195,10 +194,14 @@ export function CartScreen({ navigation }: Props) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineName}>{line.signatureName}</Text>
                 {line.isCombo && line.commonName && <Text style={styles.lineCombo}>{line.commonName}</Text>}
-                <Text style={styles.lineMeta}>
-                  Sugar: {line.sugarLevel} · Ice: {line.iceLevel}
-                  {line.addOnIds.length > 0 ? ` · ${line.addOnIds.length} add-on(s)` : ""}
-                </Text>
+                {/* Absent entirely for a combo or an item with no sugar/ice concept — never a
+                    misleading "Sugar: undefined". */}
+                {(line.sugarLevel || line.addOnIds.length > 0) && (
+                  <Text style={styles.lineMeta}>
+                    {line.sugarLevel && `Sugar: ${line.sugarLevel} · Ice: ${line.iceLevel}`}
+                    {line.addOnIds.length > 0 ? `${line.sugarLevel ? " · " : ""}${line.addOnIds.length} add-on(s)` : ""}
+                  </Text>
+                )}
                 {line.comment && <Text style={styles.lineComment}>"{line.comment}"</Text>}
               </View>
               <Text style={styles.lineTotal}>₹{(line.unitPrice + line.addOnPrices.reduce((s, p) => s + p, 0)) * line.quantity}</Text>
@@ -306,12 +309,7 @@ export function CartScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <EditCartItemModal
-        line={editingLine}
-        category={editingCategory}
-        description={editingMenuItem?.description}
-        onClose={() => setEditingLine(null)}
-      />
+      <EditCartItemModal line={editingLine} item={editingMenuItem} onClose={() => setEditingLine(null)} />
 
       <AddItemModal item={addingItem} onClose={() => setAddingItem(null)} />
 

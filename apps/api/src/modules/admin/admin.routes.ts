@@ -20,9 +20,12 @@ import {
 } from "../tiffin/singleMeal.controller.js";
 import { listFeedbackAdmin, respondToFeedbackAdmin, updateFeedbackStatusAdmin } from "../feedback/feedback.controller.js";
 import {
+  deleteFestivalSpecialAdmin,
   listAddOnPricesAdmin,
+  listFestivalSpecialsAdmin,
   listTiffinDishesAdmin,
   upsertAddOnPriceAdmin,
+  upsertFestivalSpecialAdmin,
   upsertTiffinDishAdmin,
 } from "../tiffin/tiffinMenu.controller.js";
 import { handleTiffinDishImageUpload, uploadTiffinDishImage } from "../tiffin/upload.js";
@@ -31,10 +34,12 @@ import {
   advanceOrderStatus,
   getAnalytics,
   getCustomerAdmin,
+  listCustomerRecommendationsAdmin,
   listCustomersAdmin,
   listOrders,
   recommendToCustomer,
   sendManualRecommendationAdmin,
+  upsertCustomerRecommendationAdmin,
 } from "./admin.controller.js";
 
 export function createAdminRouter(env: Env): Router {
@@ -54,6 +59,8 @@ export function createAdminRouter(env: Env): Router {
   router.get("/customers", listCustomersAdmin);
   router.get("/customers/:id", getCustomerAdmin);
   router.post("/customers/:id/recommend", sendManualRecommendationAdmin(env));
+  router.get("/customers/:id/recommendations", listCustomerRecommendationsAdmin);
+  router.put("/customers/:id/recommendations", upsertCustomerRecommendationAdmin);
 
   router.get("/bulk-order-inquiries", listBulkOrderInquiries);
   router.patch("/bulk-order-inquiries/:id/status", updateBulkOrderInquiryStatus);
@@ -81,6 +88,10 @@ export function createAdminRouter(env: Env): Router {
   router.post("/tiffin/dishes/upload-image", uploadTiffinDishImage, handleTiffinDishImageUpload);
   router.get("/tiffin/add-on-prices", listAddOnPricesAdmin);
   router.put("/tiffin/add-on-prices", upsertAddOnPriceAdmin);
+
+  router.get("/tiffin/festival-specials", listFestivalSpecialsAdmin);
+  router.put("/tiffin/festival-specials", upsertFestivalSpecialAdmin);
+  router.delete("/tiffin/festival-specials/:id", deleteFestivalSpecialAdmin);
 
   router.get("/coupons", listCouponsAdmin);
   router.post("/coupons", createCouponAdmin);

@@ -30,16 +30,16 @@ export function Row<T>({ title, data, keyExtractor, renderItem }: { title: strin
 }
 
 /** The one cart line this card's quick-add stepper owns — the plain, no-customization version of
- * this item (regular sugar/ice, no add-ons, no comment). A customer who wants something fancier
- * still taps the card itself to open the full customize popup, which adds its own separate line
- * rather than colliding with this one. */
+ * this item (regular sugar/ice if it has that concept at all, no add-ons, no comment). A customer
+ * who wants something fancier still taps the card itself to open the full customize popup, which
+ * adds its own separate line rather than colliding with this one. */
 function findQuickAddLine(lines: CartLine[], itemId: string) {
   return lines.find(
     (line) =>
       line.menuItemId === itemId &&
       !line.isCombo &&
-      line.sugarLevel === "regular" &&
-      line.iceLevel === "regular" &&
+      (line.sugarLevel === "regular" || line.sugarLevel === undefined) &&
+      (line.iceLevel === "regular" || line.iceLevel === undefined) &&
       line.addOnIds.length === 0 &&
       !line.comment
   );
@@ -60,6 +60,7 @@ export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onP
       setQuantity(quickAddLine.lineId, quickAddLine.quantity + 1);
       return;
     }
+    const hasSugarIce = item.hasSugarIceCustomization ?? true;
     addLineWithBrandGuard({
       lineId: `${item.id}-${Date.now()}`,
       brandId: item.brandId,
@@ -71,8 +72,8 @@ export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onP
       originalUnitPrice: item.price,
       addOnPrices: [],
       quantity: 1,
-      sugarLevel: "regular",
-      iceLevel: "regular",
+      sugarLevel: hasSugarIce ? "regular" : undefined,
+      iceLevel: hasSugarIce ? "regular" : undefined,
       addOnIds: [],
       isCombo: false,
       category: item.category === "signature-shakes" || item.category === "cold-coffee" ? item.category : undefined,
@@ -133,7 +134,7 @@ function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; item
     // a nested function declaration, since the closure could in principle outlive it.
     const itemIds = combo.itemIds;
     const fullPriceSum = itemIds.reduce((sum, id) => sum + itemPrice(id), 0);
-    const comboPrice = computeComboPrice(itemIds.map(itemPrice));
+    const comboPrice = computeComboPrice(itemIds.map(itemPrice), combo.discountPercent);
 
     function handleAdd() {
       addLineWithBrandGuard(
@@ -145,6 +146,7 @@ function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; item
           image: combo.image,
           constituentBasePrices: itemIds.map(itemPrice),
           payload: "fixed",
+          discountPercent: combo.discountPercent,
         })
       );
     }
@@ -215,27 +217,37 @@ interface Props {
   /** Items this customer has ordered across 2+ separate past orders for this brand — empty
    * (and thus hidden, via Row's own empty guard) for guests and first-time customers. */
   mostlyOrdered: MenuItem[];
+  /** This customer's admin-curated pick for this brand (from the admin panel's Customer Detail
+   * page, after reviewing their real order history) — empty for most customers. Shown first,
+   * ahead of their own reorder history, since it's a deliberate human recommendation rather than
+   * an automatic fallback. */
+  adminRecommendedItemIds: string[];
 }
 
 /**
  * Home-page discovery rows, each derived from data already on hand (no extra fetches) and
  * each hidden entirely when it has nothing to show rather than an empty section:
- * Recommended (this customer's own repeat-order history first, each with an "Order Again"
- * button — topped up with admin-curated isPopular items, plain "Add" button, for guests/
- * first-timers with no history yet), Offers (this brand's combos), Discounts (salePercent
- * items), Signature (signature-shakes category), Premium Picks (isStaffPick). The Restaurants
- * row lives separately (see RestaurantsRow below) — it's cross-brand and shouldn't disappear
- * just because the brand currently being browsed (e.g. GG Tiffin) has no MenuItem-based rows
- * of its own.
+ * Recommended (an admin's hand-picked suggestion first, if one's been set — then this customer's
+ * own repeat-order history, each with an "Order Again" button — topped up with admin-curated
+ * isPopular items, plain "Add" button, for guests/first-timers with no history yet), Offers (this
+ * brand's combos), Discounts (salePercent items), Signature (signature-shakes category), Premium
+ * Picks (isStaffPick). The Restaurants row lives separately (see RestaurantsRow below) — it's
+ * cross-brand and shouldn't disappear just because the brand currently being browsed (e.g. GG
+ * Tiffin) has no MenuItem-based rows of its own.
  */
-export function HomeCollections({ items, combos, onItemPress, onChooseCombo, mostlyOrdered }: Props) {
-  // Personal reorder history first, then admin-picked popular items to fill the rest — never the
-  // same item twice if it happens to be both.
+export function HomeCollections({ items, combos, onItemPress, onChooseCombo, mostlyOrdered, adminRecommendedItemIds }: Props) {
+  // Admin's pick first, then personal reorder history, then admin-picked popular items to fill
+  // the rest — never the same item twice, whichever group it first shows up in.
   const recommended = useMemo(() => {
-    const reorderIds = new Set(mostlyOrdered.map((item) => item.id));
-    const popularFillIns = items.filter((item) => item.isPopular && !reorderIds.has(item.id));
-    return [...mostlyOrdered, ...popularFillIns];
-  }, [items, mostlyOrdered]);
+    const adminRecommended = adminRecommendedItemIds
+      .map((id) => items.find((item) => item.id === id))
+      .filter((item): item is MenuItem => !!item);
+    const seenIds = new Set(adminRecommended.map((item) => item.id));
+    const reorderFillIns = mostlyOrdered.filter((item) => !seenIds.has(item.id));
+    for (const item of reorderFillIns) seenIds.add(item.id);
+    const popularFillIns = items.filter((item) => item.isPopular && !seenIds.has(item.id));
+    return [...adminRecommended, ...reorderFillIns, ...popularFillIns];
+  }, [items, mostlyOrdered, adminRecommendedItemIds]);
   const reorderIds = useMemo(() => new Set(mostlyOrdered.map((item) => item.id)), [mostlyOrdered]);
   const discounts = useMemo(() => items.filter((item) => item.salePercent), [items]);
   const signature = useMemo(() => items.filter((item) => item.category === "signature-shakes"), [items]);

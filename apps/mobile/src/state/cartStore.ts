@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ADD_ON_PRICES, computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
-import type { AddOnId, IceLevel, SugarLevel } from "@tbc/shared-types";
+import { computePricing, type DrinkCategory, type LoyaltyState, type PricingResult } from "@tbc/pricing";
+import type { IceLevel, SugarLevel } from "@tbc/shared-types";
 import { create } from "zustand";
 
 const CART_STORAGE_KEY = "tbc_cart_lines";
@@ -21,9 +21,11 @@ export interface CartLine {
   originalUnitPrice: number;
   addOnPrices: number[];
   quantity: number;
-  sugarLevel: SugarLevel;
-  iceLevel: IceLevel;
-  addOnIds: AddOnId[];
+  /** Absent for an item with no sugar/ice concept at all (see MenuItem.hasSugarIceCustomization). */
+  sugarLevel?: SugarLevel;
+  iceLevel?: IceLevel;
+  /** Names from the shared add-on price catalog — no longer a closed enum, see @tbc/shared-types. */
+  addOnIds: string[];
   /** Free-text notes from the customer, sent through as-is to the kitchen. */
   comment?: string;
   isCombo: boolean;
@@ -59,10 +61,12 @@ interface CartState {
   addLine: (line: CartLine) => void;
   removeLine: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
-  /** Not for combo lines — those have no sugar/ice/add-ons to edit. Re-derives addOnPrices from addOnIds. */
+  /** Not for combo lines — those have no sugar/ice/add-ons to edit. The caller resolves
+   * addOnPrices itself (from the item's own already-priced `addOns` catalog) and passes them
+   * through here rather than the store re-deriving them from a fixed map. */
   updateLineCustomization: (
     lineId: string,
-    updates: { sugarLevel: SugarLevel; iceLevel: IceLevel; addOnIds: AddOnId[]; comment: string }
+    updates: { sugarLevel?: SugarLevel; iceLevel?: IceLevel; addOnIds: string[]; addOnPrices: number[]; comment: string }
   ) => void;
   clear: () => void;
   /**
@@ -114,7 +118,7 @@ export const useCartStore = create<CartState>((set, get) => ({
               sugarLevel: updates.sugarLevel,
               iceLevel: updates.iceLevel,
               addOnIds: updates.addOnIds,
-              addOnPrices: updates.addOnIds.map((id) => ADD_ON_PRICES[id]),
+              addOnPrices: updates.addOnPrices,
               comment: updates.comment || undefined,
             }
           : l

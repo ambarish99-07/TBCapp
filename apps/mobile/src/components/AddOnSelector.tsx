@@ -1,52 +1,39 @@
-import { ADD_ON_PRICES } from "@tbc/pricing";
-import { ADD_ONS_BY_CATEGORY, type AddOnId, type MenuCategory } from "@tbc/shared-types";
+import type { MenuAddOn } from "@tbc/shared-types";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ColorPalette } from "../constants/theme";
 import { useTheme } from "../state/themeStore";
 
-const ADD_ON_LABELS: Record<AddOnId, string> = {
-  "whipped-cream": "Whipped Cream",
-  "extra-chocolate-syrup": "Extra Chocolate Syrup",
-  "oreo-crumbs": "Oreo Crumbs",
-  "kitkat-crumbs": "KitKat Crumbs",
-  "dry-fruits": "Dry Fruits",
-  "extra-mint": "Extra Mint",
-  "lemon-wedge": "Lemon Wedge",
-  "chilli-salt-rim": "Chilli Salt Rim",
-  "extra-fizz": "Extra Fizz Top-Up",
-  "fruit-garnish": "Fruit Garnish",
-};
-
 interface Props {
-  category: MenuCategory;
-  selected: AddOnId[];
-  onChange: (next: AddOnId[]) => void;
+  /** This item's own already-priced add-ons (see MenuItem.addOns) — the add-on's `name` doubles
+   * as its display label now, no separate kebab-case id + label map to keep in sync. */
+  availableAddOns: MenuAddOn[];
+  selected: string[];
+  onChange: (next: string[]) => void;
   disabled?: boolean;
 }
 
-export function AddOnSelector({ category, selected, onChange, disabled }: Props) {
+export function AddOnSelector({ availableAddOns, selected, onChange, disabled }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const addOnIds = ADD_ONS_BY_CATEGORY[category];
 
-  function toggle(id: AddOnId) {
+  function toggle(name: string) {
     if (disabled) return;
-    onChange(selected.includes(id) ? selected.filter((existing) => existing !== id) : [...selected, id]);
+    onChange(selected.includes(name) ? selected.filter((existing) => existing !== name) : [...selected, name]);
   }
 
   return (
     <View style={styles.wrap}>
-      {addOnIds.map((id) => {
-        const isSelected = selected.includes(id);
+      {availableAddOns.map((addOn) => {
+        const isSelected = selected.includes(addOn.name);
         return (
           <Pressable
-            key={id}
-            onPress={() => toggle(id)}
+            key={addOn.name}
+            onPress={() => toggle(addOn.name)}
             style={[styles.chip, isSelected && styles.chipSelected, disabled && styles.chipDisabled]}
           >
             <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-              {ADD_ON_LABELS[id]} (+₹{ADD_ON_PRICES[id]})
+              {addOn.name} (+₹{addOn.price})
             </Text>
           </Pressable>
         );

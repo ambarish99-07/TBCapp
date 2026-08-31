@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { MenuItemModel } from "../../src/db/models/MenuItem.model.js";
 import { OrderModel } from "../../src/db/models/Order.model.js";
 import { UserModel } from "../../src/db/models/User.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
@@ -133,5 +134,99 @@ describe("POST /admin/customers/:id/recommend", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.recommendedItemNames).toEqual(["Choco Crush", "Blue Lagoon"]);
+  });
+});
+
+async function seedMenuItem(id: string, brandId: string) {
+  return MenuItemModel.create({
+    _id: id,
+    brandId,
+    signatureName: id,
+    commonName: id,
+    description: "desc",
+    price: 200,
+    category: "signature-shakes",
+    image: "https://example.com/a.jpg",
+    flavorBadges: [],
+  });
+}
+
+async function signup(email: string, phone: string): Promise<string> {
+  const response = await request(app).post("/auth/signup").send({ fullName: "Rec Tester", email, phone, password: "password123" });
+  return response.body.token;
+}
+
+describe("Admin-curated in-app 'Recommended For You' picks", () => {
+  it("rejects a non-admin caller and a payload with more than 2 items", async () => {
+    const customer = await UserModel.create({ fullName: "Customer", passwordHash: "x", role: "customer" });
+    const customerToken = jwt.sign({ userId: String(customer._id), role: "customer" }, env.JWT_SECRET, { expiresIn: "1h" });
+    const notAdmin = await request(app)
+      .put(`/admin/customers/${customer._id}/recommendations`)
+      .set("Authorization", `Bearer ${customerToken}`)
+      .send({ brandId: "tbc", itemIds: ["choco-crush"] });
+    expect(notAdmin.status).toBe(403);
+
+    const token = await adminToken();
+    const tooMany = await request(app)
+      .put(`/admin/customers/${customer._id}/recommendations`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ brandId: "tbc", itemIds: ["a", "b", "c"] });
+    expect(tooMany.status).toBe(400);
+  });
+
+  it("sets, lists, and clears a customer's per-brand recommendation, and the customer sees it live via /menu/my-recommendations", async () => {
+    await seedMenuItem("choco-crush", "tbc");
+    await seedMenuItem("mango-tango", "tbc");
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+    const customerToken = await signup("rec-customer@example.com", "9812355501");
+    const me = await request(app).get("/auth/me").set("Authorization", `Bearer ${customerToken}`);
+    const customerId = me.body.user.id;
+
+    const set = await request(app)
+      .put(`/admin/customers/${customerId}/recommendations`)
+      .set("Authorization", authHeader)
+      .send({ brandId: "tbc", itemIds: ["choco-crush", "mango-tango"] });
+    expect(set.status).toBe(200);
+
+    const list = await request(app).get(`/admin/customers/${customerId}/recommendations`).set("Authorization", authHeader);
+    expect(list.status).toBe(200);
+    expect(list.body.recommendations).toEqual([{ brandId: "tbc", itemIds: ["choco-crush", "mango-tango"] }]);
+
+    // The customer's own Home screen reads this back live — never trust a client-computed row.
+    const mine = await request(app)
+      .get("/menu/my-recommendations")
+      .query({ brandId: "tbc" })
+      .set("Authorization", `Bearer ${customerToken}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.itemIds).toEqual(["choco-crush", "mango-tango"]);
+
+    // A different brand (or an un-set one) has nothing.
+    const otherBrand = await request(app)
+      .get("/menu/my-recommendations")
+      .query({ brandId: "alchemy-tails" })
+      .set("Authorization", `Bearer ${customerToken}`);
+    expect(otherBrand.body.itemIds).toEqual([]);
+
+    // Clearing with an empty itemIds removes the row entirely rather than leaving an empty one.
+    const cleared = await request(app)
+      .put(`/admin/customers/${customerId}/recommendations`)
+      .set("Authorization", authHeader)
+      .send({ brandId: "tbc", itemIds: [] });
+    expect(cleared.status).toBe(200);
+
+    const listAfterClear = await request(app).get(`/admin/customers/${customerId}/recommendations`).set("Authorization", authHeader);
+    expect(listAfterClear.body.recommendations).toEqual([]);
+
+    const mineAfterClear = await request(app)
+      .get("/menu/my-recommendations")
+      .query({ brandId: "tbc" })
+      .set("Authorization", `Bearer ${customerToken}`);
+    expect(mineAfterClear.body.itemIds).toEqual([]);
+  });
+
+  it("rejects /menu/my-recommendations for an unauthenticated caller", async () => {
+    const response = await request(app).get("/menu/my-recommendations").query({ brandId: "tbc" });
+    expect(response.status).toBe(401);
   });
 });

@@ -1,4 +1,4 @@
-import { UpsertTiffinAddOnPriceRequestSchema, UpsertTiffinDishRequestSchema } from "@tbc/shared-types";
+import { UpsertTiffinAddOnPriceRequestSchema, UpsertTiffinDishRequestSchema, UpsertTiffinFestivalSpecialRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import * as tiffinMenuService from "./tiffinMenu.service.js";
 
@@ -30,6 +30,26 @@ export const upsertTiffinDishAdmin: RequestHandler = async (req, res) => {
   }
   const dish = await tiffinMenuService.upsertTiffinDish(parsed.data);
   res.json({ dish: withId(dish.toObject()) });
+};
+
+export const listFestivalSpecialsAdmin: RequestHandler = async (_req, res) => {
+  const specials = await tiffinMenuService.listFestivalSpecials();
+  res.json({ specials: specials.map((s) => withId(s.toObject())) });
+};
+
+export const upsertFestivalSpecialAdmin: RequestHandler = async (req, res) => {
+  const parsed = UpsertTiffinFestivalSpecialRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid festival special payload", details: parsed.error.flatten() });
+    return;
+  }
+  const special = await tiffinMenuService.upsertFestivalSpecial(parsed.data);
+  res.json({ special: withId(special.toObject()) });
+};
+
+export const deleteFestivalSpecialAdmin: RequestHandler = async (req, res) => {
+  await tiffinMenuService.deleteFestivalSpecial(req.params.id);
+  res.status(204).send();
 };
 
 export const listAddOnPricesAdmin: RequestHandler = async (_req, res) => {

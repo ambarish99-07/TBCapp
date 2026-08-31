@@ -222,8 +222,13 @@ export const createPlanAdmin: RequestHandler = async (req, res) => {
     res.status(400).json({ error: "Invalid plan payload", details: parsed.error.flatten() });
     return;
   }
-  const plan = await tiffinService.createPlan(parsed.data);
-  res.status(201).json({ plan });
+  try {
+    const plan = await tiffinService.createPlan(parsed.data);
+    res.status(201).json({ plan });
+  } catch (err) {
+    if (handleTiffinError(err, res)) return;
+    throw err;
+  }
 };
 
 export const updatePlanAdmin: RequestHandler = async (req, res) => {

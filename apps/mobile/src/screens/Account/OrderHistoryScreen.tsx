@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ADD_ON_PRICES, round } from "@tbc/pricing";
+import { round } from "@tbc/pricing";
 import { isComboLineId, type Brand, type Order } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -80,6 +80,13 @@ export function OrderHistoryScreen({ navigation }: Props) {
       const liveItem = allMenuItems?.find((item) => item.id === line.menuItemId);
       if (!liveItem) continue;
       const unitPrice = liveItem.salePercent ? round(liveItem.price * (1 - liveItem.salePercent / 100)) : liveItem.price;
+      // Today's add-ons, not the order's own historical ones — same "re-price at today's rate"
+      // principle as the item itself. Any add-on since removed from this item is dropped
+      // entirely, kept in lockstep across both arrays rather than defaulted to a misleading ₹0.
+      const liveAddOns = line.customization.addOnIds
+        .map((name) => liveItem.addOns?.find((a) => a.name === name))
+        .filter((addOn): addOn is { name: string; price: number } => !!addOn);
+      const hasSugarIce = liveItem.hasSugarIceCustomization ?? true;
       addLineWithBrandGuard({
         lineId: `${liveItem.id}-${Date.now()}-${addedCount}`,
         brandId: liveItem.brandId,
@@ -89,11 +96,11 @@ export function OrderHistoryScreen({ navigation }: Props) {
         image: liveItem.image,
         unitPrice,
         originalUnitPrice: liveItem.price,
-        addOnPrices: line.customization.addOnIds.map((id) => ADD_ON_PRICES[id]),
+        addOnPrices: liveAddOns.map((a) => a.price),
         quantity: line.quantity,
-        sugarLevel: line.customization.sugarLevel,
-        iceLevel: line.customization.iceLevel,
-        addOnIds: line.customization.addOnIds,
+        sugarLevel: hasSugarIce ? (line.customization.sugarLevel ?? "regular") : undefined,
+        iceLevel: hasSugarIce ? (line.customization.iceLevel ?? "regular") : undefined,
+        addOnIds: liveAddOns.map((a) => a.name),
         comment: line.customization.comment,
         isCombo: false,
         category: liveItem.category === "signature-shakes" || liveItem.category === "cold-coffee" ? liveItem.category : undefined,

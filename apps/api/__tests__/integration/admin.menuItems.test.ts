@@ -95,6 +95,94 @@ describe("PUT /menu (admin upsert)", () => {
   });
 });
 
+describe("Free-text category and per-item add-ons (future food-brand readiness)", () => {
+  it("accepts a category outside the shake/mocktail set, and resolves the item's own add-ons from the shared catalog", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    await request(app)
+      .put("/menu/add-on-prices")
+      .set("Authorization", authHeader)
+      .send({ name: "Extra Raita", price: 30 });
+    await request(app)
+      .put("/menu/add-on-prices")
+      .set("Authorization", authHeader)
+      .send({ name: "Papad", price: 15 });
+
+    const created = await request(app)
+      .put("/menu")
+      .set("Authorization", authHeader)
+      .send({
+        id: "chicken-biryani",
+        brandId: "tbc",
+        signatureName: "Chicken Biryani",
+        commonName: "Chicken Biryani",
+        description: "desc",
+        price: 249,
+        category: "Biryani",
+        image: "https://example.com/biryani.jpg",
+        flavorBadges: [],
+        hasSugarIceCustomization: false,
+        addOnNames: ["Extra Raita", "Papad"],
+      });
+    expect(created.status).toBe(200);
+    expect(created.body.item.category).toBe("Biryani");
+    expect(created.body.item.hasSugarIceCustomization).toBe(false);
+    expect(created.body.item.addOns).toEqual([
+      { name: "Extra Raita", price: 30 },
+      { name: "Papad", price: 15 },
+    ]);
+
+    // The public listing resolves the same addOns field, not just the admin upsert response.
+    const list = await request(app).get("/menu").query({ brandId: "tbc" });
+    const listedItem = list.body.items.find((i: { id: string }) => i.id === "chicken-biryani");
+    expect(listedItem.addOns).toEqual([
+      { name: "Extra Raita", price: 30 },
+      { name: "Papad", price: 15 },
+    ]);
+  });
+
+  it("drops an add-on name from the resolved list if its price is later deleted from the catalog, rather than showing ₹0", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+    await request(app).put("/menu/add-on-prices").set("Authorization", authHeader).send({ name: "Extra Gravy", price: 20 });
+    await request(app)
+      .put("/menu")
+      .set("Authorization", authHeader)
+      .send({ ...validItem, addOnNames: ["Extra Gravy", "Never Existed"] });
+
+    const list = await request(app).get("/menu").query({ brandId: "tbc" });
+    expect(list.body.items[0].addOns).toEqual([{ name: "Extra Gravy", price: 20 }]);
+  });
+});
+
+describe("PUT /menu/add-on-prices (admin, shared across every brand)", () => {
+  it("rejects a non-admin caller", async () => {
+    const customer = await UserModel.create({ fullName: "Customer", passwordHash: "x", role: "customer" });
+    const token = jwt.sign({ userId: String(customer._id), role: "customer" }, env.JWT_SECRET, { expiresIn: "1h" });
+    const response = await request(app).put("/menu/add-on-prices").set("Authorization", `Bearer ${token}`).send({ name: "Extra Raita", price: 30 });
+    expect(response.status).toBe(403);
+  });
+
+  it("creates, lists, and updates a shared add-on price", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const created = await request(app).put("/menu/add-on-prices").set("Authorization", authHeader).send({ name: "Extra Raita", price: 30 });
+    expect(created.status).toBe(200);
+    expect(created.body.addOnPrice.price).toBe(30);
+
+    const list = await request(app).get("/menu/add-on-prices");
+    expect(list.status).toBe(200);
+    expect(list.body.addOnPrices).toHaveLength(1);
+
+    const updated = await request(app).put("/menu/add-on-prices").set("Authorization", authHeader).send({ name: "Extra Raita", price: 40 });
+    expect(updated.status).toBe(200);
+    expect(updated.body.addOnPrice.price).toBe(40);
+    expect(updated.body.addOnPrice.id).toBe(created.body.addOnPrice.id);
+  });
+});
+
 describe("POST /menu/upload-image", () => {
   it("rejects a non-admin caller", async () => {
     const customer = await UserModel.create({ fullName: "Customer", passwordHash: "x", role: "customer" });

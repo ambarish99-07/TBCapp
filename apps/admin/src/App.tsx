@@ -8,6 +8,7 @@ import { BrandsPage } from "./routes/BrandsPage.js";
 import { DashboardPage } from "./routes/DashboardPage.js";
 import { FeedbackPage } from "./routes/FeedbackPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
+import { CombosPage } from "./routes/CombosPage.js";
 import { CouponsPage } from "./routes/CouponsPage.js";
 import { CustomerDetailPage } from "./routes/CustomerDetailPage.js";
 import { CustomersPage } from "./routes/CustomersPage.js";
@@ -16,6 +17,7 @@ import { MenuItemsPage } from "./routes/MenuItemsPage.js";
 import { OrderDetailPage } from "./routes/OrderDetailPage.js";
 import { OrdersPage } from "./routes/OrdersPage.js";
 import { TiffinDeliveriesPage } from "./routes/TiffinDeliveriesPage.js";
+import { TiffinFestivalSpecialsPage } from "./routes/TiffinFestivalSpecialsPage.js";
 import { TiffinMealPricesPage } from "./routes/TiffinMealPricesPage.js";
 import { TiffinMenuPage } from "./routes/TiffinMenuPage.js";
 import { TiffinPlansPage } from "./routes/TiffinPlansPage.js";
@@ -131,10 +133,26 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/brands/:brandId/combos"
+          element={
+            <RequireAdmin>
+              <CombosPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
           path="/tiffin-menu"
           element={
             <RequireAdmin>
               <TiffinMenuPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/tiffin-festival-specials"
+          element={
+            <RequireAdmin>
+              <TiffinFestivalSpecialsPage />
             </RequireAdmin>
           }
         />

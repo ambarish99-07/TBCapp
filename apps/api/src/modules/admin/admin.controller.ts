@@ -1,7 +1,8 @@
 import { getRecommendations } from "@tbc/pricing";
-import { isComboLineId, type OrderDeliveryPartner } from "@tbc/shared-types";
+import { isComboLineId, SetAdminRecommendationRequestSchema, type OrderDeliveryPartner } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
+import { AdminRecommendationModel } from "../../db/models/AdminRecommendation.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
@@ -54,6 +55,40 @@ export const getCustomerAdmin: RequestHandler = async (req, res) => {
     return;
   }
   res.json({ customer });
+};
+
+/** Every brand this customer currently has an admin-curated "Recommended For You" pick for —
+ * powers the Customer Detail page's per-brand picker, so it opens already showing what's live. */
+export const listCustomerRecommendationsAdmin: RequestHandler = async (req, res) => {
+  const recommendations = await AdminRecommendationModel.find({ userId: req.params.id });
+  res.json({ recommendations: recommendations.map((r) => ({ brandId: r.brandId, itemIds: r.itemIds })) });
+};
+
+/**
+ * Sets (or clears, with an empty `itemIds`) this customer's admin-curated "Recommended For You"
+ * pick for one brand — read live by the mobile app's own Home screen (see
+ * apps/mobile/src/api/menu.api.ts's useMyRecommendations), not just sent as a one-off WhatsApp
+ * message the way sendManualRecommendationAdmin below is. Capped at 2 items by the request schema.
+ */
+export const upsertCustomerRecommendationAdmin: RequestHandler = async (req, res) => {
+  const parsed = SetAdminRecommendationRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid recommendation payload", details: parsed.error.flatten() });
+    return;
+  }
+  const customer = await UserModel.findOne({ _id: req.params.id, role: "customer" });
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+
+  const { brandId, itemIds } = parsed.data;
+  if (itemIds.length === 0) {
+    await AdminRecommendationModel.deleteOne({ userId: req.params.id, brandId });
+  } else {
+    await AdminRecommendationModel.findOneAndUpdate({ userId: req.params.id, brandId }, { itemIds }, { upsert: true, runValidators: true });
+  }
+  res.json({ brandId, itemIds });
 };
 
 /**

@@ -34,7 +34,7 @@ function formatCategoryLabel(category: string): string {
 /** Curated combos have no customizable fields — tapping just adds one straight to the cart. */
 function CuratedComboRow({ combo, itemPrice, styles }: { combo: Extract<Combo, { type: "curated" }>; itemPrice: (id: string) => number; styles: ReturnType<typeof makeStyles> }) {
   const fullPriceSum = combo.itemIds.reduce((sum, id) => sum + itemPrice(id), 0);
-  const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice));
+  const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice), combo.discountPercent);
   const savings = Math.max(0, fullPriceSum - comboPrice);
 
   function handleAdd() {
@@ -47,6 +47,7 @@ function CuratedComboRow({ combo, itemPrice, styles }: { combo: Extract<Combo, {
         image: combo.image,
         constituentBasePrices: combo.itemIds.map(itemPrice),
         payload: "fixed",
+        discountPercent: combo.discountPercent,
       })
     );
   }

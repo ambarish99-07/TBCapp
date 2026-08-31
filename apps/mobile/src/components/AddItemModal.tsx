@@ -1,5 +1,5 @@
-import { ADD_ON_PRICES, round } from "@tbc/pricing";
-import type { AddOnId, IceLevel, MenuItem, SugarLevel } from "@tbc/shared-types";
+import { round } from "@tbc/pricing";
+import type { IceLevel, MenuItem, SugarLevel } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
@@ -20,7 +20,7 @@ export function AddItemModal({ item, onClose }: Props) {
 
   const [sugarLevel, setSugarLevel] = useState<SugarLevel>("regular");
   const [iceLevel, setIceLevel] = useState<IceLevel>("regular");
-  const [addOnIds, setAddOnIds] = useState<AddOnId[]>([]);
+  const [addOnIds, setAddOnIds] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [quantity, setQuantity] = useState(1);
 
@@ -40,6 +40,7 @@ export function AddItemModal({ item, onClose }: Props) {
   function handleAdd() {
     if (!item) return;
     const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
+    const hasSugarIce = item.hasSugarIceCustomization ?? true;
     addLineWithBrandGuard({
       lineId: `${item.id}-${Date.now()}`,
       brandId: item.brandId,
@@ -49,10 +50,10 @@ export function AddItemModal({ item, onClose }: Props) {
       image: item.image,
       unitPrice: effectivePrice,
       originalUnitPrice: item.price,
-      addOnPrices: addOnIds.map((id) => ADD_ON_PRICES[id]),
+      addOnPrices: addOnIds.map((name) => item.addOns?.find((a) => a.name === name)?.price ?? 0),
       quantity,
-      sugarLevel,
-      iceLevel,
+      sugarLevel: hasSugarIce ? sugarLevel : undefined,
+      iceLevel: hasSugarIce ? iceLevel : undefined,
       addOnIds,
       comment: comment.trim() || undefined,
       isCombo: false,
@@ -74,11 +75,12 @@ export function AddItemModal({ item, onClose }: Props) {
               {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
               <Text style={styles.price}>₹{item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price}</Text>
               <CustomizationFields
-                category={item.category}
+                hasSugarIceCustomization={item.hasSugarIceCustomization ?? true}
                 sugarLevel={sugarLevel}
                 onSugarLevelChange={setSugarLevel}
                 iceLevel={iceLevel}
                 onIceLevelChange={setIceLevel}
+                availableAddOns={item.addOns ?? []}
                 addOnIds={addOnIds}
                 onAddOnIdsChange={setAddOnIds}
                 comment={comment}

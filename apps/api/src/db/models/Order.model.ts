@@ -2,8 +2,10 @@ import { Schema, model, type InferSchemaType } from "mongoose";
 
 const CustomizationSchema = new Schema(
   {
-    sugarLevel: { type: String, enum: ["less", "regular", "extra"], required: true },
-    iceLevel: { type: String, enum: ["less", "regular", "extra"], required: true },
+    // Absent for an item with no sugar/ice concept at all (see MenuItem.hasSugarIceCustomization) —
+    // never defaulted, since that would misleadingly imply the customer chose something.
+    sugarLevel: { type: String, enum: ["less", "regular", "extra"] },
+    iceLevel: { type: String, enum: ["less", "regular", "extra"] },
     addOnIds: { type: [String], default: [] },
   },
   { _id: false }

@@ -1,6 +1,7 @@
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { MenuAddOnPriceModel } from "../../src/db/models/MenuAddOnPrice.model.js";
 import { MenuItemModel } from "../../src/db/models/MenuItem.model.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
@@ -114,6 +115,57 @@ describe("POST /orders — never trusts a client-submitted price", () => {
       });
 
     expect(response.status).toBe(400);
+  });
+
+  it("prices an add-on from the shared, admin-managed catalog rather than a fixed list", async () => {
+    await seedMenuItem();
+    await MenuAddOnPriceModel.create({ name: "Whipped Cream", price: 30 });
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "choco-crush",
+            quantity: 1,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: ["Whipped Cream"] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.order.items[0].addOnPrices).toEqual([30]);
+  });
+
+  it("accepts an order with no sugar/ice level at all, for an item with no sugar/ice concept (e.g. a biryani)", async () => {
+    await seedMenuItem({ _id: "chicken-biryani", price: 249 });
+    await MenuItemModel.updateOne({ _id: "chicken-biryani" }, { category: "Biryani", hasSugarIceCustomization: false });
+
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId: "l1",
+            menuItemId: "chicken-biryani",
+            quantity: 1,
+            customization: { addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.order.items[0].customization.sugarLevel).toBeUndefined();
+    expect(response.body.order.items[0].customization.iceLevel).toBeUndefined();
   });
 });
 

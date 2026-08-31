@@ -16,4 +16,9 @@ describe("computeComboPrice", () => {
     expect(afterPriceChange).not.toBe(before);
     expect(afterPriceChange).toBe(417); // round(490 * 0.85) = round(416.5) = 417
   });
+
+  it("uses the combo's own discountPercent instead of the 15% default when given one", () => {
+    expect(computeComboPrice([220, 240], 20)).toBe(368); // round(460 * 0.80) = 368
+    expect(computeComboPrice([220, 240], 50)).toBe(230); // round(460 * 0.50) = 230
+  });
 });

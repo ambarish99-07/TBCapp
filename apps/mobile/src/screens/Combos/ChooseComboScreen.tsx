@@ -61,6 +61,7 @@ export function ChooseComboScreen({ route, navigation }: Props) {
         image: combo!.image ?? menuItems?.find((item) => item.id === selectedIds[0])?.image,
         constituentBasePrices: selectedIds.map(itemPrice),
         payload: selectedIds.join("+"),
+        discountPercent: combo!.discountPercent,
       })
     );
     // Back to the combo list, not into the cart — the floating summary bar confirms it landed.
@@ -68,13 +69,13 @@ export function ChooseComboScreen({ route, navigation }: Props) {
   }
 
   const isComplete = selectedIds.length === combo.chooseCount;
-  const livePrice = isComplete ? computeComboPrice(selectedIds.map(itemPrice)) : null;
+  const livePrice = isComplete ? computeComboPrice(selectedIds.map(itemPrice), combo.discountPercent) : null;
 
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>{combo.name}</Text>
       <Text style={styles.subtitle}>
-        Pick {combo.chooseCount} items · {selectedIds.length}/{combo.chooseCount} selected · 15% off their combined price
+        Pick {combo.chooseCount} items · {selectedIds.length}/{combo.chooseCount} selected · {combo.discountPercent ?? 15}% off their combined price
       </Text>
 
       <FlatList

@@ -73,6 +73,25 @@ describe("resolveDishSlot", () => {
     expect(resolveDishSlot(lookup, "regular", "non-veg", "breakfast", WEDNESDAY)?.dishName).toBe("Bread Omelette");
     expect(resolveDishSlot(lookup, "regular", "veg", "breakfast", WEDNESDAY)?.dishName).toBe("Upma");
   });
+
+  it("prefers a festival special keyed by the exact date over the regular day-of-week dish", () => {
+    // MONDAY (2026-08-17) happens to fall on a Monday — a special for that exact date, layered
+    // into the same map the way buildSingleMealDishLookup does, must win over the regular row.
+    const withSpecial = new Map(lookup);
+    withSpecial.set(`regular|veg|lunch|${MONDAY}`, slot({ dishName: "Diwali Thali", specialLabel: "🪔 Diwali Special" }));
+
+    const special = resolveDishSlot(withSpecial, "regular", "veg", "lunch", MONDAY);
+    expect(special?.dishName).toBe("Diwali Thali");
+    expect(special?.specialLabel).toBe("🪔 Diwali Special");
+
+    // Every other slot on that same date is untouched.
+    expect(resolveDishSlot(withSpecial, "regular", "non-veg", "lunch", MONDAY)?.dishName).toBe("Aloo Matar");
+
+    // A different date with no matching special row falls straight back to the regular rotation.
+    const nextMonday = "2026-08-24";
+    expect(resolveDishSlot(withSpecial, "regular", "veg", "lunch", nextMonday)?.dishName).toBe("Aloo Matar");
+    expect(resolveDishSlot(withSpecial, "regular", "veg", "lunch", nextMonday)?.specialLabel).toBeUndefined();
+  });
 });
 
 describe("resolveAddOns", () => {

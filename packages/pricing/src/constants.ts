@@ -1,16 +1,3 @@
-export const ADD_ON_PRICES: Record<string, number> = {
-  "whipped-cream": 30,
-  "extra-chocolate-syrup": 25,
-  "oreo-crumbs": 35,
-  "kitkat-crumbs": 40,
-  "dry-fruits": 45,
-  "extra-mint": 15,
-  "lemon-wedge": 10,
-  "chilli-salt-rim": 20,
-  "extra-fizz": 20,
-  "fruit-garnish": 25,
-};
-
 export const FREE_DELIVERY_THRESHOLD = 499;
 export const DELIVERY_FEE = 39;
 export const TAX_PCT = 0.05;

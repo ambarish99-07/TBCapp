@@ -66,6 +66,8 @@ const TiffinSingleMealOrderSchema = new Schema(
     date: { type: String, required: true },
     // Snapshotted at order time — a later menu/price edit shouldn't retroactively rewrite what was ordered.
     dishName: { type: String, required: true },
+    // Snapshotted at order time — set only when dishName was a festival special.
+    specialLabel: { type: String },
     addOns: { type: [AddOnSchema], required: true, default: [] },
     status: { type: String, enum: ["placed", "preparing", "out-for-delivery", "delivered", "cancelled"], required: true, default: "placed" },
     statusHistory: { type: [StatusHistoryEntrySchema], required: true, default: [] },

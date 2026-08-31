@@ -10,7 +10,8 @@ const MenuItemSchema = new Schema(
     commonName: { type: String, required: true },
     description: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
-    category: { type: String, enum: ["signature-shakes", "cold-coffee", "mocktails"], required: true },
+    // Free text, not a fixed enum — see @tbc/shared-types' MenuCategorySchema doc-comment for why.
+    category: { type: String, required: true },
     image: { type: String, required: true },
     flavorBadges: { type: [String], default: [] },
     isPopular: { type: Boolean, default: false },
@@ -19,6 +20,12 @@ const MenuItemSchema = new Schema(
     pairsWith: { type: [String], default: [] },
     /** When set, the charged price is price * (1 - salePercent/100); `price` stays the shown strikethrough value. Only a few items should carry this. */
     salePercent: { type: Number, min: 1, max: 99 },
+    // False for an item with no sugar/ice concept at all (a biryani, a momo plate, ...) — see
+    // @tbc/shared-types' MenuItemSchema doc-comment.
+    hasSugarIceCustomization: { type: Boolean, required: true, default: true },
+    // Which named add-ons (from MenuAddOnPriceModel) this item offers — resolved into `addOns`
+    // (name + current price) at read time, never stored pre-priced.
+    addOnNames: { type: [String], default: [] },
   },
   // `isNew` is a name Mongoose documents also use internally (tracks whether a
   // doc has been saved yet) — harmless to shadow here since we only ever read it

@@ -1,4 +1,4 @@
-import type { AddOnId, IceLevel, MenuCategory, SugarLevel } from "@tbc/shared-types";
+import type { IceLevel, MenuItem, SugarLevel } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
@@ -10,56 +10,65 @@ import { DraggableSheet } from "./DraggableSheet";
 
 interface Props {
   line: CartLine | null;
-  category: MenuCategory | null;
-  /** Absent for combo lines — combos don't carry a menu item description. */
-  description?: string;
+  /** The live menu item being customized — carries category-derived concerns (sugar/ice,
+   * available add-ons, description) that used to be passed as separate props. Absent for a
+   * combo line (combos have no customization at all) or an item since delisted. */
+  item: MenuItem | null;
   onClose: () => void;
 }
 
 /** The Customize fields, reused as a popup — opened from the Cart's "Customize" link under an already-added item. */
-export function EditCartItemModal({ line, category, description, onClose }: Props) {
+export function EditCartItemModal({ line, item, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const updateLineCustomization = useCartStore((state) => state.updateLineCustomization);
 
   const [sugarLevel, setSugarLevel] = useState<SugarLevel>("regular");
   const [iceLevel, setIceLevel] = useState<IceLevel>("regular");
-  const [addOnIds, setAddOnIds] = useState<AddOnId[]>([]);
+  const [addOnIds, setAddOnIds] = useState<string[]>([]);
   const [comment, setComment] = useState("");
 
   // Re-seed local state from the line being edited each time a new one opens.
   useEffect(() => {
     if (line) {
-      setSugarLevel(line.sugarLevel);
-      setIceLevel(line.iceLevel);
+      setSugarLevel(line.sugarLevel ?? "regular");
+      setIceLevel(line.iceLevel ?? "regular");
       setAddOnIds(line.addOnIds);
       setComment(line.comment ?? "");
     }
   }, [line]);
 
-  const visible = line !== null && category !== null;
+  const visible = line !== null && item !== null;
 
   function handleUpdate() {
-    if (!line) return;
-    updateLineCustomization(line.lineId, { sugarLevel, iceLevel, addOnIds, comment: comment.trim() });
+    if (!line || !item) return;
+    const hasSugarIce = item.hasSugarIceCustomization ?? true;
+    updateLineCustomization(line.lineId, {
+      sugarLevel: hasSugarIce ? sugarLevel : undefined,
+      iceLevel: hasSugarIce ? iceLevel : undefined,
+      addOnIds,
+      addOnPrices: addOnIds.map((name) => item.addOns?.find((a) => a.name === name)?.price ?? 0),
+      comment: comment.trim(),
+    });
     onClose();
   }
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        {line && category && (
+        {line && item && (
           <DraggableSheet onDismiss={onClose} sheetStyle={styles.sheet}>
             {/* Everything scrolls together as one sheet — no separate inner scroll box. */}
             <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>Customize {line.signatureName}</Text>
-              {description ? <Text style={styles.description}>{description}</Text> : null}
+              {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
               <CustomizationFields
-                category={category}
+                hasSugarIceCustomization={item.hasSugarIceCustomization ?? true}
                 sugarLevel={sugarLevel}
                 onSugarLevelChange={setSugarLevel}
                 iceLevel={iceLevel}
                 onIceLevelChange={setIceLevel}
+                availableAddOns={item.addOns ?? []}
                 addOnIds={addOnIds}
                 onAddOnIdsChange={setAddOnIds}
                 comment={comment}

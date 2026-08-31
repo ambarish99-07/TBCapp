@@ -580,7 +580,8 @@ function buildTiffinPlans(env: ReturnType<typeof loadEnv>) {
  * valid across every brand. */
 function buildCoupons() {
   return [
-    { code: "WELCOME50", type: "percent" as const, value: 50, minOrderAmount: 0, maxDiscountAmount: 100, isActive: true },
+    // Welcome offer — good for exactly one order per customer account, not a repeatable discount.
+    { code: "WELCOME50", type: "percent" as const, value: 50, minOrderAmount: 0, maxDiscountAmount: 100, isActive: true, oncePerCustomer: true },
     { code: "FLAT50", type: "flat" as const, value: 50, minOrderAmount: 200, isActive: true },
     { code: "FLAT250", type: "flat" as const, value: 250, minOrderAmount: 999, isActive: true },
     { code: "FLAT125", type: "flat" as const, value: 125, minOrderAmount: 599, isActive: true },

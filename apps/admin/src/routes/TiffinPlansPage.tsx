@@ -1,4 +1,4 @@
-import { TIFFIN_PLAN_STYLES, type TiffinDietType, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
+import { TIFFIN_PLAN_DURATIONS, TIFFIN_PLAN_STYLES, type TiffinDietType, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
 import { Button } from "../components/ui/Button.js";
@@ -22,6 +22,7 @@ const emptyForm = {
   style: TIFFIN_PLAN_STYLES[0] as TiffinPlanStyle,
   durationDays: "7",
   price: "",
+  salePercent: "",
 };
 
 export function TiffinPlansPage() {
@@ -30,6 +31,7 @@ export function TiffinPlansPage() {
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isNewPlanMonthly = Number(form.durationDays) === TIFFIN_PLAN_DURATIONS.monthly;
 
   async function reload() {
     setIsLoading(true);
@@ -53,6 +55,7 @@ export function TiffinPlansPage() {
         style: form.style,
         durationDays: Number(form.durationDays),
         price: Number(form.price),
+        salePercent: isNewPlanMonthly && form.salePercent ? Number(form.salePercent) : undefined,
         active: true,
       });
       setForm(emptyForm);
@@ -73,6 +76,23 @@ export function TiffinPlansPage() {
     const value = Number(price);
     if (Number.isNaN(value) || value <= 0) return;
     await adminClient.put(`/admin/tiffin/plans/${plan.id}`, { price: value });
+    await reload();
+  }
+
+  async function handleSalePercentChange(plan: TiffinPlan, input: string) {
+    const trimmed = input.trim();
+    if (trimmed === "") {
+      // null (not undefined) so a cleared field actually clears the stored discount — a bare
+      // `undefined` never survives JSON.stringify, so the key would just go missing and look
+      // identical to "leave it untouched" server-side.
+      if (plan.salePercent == null) return;
+      await adminClient.put(`/admin/tiffin/plans/${plan.id}`, { salePercent: null });
+      await reload();
+      return;
+    }
+    const value = Number(trimmed);
+    if (Number.isNaN(value) || value < 1 || value > 99 || value === plan.salePercent) return;
+    await adminClient.put(`/admin/tiffin/plans/${plan.id}`, { salePercent: value });
     await reload();
   }
 
@@ -115,6 +135,17 @@ export function TiffinPlansPage() {
             required
             className="w-28"
           />
+          {isNewPlanMonthly && (
+            <Input
+              type="number"
+              min={1}
+              max={99}
+              placeholder="Discount % (optional)"
+              value={form.salePercent}
+              onChange={(e) => setForm({ ...form, salePercent: e.target.value })}
+              className="w-40"
+            />
+          )}
           <Button type="submit" disabled={isSubmitting}>
             Add plan
           </Button>
@@ -136,24 +167,48 @@ export function TiffinPlansPage() {
                 <Th>Style</Th>
                 <Th>Duration</Th>
                 <Th>Price</Th>
+                <Th>Discount</Th>
                 <Th>Active</Th>
               </Tr>
             </Thead>
             <tbody>
-              {plans.map((plan) => (
-                <Tr key={plan.id}>
-                  <Td>{plan.name}</Td>
-                  <Td>{plan.dietType}</Td>
-                  <Td>{STYLE_LABELS[plan.style]}</Td>
-                  <Td>{plan.durationDays} days</Td>
-                  <Td>
-                    <Input type="number" defaultValue={plan.price} className="w-24" onBlur={(e) => handlePriceChange(plan, e.target.value)} />
-                  </Td>
-                  <Td>
-                    <input type="checkbox" checked={plan.active} onChange={() => handleToggleActive(plan)} className="h-4 w-4 accent-primary" />
-                  </Td>
-                </Tr>
-              ))}
+              {plans.map((plan) => {
+                const isMonthly = plan.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
+                return (
+                  <Tr key={plan.id}>
+                    <Td>{plan.name}</Td>
+                    <Td>{plan.dietType}</Td>
+                    <Td>{STYLE_LABELS[plan.style]}</Td>
+                    <Td>{plan.durationDays} days</Td>
+                    <Td>
+                      <Input type="number" defaultValue={plan.price} className="w-24" onBlur={(e) => handlePriceChange(plan, e.target.value)} />
+                    </Td>
+                    <Td>
+                      {isMonthly ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={99}
+                            placeholder="—"
+                            defaultValue={plan.salePercent ?? ""}
+                            className="w-20"
+                            onBlur={(e) => handleSalePercentChange(plan, e.target.value)}
+                          />
+                          <span className="text-sm text-muted">% off</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted" title="Discounts are only available on monthly plans">
+                          — monthly only
+                        </span>
+                      )}
+                    </Td>
+                    <Td>
+                      <input type="checkbox" checked={plan.active} onChange={() => handleToggleActive(plan)} className="h-4 w-4 accent-primary" />
+                    </Td>
+                  </Tr>
+                );
+              })}
             </tbody>
           </Table>
         )}

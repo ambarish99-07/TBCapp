@@ -3,6 +3,7 @@ import { computeComboPrice } from "@tbc/pricing";
 import { CROSS_BRAND_ID, type Combo } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useBrands } from "../../api/brands.api";
 import { useAllCombos, useAllMenuItems } from "../../api/menu.api";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { theme, type ColorPalette } from "../../constants/theme";
@@ -30,7 +31,7 @@ function CuratedComboCard({
   styles: ReturnType<typeof makeStyles>;
 }) {
   const fullPriceSum = combo.itemIds.reduce((sum, id) => sum + itemPrice(id), 0);
-  const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice));
+  const comboPrice = computeComboPrice(combo.itemIds.map(itemPrice), combo.discountPercent);
   const savings = Math.max(0, fullPriceSum - comboPrice);
   const image = combo.image ?? itemImage(combo.itemIds[0]);
 
@@ -46,6 +47,7 @@ function CuratedComboCard({
         image,
         constituentBasePrices: combo.itemIds.map(itemPrice),
         payload: "fixed",
+        discountPercent: combo.discountPercent,
       })
     );
   }
@@ -71,21 +73,25 @@ function CuratedComboCard({
   );
 }
 
-// Fixed, ordered tabs: Club Combos (TBC) on the left, Alchemy Combos in the middle, Cross
-// Build (cross-brand) on the right — not derived from brand names, since these are their own
-// category labels rather than "The Blenders Club" / "The Alchemy Tails" repeated verbatim.
-const TABS = [
-  { key: "tbc", label: "Club Combos" },
-  { key: "alchemy-tails", label: "Alchemy Combos" },
-  { key: CROSS_BRAND_ID, label: "Cross Build" },
-] as const;
-
 export function CombosScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: allCombos, isLoading } = useAllCombos();
   const { data: menuItems } = useAllMenuItems();
-  const [activeTab, setActiveTab] = useState<string>(TABS[0].key);
+  const { data: brands } = useBrands();
+  // One tab per live catalog brand (GG Tiffin has no MenuItem/Combo catalog, so it never appears
+  // here on its own), plus a fixed "Cross Build" tab last for the cross-brand combo — derived
+  // from whichever brands actually exist rather than a hardcoded two-brand list, so a newly added
+  // brand's own combos get a tab automatically with no code change.
+  const brandTabs = useMemo(
+    () => (brands ?? []).filter((brand) => brand.id !== "gg-tiffin").map((brand) => ({ key: brand.id, label: `${brand.name} Combos` })),
+    [brands]
+  );
+  const tabs = useMemo(() => [...brandTabs, { key: CROSS_BRAND_ID, label: "Cross Build" }], [brandTabs]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  // Defaults to the first real brand tab once brands have loaded — can't pick that at
+  // useState-init time since brands arrive asynchronously.
+  const effectiveActiveTab = activeTab ?? brandTabs[0]?.key ?? CROSS_BRAND_ID;
 
   function itemName(id: string): string {
     return menuItems?.find((item) => item.id === id)?.signatureName ?? id;
@@ -99,7 +105,7 @@ export function CombosScreen({ navigation }: Props) {
     return menuItems?.find((item) => item.id === id)?.image;
   }
 
-  const combos = useMemo(() => allCombos?.filter((combo) => combo.brandId === activeTab) ?? [], [allCombos, activeTab]);
+  const combos = useMemo(() => allCombos?.filter((combo) => combo.brandId === effectiveActiveTab) ?? [], [allCombos, effectiveActiveTab]);
   const crossBrandCombo = combos.find((combo) => combo.brandId === CROSS_BRAND_ID);
 
   return (
@@ -111,13 +117,15 @@ export function CombosScreen({ navigation }: Props) {
       <Text style={styles.subtitle}>Two items, bundled at 15% off.</Text>
 
       <View style={styles.tabs}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <Pressable
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            style={[styles.tab, effectiveActiveTab === tab.key && styles.tabActive]}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+            <Text style={[styles.tabText, effectiveActiveTab === tab.key && styles.tabTextActive]} numberOfLines={1}>
+              {tab.label}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -128,7 +136,7 @@ export function CombosScreen({ navigation }: Props) {
           the summary bar below down to the true bottom of the screen instead of trailing
           right after a short card. */}
       <View style={styles.content}>
-        {activeTab === CROSS_BRAND_ID ? (
+        {effectiveActiveTab === CROSS_BRAND_ID ? (
           crossBrandCombo && (
             <View style={styles.mixMatchCard}>
               <Text style={styles.mixMatchEmoji}>🔀</Text>

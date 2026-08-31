@@ -84,4 +84,41 @@ describe("Admin coupon management", () => {
     const response = await request(app).post("/admin/coupons").set("Authorization", `Bearer ${token}`).send({ code: "X" });
     expect(response.status).toBe(400);
   });
+
+  it("rejects a coupon scoped to GG Tiffin — coupons are a TBC/Alchemy Tails mechanic only", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const created = await request(app)
+      .post("/admin/coupons")
+      .set("Authorization", authHeader)
+      .send({ ...validCoupon, brandId: "gg-tiffin" });
+    expect(created.status).toBe(400);
+    expect(created.body.error).toMatch(/gg tiffin/i);
+
+    const nonTiffin = await request(app).post("/admin/coupons").set("Authorization", authHeader).send(validCoupon);
+    const update = await request(app)
+      .put(`/admin/coupons/${nonTiffin.body.coupon.id}`)
+      .set("Authorization", authHeader)
+      .send({ brandId: "gg-tiffin" });
+    expect(update.status).toBe(400);
+  });
+
+  it("rejects a zero-value percent/flat coupon, but accepts a zero-value bogo coupon", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const zeroPercent = await request(app)
+      .post("/admin/coupons")
+      .set("Authorization", authHeader)
+      .send({ code: "BROKEN", type: "percent", value: 0, isActive: true });
+    expect(zeroPercent.status).toBe(400);
+
+    const bogo = await request(app)
+      .post("/admin/coupons")
+      .set("Authorization", authHeader)
+      .send({ code: "BOGO", type: "bogo", value: 0, isActive: true });
+    expect(bogo.status).toBe(201);
+    expect(bogo.body.coupon.type).toBe("bogo");
+  });
 });

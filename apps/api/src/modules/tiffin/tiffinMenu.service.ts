@@ -1,6 +1,7 @@
-import type { UpsertTiffinAddOnPriceRequest, UpsertTiffinDishRequest } from "@tbc/shared-types";
+import type { UpsertTiffinAddOnPriceRequest, UpsertTiffinDishRequest, UpsertTiffinFestivalSpecialRequest } from "@tbc/shared-types";
 import { TiffinAddOnPriceModel } from "../../db/models/TiffinAddOnPrice.model.js";
 import { TiffinDishModel } from "../../db/models/TiffinDish.model.js";
+import { TiffinFestivalSpecialModel } from "../../db/models/TiffinFestivalSpecial.model.js";
 
 /** The full weekly rotation — ~110 rows, small enough to hand the admin panel (and the mobile
  * app's menu-browsing screens) the whole thing at once rather than paginating or filtering
@@ -16,6 +17,29 @@ export function listTiffinDishes() {
 export function upsertTiffinDish(data: UpsertTiffinDishRequest) {
   const { tier, dietType, mealType, dayOfWeek, ...update } = data;
   return TiffinDishModel.findOneAndUpdate({ tier, dietType, mealType, dayOfWeek }, { tier, dietType, mealType, dayOfWeek, ...update }, { new: true, upsert: true, runValidators: true });
+}
+
+/** Every festival special, past and future — small table, admin panel gets it all at once, same
+ * as the weekly rotation above. */
+export function listFestivalSpecials() {
+  return TiffinFestivalSpecialModel.find().sort({ date: 1, tier: 1, dietType: 1, mealType: 1 });
+}
+
+/** Unlike a `TiffinDish` slot (always one of ~110 fixed existing rows), a festival special for a
+ * new date genuinely doesn't exist yet — this still upserts (keyed on the same compound unique
+ * index the schema enforces) so editing an already-created special and creating a brand-new one
+ * go through the exact same call, matching every other admin upsert in this codebase. */
+export function upsertFestivalSpecial(data: UpsertTiffinFestivalSpecialRequest) {
+  const { date, tier, dietType, mealType, ...update } = data;
+  return TiffinFestivalSpecialModel.findOneAndUpdate(
+    { date, tier, dietType, mealType },
+    { date, tier, dietType, mealType, ...update },
+    { new: true, upsert: true, runValidators: true }
+  );
+}
+
+export function deleteFestivalSpecial(id: string) {
+  return TiffinFestivalSpecialModel.findByIdAndDelete(id);
 }
 
 export function listAddOnPrices() {

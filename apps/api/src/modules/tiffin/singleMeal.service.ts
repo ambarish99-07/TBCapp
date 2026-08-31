@@ -65,6 +65,7 @@ export async function getSingleMealMenu(_env: Env): Promise<SingleMealMenuItem[]
         carbChoiceRequired: tier === "mini",
         imageUrl: dish.image,
         addOns: resolveAddOns(addOnPrices, tier, mealType, dish),
+        specialLabel: dish.specialLabel,
       });
     }
   }
@@ -107,6 +108,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     carbChoice: request.tier === "mini" ? request.carbChoice : undefined,
     date,
     dishName: dish.dishName,
+    specialLabel: dish.specialLabel,
     addOns: selectedAddOns,
     status: "placed",
     statusHistory: [{ status: "placed", at: new Date().toISOString() }],

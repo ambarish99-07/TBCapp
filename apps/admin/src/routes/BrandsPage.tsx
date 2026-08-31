@@ -112,6 +112,7 @@ export function BrandsPage() {
                 <Th>Status</Th>
                 <Th></Th>
                 <Th></Th>
+                <Th></Th>
               </Tr>
             </Thead>
             <tbody>
@@ -135,6 +136,14 @@ export function BrandsPage() {
                     <Link to={brand.id === "gg-tiffin" ? "/tiffin-menu" : `/brands/${brand.id}/menu-items`}>
                       <Button variant="secondary">Manage Menu ›</Button>
                     </Link>
+                  </Td>
+                  <Td>
+                    {/* GG Tiffin has no combos concept either — same skip as Manage Menu above. */}
+                    {brand.id !== "gg-tiffin" && (
+                      <Link to={`/brands/${brand.id}/combos`}>
+                        <Button variant="secondary">Manage Combos ›</Button>
+                      </Link>
+                    )}
                   </Td>
                   <Td>
                     <Button variant="danger" onClick={() => handleDelete(brand.id)}>

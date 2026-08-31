@@ -7,13 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
-import { useAllCombos, useAllMenuItems, useBrowseCategories, useMenuItems } from "../../api/menu.api";
+import { useAllCombos, useAllMenuItems, useBrowseCategories, useMenuItems, useMyRecommendations } from "../../api/menu.api";
 import { fetchMyOrders } from "../../api/orders.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { HomeCollections, RestaurantsRow } from "../../components/HomeCollections";
 import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
+import { WelcomeOfferModal } from "../../components/WelcomeOfferModal";
 import { SUPPORTED_CITY } from "../../constants/deliveryZone";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAddressStore } from "../../state/addressStore";
@@ -54,6 +55,7 @@ export function MenuScreen({ navigation }: Props) {
   // Also cross-brand, not scoped to the selected brand — the Combos icon should stay visible
   // as long as *any* live brand has combos, since tapping it now opens a cross-brand page.
   const { data: combos } = useAllCombos();
+  const { data: adminRecommendedItemIds } = useMyRecommendations();
   const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -268,6 +270,7 @@ export function MenuScreen({ navigation }: Props) {
                     onItemPress={(item) => setAddingItem(item)}
                     onChooseCombo={(combo) => navigation.navigate("ChooseCombo", { comboId: combo.id })}
                     mostlyOrdered={mostlyOrdered}
+                    adminRecommendedItemIds={adminRecommendedItemIds ?? []}
                   />
                 )}
 
@@ -390,6 +393,10 @@ export function MenuScreen({ navigation }: Props) {
       </Modal>
 
       <AddItemModal item={addingItem} onClose={() => setAddingItem(null)} />
+
+      {/* Nudges toward the welcome coupon for as long as this account hasn't completed its first
+          order — see WelcomeOfferModal's own doc-comment for exactly when it stops on its own. */}
+      <WelcomeOfferModal brandId={selectedBrandId ?? undefined} eligible={!!user && user.loyalty.completedOrderCount === 0} />
     </View>
   );
 }

@@ -17,7 +17,7 @@ export const getActiveCoupons: RequestHandler = async (req, res) => {
     res.status(400).json({ error: "brandId query param is required" });
     return;
   }
-  const coupons = await couponsService.listActiveCoupons(brandId);
+  const coupons = await couponsService.listActiveCoupons(brandId, req.user?.userId ?? null);
   res.json({ coupons });
 };
 
@@ -29,7 +29,7 @@ export const postValidateCoupon: RequestHandler = async (req, res) => {
   }
 
   try {
-    const result = await couponsService.resolveCoupon(parsed.data.code, parsed.data.brandId, parsed.data.subtotal);
+    const result = await couponsService.resolveCoupon(parsed.data.code, parsed.data.brandId, parsed.data.lines, req.user?.userId ?? null);
     res.json(result);
   } catch (err) {
     if (handleCouponError(err, res)) return;

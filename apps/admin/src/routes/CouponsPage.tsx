@@ -8,7 +8,8 @@ import { Input, Select } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
 import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
-const TYPE_OPTIONS: CouponType[] = ["flat", "percent"];
+const TYPE_OPTIONS: CouponType[] = ["flat", "percent", "bogo"];
+const TYPE_LABELS: Record<CouponType, string> = { flat: "Flat ₹ off", percent: "% off", bogo: "Buy 1 Get 1 Free" };
 
 const emptyForm = {
   code: "",
@@ -19,7 +20,18 @@ const emptyForm = {
   brandId: "all",
   expiresAt: "",
   isActive: true,
+  oncePerCustomer: false,
 };
+
+/** One line of copy per mechanic — shown under the discount column instead of an editable value
+ * for coupon types that have no admin-set number of their own. Add a case here (and a branch to
+ * @tbc/pricing's computeCouponDiscount) any time a genuinely new discount mechanic is needed;
+ * every plain "N% off" / "₹N off" offer needs no code change at all — just fill in the form. */
+function discountSummary(coupon: Coupon): string {
+  if (coupon.type === "bogo") return "Cheapest eligible item free";
+  if (coupon.type === "percent") return `${coupon.value}% off${coupon.maxDiscountAmount ? ` (up to ₹${coupon.maxDiscountAmount})` : ""}`;
+  return `₹${coupon.value} off`;
+}
 
 function isExpired(coupon: Coupon): boolean {
   return !!coupon.expiresAt && new Date(coupon.expiresAt) < new Date();
@@ -42,7 +54,11 @@ export function CouponsPage() {
 
   useEffect(() => {
     reload();
-    adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
+    // GG Tiffin never appears here — coupons are a TBC/Alchemy Tails mechanic only; GG Tiffin gets
+    // its own Festival Specials instead (see the GG Tiffin nav group).
+    adminClient
+      .get<{ brands: Brand[] }>("/admin/brands")
+      .then((res) => setBrands(res.data.brands.filter((b) => b.id !== "gg-tiffin")));
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
@@ -53,12 +69,14 @@ export function CouponsPage() {
       await adminClient.post("/admin/coupons", {
         code: form.code,
         type: form.type,
-        value: Number(form.value),
+        // Ignored server-side for "bogo" — there's no admin-set number for that mechanic.
+        value: form.type === "bogo" ? 0 : Number(form.value),
         minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : 0,
         maxDiscountAmount: form.maxDiscountAmount ? Number(form.maxDiscountAmount) : undefined,
         brandId: form.brandId === "all" ? undefined : form.brandId,
         expiresAt: form.expiresAt || undefined,
         isActive: form.isActive,
+        oncePerCustomer: form.oncePerCustomer,
       });
       setForm(emptyForm);
       await reload();
@@ -82,23 +100,34 @@ export function CouponsPage() {
 
   return (
     <div>
-      <PageHeader title="Coupons" description="Create and manage discount codes across every brand." />
+      <PageHeader title="Coupons" description="Create and manage discount codes for TBC and Alchemy Tails — GG Tiffin has its own Festival Specials instead." />
 
       <Card title="Add a Coupon" className="mb-6">
         <form onSubmit={handleCreate} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Input placeholder="Code (e.g. WELCOME50)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+          <Input placeholder="Code (e.g. FESTIVAL25)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CouponType })}>
-            <option value="flat">Flat ₹ off</option>
-            <option value="percent">% off</option>
+            {TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {TYPE_LABELS[t]}
+              </option>
+            ))}
           </Select>
-          <Input
-            type="number"
-            min={1}
-            placeholder={form.type === "percent" ? "Percent (e.g. 20)" : "Amount off (₹)"}
-            value={form.value}
-            onChange={(e) => setForm({ ...form, value: e.target.value })}
-            required
-          />
+          {form.type === "bogo" ? (
+            // No admin-set number for this mechanic — the discount is always "the cheapest
+            // eligible item in the cart", worked out from the cart's own prices at checkout.
+            <div className="flex items-center rounded-lg border border-border bg-surface px-3 text-sm text-muted">
+              Cheapest eligible item is free
+            </div>
+          ) : (
+            <Input
+              type="number"
+              min={1}
+              placeholder={form.type === "percent" ? "Percent (e.g. 20)" : "Amount off (₹)"}
+              value={form.value}
+              onChange={(e) => setForm({ ...form, value: e.target.value })}
+              required
+            />
+          )}
           <Input
             type="number"
             min={0}
@@ -138,6 +167,15 @@ export function CouponsPage() {
             />
             Active immediately
           </label>
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-text" title="Each customer account can redeem it once, ever — for welcome-style offers.">
+            <input
+              type="checkbox"
+              checked={form.oncePerCustomer}
+              onChange={(e) => setForm({ ...form, oncePerCustomer: e.target.checked })}
+              className="h-4 w-4 accent-primary"
+            />
+            One-time per customer (welcome offer)
+          </label>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Adding…" : "Add Coupon"}
           </Button>
@@ -160,6 +198,7 @@ export function CouponsPage() {
                 <Th>Brand</Th>
                 <Th>Expires</Th>
                 <Th>Status</Th>
+                <Th>Welcome Offer</Th>
                 <Th></Th>
               </Tr>
             </Thead>
@@ -170,18 +209,22 @@ export function CouponsPage() {
                   <Tr key={coupon.id}>
                     <Td className="font-bold">{coupon.code}</Td>
                     <Td>
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          defaultValue={coupon.value}
-                          className="w-20"
-                          onBlur={(e) => {
-                            const value = Number(e.target.value);
-                            if (!Number.isNaN(value) && value > 0 && value !== coupon.value) handleUpdate(coupon.id, { value });
-                          }}
-                        />
-                        <span className="text-sm text-muted">{coupon.type === "percent" ? "% off" : "₹ off"}</span>
-                      </div>
+                      {coupon.type === "bogo" ? (
+                        <span className="text-sm text-muted">{discountSummary(coupon)}</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            defaultValue={coupon.value}
+                            className="w-20"
+                            onBlur={(e) => {
+                              const value = Number(e.target.value);
+                              if (!Number.isNaN(value) && value > 0 && value !== coupon.value) handleUpdate(coupon.id, { value });
+                            }}
+                          />
+                          <span className="text-sm text-muted">{coupon.type === "percent" ? "% off" : "₹ off"}</span>
+                        </div>
+                      )}
                     </Td>
                     <Td>
                       <Input
@@ -208,6 +251,17 @@ export function CouponsPage() {
                         }`}
                       >
                         {!coupon.isActive ? "Inactive" : expired ? "Expired" : "Active"}
+                      </button>
+                    </Td>
+                    <Td>
+                      <button
+                        onClick={() => handleUpdate(coupon.id, { oncePerCustomer: !coupon.oncePerCustomer })}
+                        title="Toggle whether each customer account can only redeem this coupon once, ever"
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                          coupon.oncePerCustomer ? "bg-primary/10 text-primary-dark" : "bg-surface text-muted"
+                        }`}
+                      >
+                        {coupon.oncePerCustomer ? `Once per customer · used ${coupon.usedCount ?? 0}×` : "Reusable"}
                       </button>
                     </Td>
                     <Td>

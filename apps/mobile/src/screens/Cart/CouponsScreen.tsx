@@ -6,7 +6,6 @@ import { useActiveCoupons, validateCouponRequest } from "../../api/coupons.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
-import { useAuthContext } from "../../state/useAuthContext";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Coupons">;
@@ -22,7 +21,9 @@ function CouponVoucherCard({ coupon, onApply, applying }: { coupon: Coupon; onAp
   const headline =
     coupon.type === "percent"
       ? `${coupon.value}% OFF${coupon.maxDiscountAmount ? ` up to ₹${coupon.maxDiscountAmount}` : ""}`
-      : `₹${coupon.value} OFF`;
+      : coupon.type === "bogo"
+        ? "BUY 1 GET 1 FREE"
+        : `₹${coupon.value} OFF`;
   const condition = coupon.minOrderAmount > 0 ? `On orders above ₹${coupon.minOrderAmount}` : "No minimum order";
 
   return (
@@ -60,9 +61,7 @@ export function CouponsScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const lines = useCartStore((state) => state.lines);
-  const computeTotals = useCartStore((state) => state.computeTotals);
   const setAppliedCoupon = useCartStore((state) => state.setAppliedCoupon);
-  const auth = useAuthContext();
   // Same "which brand does this cart actually belong to" resolution the Cart screen itself uses.
   const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
   const { data: coupons, isLoading } = useActiveCoupons(ownedLine?.brandId);
@@ -72,8 +71,19 @@ export function CouponsScreen({ navigation }: Props) {
     if (!ownedLine?.brandId) return;
     setApplyingCode(coupon.code);
     try {
-      const { subtotal } = computeTotals(auth);
-      const response = await validateCouponRequest({ code: coupon.code, brandId: ownedLine.brandId, subtotal });
+      // The server re-derives its own subtotal from these lines (and, for a "bogo" coupon,
+      // works out which unit is the free one from their individual prices) — never trusts a
+      // client-sent discount amount, same principle as order creation.
+      const response = await validateCouponRequest({
+        code: coupon.code,
+        brandId: ownedLine.brandId,
+        lines: lines.map((line) => ({
+          unitPrice: line.unitPrice,
+          addOnPrices: line.addOnPrices,
+          quantity: line.quantity,
+          isCombo: line.isCombo,
+        })),
+      });
       setAppliedCoupon(response);
       navigation.goBack();
     } catch (err) {

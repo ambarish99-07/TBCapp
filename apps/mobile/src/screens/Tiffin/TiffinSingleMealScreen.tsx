@@ -173,6 +173,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
               <Text style={styles.mealType}>
                 {MEAL_TYPE_LABELS[item.mealType]} · {deliveryDayLabel(item.date)}
               </Text>
+              {item.specialLabel && <Text style={styles.specialBadge}>{item.specialLabel}</Text>}
               <Text style={styles.mealDish}>{composeFullDishName(item.tier, item.mealType, dishDisplayShape(item))}</Text>
               {item.addOns.length > 0 && <Text style={styles.addOnsHint}>Add-ons available</Text>}
             </View>
@@ -192,6 +193,7 @@ export function TiffinSingleMealScreen({ navigation }: Props) {
                 <Text style={styles.sheetMealType}>
                   {MEAL_TYPE_LABELS[customizeItem.mealType]} · {deliveryDayLabel(customizeItem.date)}
                 </Text>
+                {customizeItem.specialLabel && <Text style={styles.specialBadge}>{customizeItem.specialLabel}</Text>}
                 <Text style={styles.sheetDishName}>
                   {composeFullDishName(customizeItem.tier, customizeItem.mealType, dishDisplayShape(customizeItem))}
                 </Text>
@@ -292,6 +294,9 @@ const makeStyles = (colors: ColorPalette) =>
     },
     mealImage: { width: 56, height: 56, borderRadius: theme.radius - 4, marginRight: theme.spacing(1.25) },
     mealType: { fontSize: 12, fontWeight: "700", color: colors.muted },
+    // Distinct accent color (not the theme primary) so a festival special visually stands out from
+    // the everyday "Today"/"Tomorrow" label right above it, without needing its own icon asset.
+    specialBadge: { fontSize: 12, fontWeight: "800", color: colors.accent, marginTop: 2 },
     mealDish: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: 2 },
     addOnsHint: { fontSize: 11, fontWeight: "600", color: colors.primary, marginTop: 4 },
     mealPrice: { fontSize: 16, fontWeight: "800", color: colors.primary },

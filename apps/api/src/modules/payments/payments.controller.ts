@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
+import { markCouponUsed } from "../coupons/coupons.service.js";
 import { advanceLoyaltyOrderCount } from "../orders/loyaltyAdvance.js";
 import { createRazorpayOrder } from "./razorpay.client.js";
 import { verifyRazorpaySignature } from "./verifySignature.js";
@@ -94,6 +95,7 @@ export function verifyRazorpayPaymentHandler(env: Env): RequestHandler {
     // genuine payment confirmation — never at order-creation time for online payment.
     if (order.userId) {
       await advanceLoyaltyOrderCount(String(order.userId));
+      if (order.totals.couponCode) await markCouponUsed(order.totals.couponCode, String(order.userId));
     }
     sendNewOrderAlert(env, {
       orderNumber: order.orderNumber,

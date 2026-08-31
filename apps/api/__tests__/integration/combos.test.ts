@@ -102,6 +102,42 @@ describe("curated combo pricing", () => {
     expect(response.body.order.items[0].unitPrice).toBe(391);
     expect(response.body.order.items[0].originalUnitPrice).toBe(460);
   });
+
+  it("uses the combo's own discountPercent instead of the 15% default when it has one", async () => {
+    await seedShakes();
+    await ComboModel.create({
+      _id: "chocolate-duo",
+      brandId: "tbc",
+      type: "curated",
+      name: "Chocolate Duo",
+      description: "desc",
+      itemIds: ["choco-crush", "oreo-blast"],
+      discountPercent: 20,
+    });
+
+    const lineId = makeComboLineId("chocolate-duo", "fixed");
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          {
+            lineId,
+            menuItemId: lineId,
+            quantity: 1,
+            customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] },
+          },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+
+    expect(response.status).toBe(201);
+    // (220 + 240) * 0.80 = 368
+    expect(response.body.order.items[0].unitPrice).toBe(368);
+    expect(response.body.order.items[0].originalUnitPrice).toBe(460);
+  });
 });
 
 describe("choose-your-own combo pricing", () => {
