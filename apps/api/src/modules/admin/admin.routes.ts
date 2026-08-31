@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Env } from "../../config/env.js";
 import { listBulkOrderInquiries, updateBulkOrderInquiryStatus } from "../bulkOrders/bulkOrders.controller.js";
 import { createBrand, deleteBrand, listAllBrandsAdmin, updateBrand } from "../brands/brands.controller.js";
+import { handleBrandImageUpload, uploadBrandImage } from "../brands/upload.js";
 import { requireAdmin, requireAuth } from "../auth/auth.middleware.js";
 import {
   createPlanAdmin,
@@ -74,6 +75,7 @@ export function createAdminRouter(env: Env): Router {
   router.post("/brands", createBrand);
   router.put("/brands/:id", updateBrand);
   router.delete("/brands/:id", deleteBrand);
+  router.post("/brands/upload-image", uploadBrandImage, handleBrandImageUpload);
 
   router.get("/tiffin/plans", listAllPlansAdmin);
   router.post("/tiffin/plans", createPlanAdmin);

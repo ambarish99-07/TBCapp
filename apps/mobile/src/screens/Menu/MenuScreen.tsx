@@ -7,12 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBrands } from "../../api/brands.api";
+import { useComingSoonBrands } from "../../api/comingSoonBrands.api";
 import { useAllCombos, useAllMenuItems, useBrowseCategories, useMenuItems, useMyRecommendations } from "../../api/menu.api";
 import { fetchMyOrders } from "../../api/orders.api";
 import { useStoreStatus } from "../../api/storeStatus.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { BrandCarousel } from "../../components/BrandCarousel";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
+import { ComingSoonBrandBanner } from "../../components/ComingSoonBrandBanner";
 import { HomeCollections, RestaurantsRow } from "../../components/HomeCollections";
 import { StoreClosedBanner } from "../../components/StoreClosedBanner";
 import { TiffinHomeCollections } from "../../components/TiffinHomeCollections";
@@ -59,6 +61,7 @@ export function MenuScreen({ navigation }: Props) {
   const { data: combos } = useAllCombos();
   const { data: adminRecommendedItemIds } = useMyRecommendations();
   const { data: storeStatus } = useStoreStatus();
+  const { data: comingSoonBrands } = useComingSoonBrands();
   const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -285,6 +288,11 @@ export function MenuScreen({ navigation }: Props) {
                 )}
               </>
             )}
+
+            {/* Brands that exist but aren't open for ordering yet — a teaser, not a real entry
+                point, so it's kept separate from (and shown before) the fully-interactive
+                Restaurants row below, which includes GG Tiffin among the live brands. */}
+            <ComingSoonBrandBanner brands={comingSoonBrands} colors={colors} />
 
             {/* Cross-brand, independent of whichever brand's rows are showing above — stays
                 visible even when GG Tiffin's own rows have replaced the shake-brand ones. */}

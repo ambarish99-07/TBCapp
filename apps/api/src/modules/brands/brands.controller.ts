@@ -1,7 +1,7 @@
 import { CreateBrandRequestSchema, UpdateBrandRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import { BrandModel } from "../../db/models/Brand.model.js";
-import { listLiveBrands as listLiveBrandsFromDb } from "./brands.service.js";
+import { listComingSoonBrands as listComingSoonBrandsFromDb, listLiveBrands as listLiveBrandsFromDb } from "./brands.service.js";
 
 /** Mongoose documents carry `_id`, but the shared Brand schema the client relies on expects `id`. */
 function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: string } {
@@ -11,6 +11,11 @@ function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: stri
 
 export const listLiveBrands: RequestHandler = async (_req, res) => {
   const brands = await listLiveBrandsFromDb();
+  res.json({ brands: brands.map(withId) });
+};
+
+export const listComingSoonBrands: RequestHandler = async (_req, res) => {
+  const brands = await listComingSoonBrandsFromDb();
   res.json({ brands: brands.map(withId) });
 };
 

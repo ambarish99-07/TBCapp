@@ -11,7 +11,16 @@ import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const STATUS_OPTIONS: BrandStatus[] = ["live", "coming-soon"];
 
-const emptyForm = { id: "", name: "", tagline: "", primaryColor: "", accentColor: "", status: "live" as BrandStatus };
+const emptyForm = { id: "", name: "", tagline: "", primaryColor: "", accentColor: "", status: "live" as BrandStatus, logoUrl: "" };
+
+async function uploadBrandLogo(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const { data } = await adminClient.post<{ url: string }>("/admin/brands/upload-image", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data.url;
+}
 
 export function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -21,7 +30,11 @@ export function BrandsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-row "uploading…" state for the existing-brands table's own logo swap, keyed by brand id
+  // so uploading for one brand doesn't disable every other row's control.
+  const [uploadingLogoForId, setUploadingLogoForId] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
@@ -52,6 +65,7 @@ export function BrandsPage() {
         primaryColor: form.primaryColor || undefined,
         accentColor: form.accentColor || undefined,
         status: form.status,
+        logoUrl: form.logoUrl || undefined,
       });
       setForm(emptyForm);
       await reload();
@@ -65,6 +79,31 @@ export function BrandsPage() {
   async function handleStatusChange(id: string, status: BrandStatus) {
     await adminClient.put(`/admin/brands/${id}`, { status });
     await reload();
+  }
+
+  async function handleCreateFormLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    try {
+      const url = await uploadBrandLogo(file);
+      setForm((prev) => ({ ...prev, logoUrl: url }));
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }
+
+  async function handleExistingLogoChange(id: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogoForId(id);
+    try {
+      const url = await uploadBrandLogo(file);
+      await adminClient.put(`/admin/brands/${id}`, { logoUrl: url });
+      await reload();
+    } finally {
+      setUploadingLogoForId(null);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -103,6 +142,17 @@ export function BrandsPage() {
             Add brand
           </Button>
         </form>
+        <div className="mt-3 flex items-center gap-3">
+          {form.logoUrl && <img src={form.logoUrl} alt="Logo preview" className="h-12 w-12 rounded-full object-cover" />}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleCreateFormLogoChange}
+            disabled={isUploadingLogo}
+            className="text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+          />
+          {isUploadingLogo && <span className="text-sm text-muted">Uploading…</span>}
+        </div>
         {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
       </Card>
 
@@ -117,6 +167,7 @@ export function BrandsPage() {
           <Table>
             <Thead>
               <Tr>
+                <Th>Logo</Th>
                 <Th>Id</Th>
                 <Th>Name</Th>
                 <Th>Tagline</Th>
@@ -129,6 +180,25 @@ export function BrandsPage() {
             <tbody>
               {brands.map((brand) => (
                 <Tr key={brand.id}>
+                  <Td>
+                    <div className="flex items-center gap-2">
+                      {brand.logoUrl ? (
+                        <img src={brand.logoUrl} alt={brand.name} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-surface" />
+                      )}
+                      <label className="cursor-pointer text-xs font-semibold text-primary-dark hover:underline">
+                        {uploadingLogoForId === brand.id ? "Uploading…" : "Change"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(e) => handleExistingLogoChange(brand.id, e)}
+                          disabled={uploadingLogoForId === brand.id}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </Td>
                   <Td>{brand.id}</Td>
                   <Td>{brand.name}</Td>
                   <Td>{brand.tagline ?? "—"}</Td>
