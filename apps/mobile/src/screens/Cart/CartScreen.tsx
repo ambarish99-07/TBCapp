@@ -73,15 +73,14 @@ export function CartScreen({ navigation }: Props) {
   }, [placedAccessToken, thumbScale, clearCart, navigation]);
 
   // Every line in this cart belongs to one catalog brand (TBC, TAT, ...) — GG Tiffin bypasses
-  // cartStore entirely — so gating checkout on this is always correct here, no brand check needed.
-  const { data: storeStatus } = useStoreStatus();
+  // cartStore entirely — so gating checkout on this cart's own brand is always correct here.
+  const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
+  const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
+  const { data: storeStatus } = useStoreStatus(ownedLine?.brandId);
   const storeOpen = storeStatus?.isOpen ?? true;
 
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption && storeOpen;
-
-  const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
-  const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
 
   // restoreBrand, not selectBrand — selectBrand clears the cart on every switch (it assumes a
   // deliberate brand change), which would wipe the items this nudge exists to add to.

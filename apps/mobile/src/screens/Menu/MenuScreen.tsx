@@ -60,7 +60,8 @@ export function MenuScreen({ navigation }: Props) {
   // as long as *any* live brand has combos, since tapping it now opens a cross-brand page.
   const { data: combos } = useAllCombos();
   const { data: adminRecommendedItemIds } = useMyRecommendations();
-  const { data: storeStatus } = useStoreStatus();
+  // GG Tiffin has its own separate ordering cutoffs — never fetch/show the catalog-brand status for it.
+  const { data: storeStatus } = useStoreStatus(selectedBrandId && selectedBrandId !== "gg-tiffin" ? selectedBrandId : undefined);
   const { data: comingSoonBrands } = useComingSoonBrands();
   const cartItemCount = useCartStore((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));
   const insets = useSafeAreaInsets();

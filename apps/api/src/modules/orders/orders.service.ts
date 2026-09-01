@@ -10,7 +10,7 @@ import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
 import { markCouponUsed, resolveCoupon } from "../coupons/coupons.service.js";
 import { resolveCartLines } from "../pricing/priceResolver.js";
-import { getStoreStatus } from "../storeSettings/storeSettings.service.js";
+import { getBrandStoreStatus } from "../storeSettings/brandStoreSettings.service.js";
 import { generateAccessToken } from "./accessToken.js";
 import { assertWithinDeliveryZone } from "./deliveryZone.js";
 import { estimateDeliveryMinutes } from "./estimateDeliveryTime.js";
@@ -20,15 +20,24 @@ import { OrderValidationError } from "./orders.errors.js";
 
 export { OrderValidationError };
 
-/** Re-checked here, server-side, even though the mobile app already reads /store/status to show
- * its own closed banner — never trust a client to have honored that, same reasoning as every other
- * server-side validation in this function. Only gates catalog-brand ordering (this function); GG
- * Tiffin has its own separate cutoff system and isn't affected by this switch. */
-async function assertStoreOpenForOrdering(): Promise<void> {
-  const status = await getStoreStatus();
+/**
+ * Re-checked here, server-side, even though the mobile app already reads /brands/:brandId/status
+ * to show its own closed banner — never trust a client to have honored that, same reasoning as
+ * every other server-side validation in this function. getBrandStoreStatus already factors in
+ * both the Lickyeat-wide switch (an absolute override) and this brand's own switch/hours/planned
+ * closures, so a single check here covers both levels. Only gates catalog-brand ordering (this
+ * function); GG Tiffin has its own separate cutoff system and isn't affected by either level.
+ */
+async function assertStoreOpenForOrdering(brandId: string): Promise<void> {
+  const status = await getBrandStoreStatus(brandId);
   if (status.isOpen) return;
   if (status.reason === "manually-closed") {
     throw new OrderValidationError("We're not accepting orders right now — please check back shortly.");
+  }
+  if (status.reason === "planned-closure" && status.activeClosure) {
+    const { startDate, endDate, reason } = status.activeClosure;
+    const range = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+    throw new OrderValidationError(`We're closed ${range}${reason ? ` (${reason})` : ""} — please check back after.`);
   }
   const { openHour, closeHour } = status.settings;
   const formatHour = (h: number) => {
@@ -43,7 +52,7 @@ async function assertStoreOpenForOrdering(): Promise<void> {
 }
 
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
-  await assertStoreOpenForOrdering();
+  await assertStoreOpenForOrdering(request.brandId);
   const { resolvedLines, pricingLines } = await resolveCartLines(request.items, request.brandId);
   assertWithinDeliveryZone(request.delivery);
 

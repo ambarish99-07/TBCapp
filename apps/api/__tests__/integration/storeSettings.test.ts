@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { MenuItemModel } from "../../src/db/models/MenuItem.model.js";
 import { UserModel } from "../../src/db/models/User.model.js";
+import { addIsoDays, todayIsoInIst } from "../../src/utils/istDate.js";
 import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 const env = testEnv();
@@ -72,6 +73,7 @@ describe("GET /store/status", () => {
     expect(response.body).toEqual({
       isOpen: true,
       settings: { manuallyOpen: true, enforceServiceHours: true, openHour: 12, closeHour: 24 },
+      upcomingClosures: [],
     });
   });
 
@@ -99,6 +101,7 @@ describe("GET/PUT /admin/store-settings", () => {
       isOpen: false,
       reason: "manually-closed",
       settings: { manuallyOpen: false, enforceServiceHours: true, openHour: 12, closeHour: 24 },
+      upcomingClosures: [],
     });
 
     const publicStatus = await request(app).get("/store/status");
@@ -181,5 +184,79 @@ describe("POST /orders — blocked while the store is closed", () => {
 
     const response = await request(app).post("/orders").send(orderPayload());
     expect(response.status).toBe(201);
+  });
+});
+
+describe("GET/POST /admin/store-closures — planned closures announced ahead of time", () => {
+  it("rejects a non-admin caller", async () => {
+    const response = await request(app).post("/admin/store-closures").send({ startDate: "2026-09-05", endDate: "2026-09-08" });
+    expect(response.status).toBe(401);
+  });
+
+  it("a closure covering today closes the store with the exact dates and reason", async () => {
+    const token = await adminToken();
+    const today = todayIsoInIst();
+    const declare = await request(app)
+      .post("/admin/store-closures")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ startDate: addIsoDays(today, -1), endDate: addIsoDays(today, 1), reason: "Diwali break" });
+
+    expect(declare.status).toBe(201);
+    expect(declare.body.status.isOpen).toBe(false);
+    expect(declare.body.status.reason).toBe("planned-closure");
+    expect(declare.body.status.activeClosure.reason).toBe("Diwali break");
+
+    const publicStatus = await request(app).get("/store/status");
+    expect(publicStatus.body.isOpen).toBe(false);
+    expect(publicStatus.body.reason).toBe("planned-closure");
+  });
+
+  it("a future closure doesn't close the store yet, but still shows up in upcomingClosures", async () => {
+    const token = await adminToken();
+    const today = todayIsoInIst();
+    await request(app)
+      .post("/admin/store-closures")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ startDate: addIsoDays(today, 5), endDate: addIsoDays(today, 8) });
+
+    const status = await request(app).get("/store/status");
+    expect(status.body.isOpen).toBe(true);
+    expect(status.body.upcomingClosures).toHaveLength(1);
+    expect(status.body.upcomingClosures[0].startDate).toBe(addIsoDays(today, 5));
+  });
+
+  it("a closure covering today blocks placing a catalog order, naming the dates and reason", async () => {
+    await seedMenuItem();
+    const token = await adminToken();
+    const today = todayIsoInIst();
+    await request(app)
+      .post("/admin/store-closures")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ startDate: today, endDate: addIsoDays(today, 2), reason: "Kitchen renovation" });
+
+    const response = await request(app).post("/orders").send(orderPayload());
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/kitchen renovation/i);
+  });
+
+  it("rejects an end date before the start date", async () => {
+    const token = await adminToken();
+    const response = await request(app)
+      .post("/admin/store-closures")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ startDate: "2026-09-10", endDate: "2026-09-05" });
+    expect(response.status).toBe(400);
+  });
+
+  it("lists every declared closure for the admin panel's history view", async () => {
+    const token = await adminToken();
+    await request(app)
+      .post("/admin/store-closures")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ startDate: "2026-12-25", endDate: "2026-12-26" });
+
+    const response = await request(app).get("/admin/store-closures").set("Authorization", `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    expect(response.body.closures).toHaveLength(1);
   });
 });

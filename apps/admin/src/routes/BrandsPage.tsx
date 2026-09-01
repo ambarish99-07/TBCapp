@@ -114,7 +114,10 @@ export function BrandsPage() {
 
   return (
     <div>
-      <PageHeader title="Brands" />
+      <PageHeader
+        title="Brands"
+        description="The parent registry for every storefront under Lickyeat — add a brand here first, then manage its own menu and combos from its dedicated section in the sidebar."
+      />
 
       <Card title="Add a brand" className="mb-6">
         <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">
@@ -174,7 +177,6 @@ export function BrandsPage() {
                 <Th>Status</Th>
                 <Th></Th>
                 <Th></Th>
-                <Th></Th>
               </Tr>
             </Thead>
             <tbody>
@@ -212,19 +214,12 @@ export function BrandsPage() {
                     </Select>
                   </Td>
                   <Td>
-                    {/* GG Tiffin has no MenuItem catalog of its own — its "menu" is the single-meal
-                        weekly rotation, a differently-shaped thing with its own dedicated page. */}
+                    {/* Opens that brand's own tabbed page (Menu Items/Combos/Store Status — or,
+                        for GG Tiffin, its own differently-shaped Menu/Plans/etc. tab set),
+                        landing on its first tab. */}
                     <Link to={brand.id === "gg-tiffin" ? "/tiffin-menu" : `/brands/${brand.id}/menu-items`}>
-                      <Button variant="secondary">Manage Menu ›</Button>
+                      <Button variant="secondary">Manage ›</Button>
                     </Link>
-                  </Td>
-                  <Td>
-                    {/* GG Tiffin has no combos concept either — same skip as Manage Menu above. */}
-                    {brand.id !== "gg-tiffin" && (
-                      <Link to={`/brands/${brand.id}/combos`}>
-                        <Button variant="secondary">Manage Combos ›</Button>
-                      </Link>
-                    )}
                   </Td>
                   <Td>
                     <Button variant="danger" onClick={() => handleDelete(brand.id)}>

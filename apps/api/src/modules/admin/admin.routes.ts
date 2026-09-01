@@ -43,7 +43,18 @@ import {
   suggestItemsForCustomerAdmin,
   upsertCustomerRecommendationAdmin,
 } from "./admin.controller.js";
-import { getStoreSettingsAdmin, putStoreSettingsAdmin } from "../storeSettings/storeSettings.controller.js";
+import {
+  declareStoreClosureAdmin,
+  getStoreSettingsAdmin,
+  listStoreClosuresAdmin,
+  putStoreSettingsAdmin,
+} from "../storeSettings/storeSettings.controller.js";
+import {
+  declareBrandStoreClosureAdmin,
+  getBrandStoreSettingsAdmin,
+  listBrandStoreClosuresAdmin,
+  putBrandStoreSettingsAdmin,
+} from "../storeSettings/brandStoreSettings.controller.js";
 
 export function createAdminRouter(env: Env): Router {
   const router = Router();
@@ -53,6 +64,13 @@ export function createAdminRouter(env: Env): Router {
 
   router.get("/store-settings", getStoreSettingsAdmin);
   router.put("/store-settings", putStoreSettingsAdmin);
+  router.get("/store-closures", listStoreClosuresAdmin);
+  router.post("/store-closures", declareStoreClosureAdmin);
+
+  router.get("/brands/:brandId/store-settings", getBrandStoreSettingsAdmin);
+  router.put("/brands/:brandId/store-settings", putBrandStoreSettingsAdmin);
+  router.get("/brands/:brandId/store-closures", listBrandStoreClosuresAdmin);
+  router.post("/brands/:brandId/store-closures", declareBrandStoreClosureAdmin);
 
   router.get("/feedback", listFeedbackAdmin);
   router.patch("/feedback/:id/status", updateFeedbackStatusAdmin);

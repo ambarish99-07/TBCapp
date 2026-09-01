@@ -1,6 +1,6 @@
-import { UpdateStoreSettingsRequestSchema } from "@tbc/shared-types";
+import { DeclareStoreClosureRequestSchema, UpdateStoreSettingsRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
-import { getStoreStatus, updateStoreSettings } from "./storeSettings.service.js";
+import { declareStoreClosure, getStoreStatus, listStoreClosures, updateStoreSettings } from "./storeSettings.service.js";
 
 /** Public — no auth — so the mobile app's Home screen banner and checkout guard can both read it
  * before a customer is necessarily logged in. */
@@ -27,4 +27,20 @@ export const putStoreSettingsAdmin: RequestHandler = async (req, res) => {
   await updateStoreSettings(parsed.data);
   const status = await getStoreStatus();
   res.json(status);
+};
+
+export const listStoreClosuresAdmin: RequestHandler = async (_req, res) => {
+  const closures = await listStoreClosures();
+  res.json({ closures });
+};
+
+export const declareStoreClosureAdmin: RequestHandler = async (req, res) => {
+  const parsed = DeclareStoreClosureRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid closure payload", details: parsed.error.flatten() });
+    return;
+  }
+  const closure = await declareStoreClosure(parsed.data);
+  const status = await getStoreStatus();
+  res.status(201).json({ closure, status });
 };

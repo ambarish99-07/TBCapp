@@ -1,9 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AdminAuthProvider, useAdminAuth } from "./auth/AdminAuthContext.js";
+import { BrandTabsLayout } from "./components/BrandTabsLayout.js";
 import { Layout } from "./components/Layout.js";
 import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
 import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
 import { AnalyticsPage } from "./routes/AnalyticsPage.js";
+import { BrandStoreStatusPage } from "./routes/BrandStoreStatusPage.js";
 import { BrandsPage } from "./routes/BrandsPage.js";
 import { DashboardPage } from "./routes/DashboardPage.js";
 import { FeedbackPage } from "./routes/FeedbackPage.js";
@@ -145,7 +147,9 @@ function AppRoutes() {
           path="/brands/:brandId/menu-items"
           element={
             <RequireAdmin>
-              <MenuItemsPage />
+              <BrandTabsLayout>
+                <MenuItemsPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -153,7 +157,19 @@ function AppRoutes() {
           path="/brands/:brandId/combos"
           element={
             <RequireAdmin>
-              <CombosPage />
+              <BrandTabsLayout>
+                <CombosPage />
+              </BrandTabsLayout>
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/brands/:brandId/store-status"
+          element={
+            <RequireAdmin>
+              <BrandTabsLayout>
+                <BrandStoreStatusPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -161,7 +177,9 @@ function AppRoutes() {
           path="/tiffin-menu"
           element={
             <RequireAdmin>
-              <TiffinMenuPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinMenuPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -169,7 +187,9 @@ function AppRoutes() {
           path="/tiffin-festival-specials"
           element={
             <RequireAdmin>
-              <TiffinFestivalSpecialsPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinFestivalSpecialsPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -177,7 +197,9 @@ function AppRoutes() {
           path="/tiffin-plans"
           element={
             <RequireAdmin>
-              <TiffinPlansPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinPlansPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -185,7 +207,9 @@ function AppRoutes() {
           path="/tiffin-deliveries"
           element={
             <RequireAdmin>
-              <TiffinDeliveriesPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinDeliveriesPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -193,7 +217,9 @@ function AppRoutes() {
           path="/tiffin-closures"
           element={
             <RequireAdmin>
-              <TiffinClosuresPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinClosuresPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />
@@ -201,7 +227,9 @@ function AppRoutes() {
           path="/tiffin-meal-prices"
           element={
             <RequireAdmin>
-              <TiffinMealPricesPage />
+              <BrandTabsLayout brandId="gg-tiffin">
+                <TiffinMealPricesPage />
+              </BrandTabsLayout>
             </RequireAdmin>
           }
         />

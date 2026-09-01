@@ -1,113 +1,65 @@
 import {
-  AlertTriangle,
   BarChart3,
   LayoutDashboard,
   MessageSquareWarning,
   Package,
-  PartyPopper,
   Power,
   ShoppingBag,
   Store,
-  Tag,
   Ticket,
-  Truck,
   Users,
-  UtensilsCrossed,
-  Utensils,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-// Sit above the grouped sections, same as Dashboard/Analytics do in most admin templates —
-// they're overview pages, not part of any one operational area.
-const TOP_LINKS: { to: string; label: string; icon: LucideIcon }[] = [
+/** Everything company-wide — spans every brand rather than belonging to one. Reaching a specific
+ * brand's own tabbed page (Menu Items/Combos/Store Status, or GG Tiffin's own tab set — see
+ * BrandTabs) goes through the Brands page's own "Manage ›" button below, not a per-brand sidebar
+ * entry — one path in, and the sidebar stays a fixed size no matter how many brands exist. */
+const LICKYEAT_LINKS: { to: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/store-status", label: "Store Status", icon: Power },
+  // Exact — otherwise this lit up as "active" on every /brands/:id/... sub-page too.
+  { to: "/brands", label: "Brands", icon: Store, exact: true },
+  { to: "/orders", label: "Orders", icon: ShoppingBag },
+  { to: "/customers", label: "Customers", icon: Users },
+  { to: "/coupons", label: "Coupons", icon: Ticket },
+  { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
+  { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
 ];
 
-// Grouped with small-caps section labels — reads more like a real product's nav than one flat
-// list of links, and leaves room to grow each section independently later.
-const LINK_GROUPS: { label: string; links: { to: string; label: string; icon: LucideIcon }[] }[] = [
-  {
-    label: "Catalog",
-    links: [{ to: "/brands", label: "Brands", icon: Store }],
-  },
-  {
-    label: "Operations",
-    links: [
-      { to: "/orders", label: "Orders", icon: ShoppingBag },
-      { to: "/customers", label: "Customers", icon: Users },
-      { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
-      { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
-    ],
-  },
-  {
-    label: "Marketing",
-    links: [{ to: "/coupons", label: "Coupons", icon: Ticket }],
-  },
-  {
-    label: "GG Tiffin",
-    links: [
-      { to: "/tiffin-menu", label: "Menu", icon: UtensilsCrossed },
-      { to: "/tiffin-festival-specials", label: "Festival Specials", icon: PartyPopper },
-      { to: "/tiffin-plans", label: "Plans", icon: Tag },
-      { to: "/tiffin-deliveries", label: "Deliveries", icon: Truck },
-      { to: "/tiffin-meal-prices", label: "Meal Prices", icon: Utensils },
-      { to: "/tiffin-closures", label: "Emergency Closure", icon: AlertTriangle },
-    ],
-  },
-];
-
-/** Fixed left sidebar shown on every authenticated page — nav only now; the wordmark and the
- * admin's own name/logout live in TopBar above instead. */
-export function AdminNav() {
+function NavLink({ to, label, icon: Icon, exact }: { to: string; label: string; icon: LucideIcon; exact?: boolean }) {
   const location = useLocation();
+  const active = exact ? location.pathname === to : location.pathname.startsWith(to);
+  return (
+    <Link
+      to={to}
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+        active ? "bg-primary/10 text-primary-dark" : "text-muted hover:bg-surface hover:text-text"
+      }`}
+    >
+      <Icon size={17} />
+      {label}
+    </Link>
+  );
+}
 
+/** Fixed left sidebar shown on every authenticated page — just the Lickyeat-wide, company-wide
+ * pages. Every brand's own management page (Menu Items, Combos, Store Status, or GG Tiffin's own
+ * tab set) is reached from the Brands page's "Manage ›" button instead of a sidebar entry per
+ * brand, so the sidebar never grows as brands are added. */
+export function AdminNav() {
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-white px-3 py-5">
-      <div className="mb-4 flex flex-col gap-1">
-        {TOP_LINKS.map((link) => {
-          const active = location.pathname.startsWith(link.to);
-          const Icon = link.icon;
-          return (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                active ? "bg-primary/10 text-primary-dark" : "text-muted hover:bg-surface hover:text-text"
-              }`}
-            >
-              <Icon size={17} />
-              {link.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      {LINK_GROUPS.map((group) => (
-        <div key={group.label} className="mb-4">
-          <p className="mb-1 px-3 text-[11px] font-bold uppercase tracking-wide text-muted">{group.label}</p>
-          <div className="flex flex-col gap-1">
-            {group.links.map((link) => {
-              const active = location.pathname.startsWith(link.to);
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    active ? "bg-primary/10 text-primary-dark" : "text-muted hover:bg-surface hover:text-text"
-                  }`}
-                >
-                  <Icon size={17} />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+      <div className="mb-4">
+        <p className="mb-1 px-3 text-[11px] font-bold uppercase tracking-wide text-muted">Lickyeat</p>
+        <div className="flex flex-col gap-1">
+          {LICKYEAT_LINKS.map((link) => (
+            <NavLink key={link.to} {...link} />
+          ))}
         </div>
-      ))}
+      </div>
     </aside>
   );
 }
