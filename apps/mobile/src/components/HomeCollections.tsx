@@ -48,6 +48,7 @@ function findQuickAddLine(lines: CartLine[], itemId: string) {
 export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onPress: () => void; isReorder?: boolean }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeCardStyles(colors), [colors]);
+  const isAvailable = item.isAvailable ?? true;
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
   const lines = useCartStore((state) => state.lines);
   const setQuantity = useCartStore((state) => state.setQuantity);
@@ -90,14 +91,21 @@ export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onP
   }
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <Text style={styles.name} numberOfLines={1}>
+    <Pressable style={styles.card} onPress={isAvailable ? onPress : undefined}>
+      <Image source={{ uri: item.image }} style={[styles.image, !isAvailable && styles.imageUnavailable]} />
+      {!isAvailable && (
+        <View style={styles.outOfStockBadge}>
+          <Text style={styles.outOfStockBadgeText}>OUT OF STOCK</Text>
+        </View>
+      )}
+      <Text style={[styles.name, !isAvailable && styles.nameUnavailable]} numberOfLines={1}>
         {item.signatureName}
       </Text>
       <View style={styles.priceAddRow}>
         <View style={styles.priceRow}>
-          {item.salePercent ? (
+          {!isAvailable ? (
+            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+          ) : item.salePercent ? (
             <>
               <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
               <Text style={styles.price}>₹{effectivePrice}</Text>
@@ -106,7 +114,7 @@ export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onP
             <Text style={styles.price}>₹{item.price}</Text>
           )}
         </View>
-        {quantity === 0 ? (
+        {!isAvailable ? null : quantity === 0 ? (
           <Pressable style={styles.quickAddButton} onPress={handleIncrement}>
             <Text style={styles.quickAddButtonText}>{isReorder ? "↻ ORDER AGAIN" : "ADD"}</Text>
           </Pressable>
@@ -313,8 +321,27 @@ const makeCardStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     card: { width: CARD_WIDTH },
     image: { width: CARD_WIDTH, height: CARD_WIDTH, borderRadius: theme.radius, backgroundColor: colors.surface },
+    imageUnavailable: { opacity: 0.4 },
     imagePlaceholder: { alignItems: "center", justifyContent: "center" },
+    outOfStockBadge: {
+      position: "absolute",
+      top: CARD_WIDTH / 2 - 11,
+      left: 0,
+      right: 0,
+      alignItems: "center",
+    },
+    outOfStockBadgeText: {
+      backgroundColor: "rgba(0,0,0,0.75)",
+      color: "#fff",
+      fontSize: 9,
+      fontWeight: "800",
+      letterSpacing: 0.4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 999,
+    },
     name: { fontSize: 12, fontWeight: "700", color: colors.text, marginTop: 6 },
+    nameUnavailable: { color: colors.muted, textDecorationLine: "line-through" },
     // Price and the Add button/stepper now share one row instead of the button sitting on its
     // own line below — wrap allows a long strikethrough+sale-price pair to drop the button to a
     // second line rather than overflowing the narrow card.

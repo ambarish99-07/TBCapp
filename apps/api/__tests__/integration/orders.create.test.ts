@@ -315,3 +315,150 @@ describe("POST /orders — payload caps", () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe("POST /orders — size variants", () => {
+  async function seedItemWithSizes(overrides: Record<string, unknown> = {}) {
+    return MenuItemModel.create({
+      _id: "biryani-thali",
+      brandId: "tbc",
+      signatureName: "Chicken Biryani",
+      commonName: "Chicken Biryani",
+      description: "Fragrant chicken biryani.",
+      price: 199,
+      portionSize: "500 gm",
+      sizeVariants: [{ label: "1 kg", price: 349 }],
+      category: "biryani",
+      image: "https://example.com/biryani.jpg",
+      flavorBadges: [],
+      ...overrides,
+    });
+  }
+
+  function orderWithSize(selectedSizeLabel?: string) {
+    return {
+      items: [
+        {
+          lineId: "l1",
+          menuItemId: "biryani-thali",
+          quantity: 1,
+          customization: { addOnIds: [], selectedSizeLabel },
+        },
+      ],
+      brandId: "tbc",
+      delivery: validDelivery,
+      deliveryFor: "self",
+      paymentMethod: "cod",
+    };
+  }
+
+  it("charges the default size's price when no size is selected", async () => {
+    await seedItemWithSizes();
+    const response = await request(app).post("/orders").send(orderWithSize(undefined));
+    expect(response.status).toBe(201);
+    expect(response.body.order.items[0].unitPrice).toBe(199);
+  });
+
+  it("charges the default size's price when it's selected explicitly by its own label", async () => {
+    await seedItemWithSizes();
+    const response = await request(app).post("/orders").send(orderWithSize("500 gm"));
+    expect(response.status).toBe(201);
+    expect(response.body.order.items[0].unitPrice).toBe(199);
+  });
+
+  it("charges the extra variant's own price when selected", async () => {
+    await seedItemWithSizes();
+    const response = await request(app).post("/orders").send(orderWithSize("1 kg"));
+    expect(response.status).toBe(201);
+    expect(response.body.order.items[0].unitPrice).toBe(349);
+    expect(response.body.order.items[0].customization.selectedSizeLabel).toBe("1 kg");
+  });
+
+  it("applies the item's salePercent to whichever size was actually selected", async () => {
+    await seedItemWithSizes({ salePercent: 10 });
+    const response = await request(app).post("/orders").send(orderWithSize("1 kg"));
+    expect(response.status).toBe(201);
+    // 349 * 0.9 = 314.1, rounded
+    expect(response.body.order.items[0].unitPrice).toBe(314);
+    expect(response.body.order.items[0].originalUnitPrice).toBe(349);
+  });
+
+  it("rejects an unknown size label", async () => {
+    await seedItemWithSizes();
+    const response = await request(app).post("/orders").send(orderWithSize("2 kg"));
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/isn't available in size/i);
+  });
+
+  it("rejects ordering a size marked out of stock, while the default size still works", async () => {
+    await seedItemWithSizes({ sizeVariants: [{ label: "1 kg", price: 349, isAvailable: false }] });
+
+    const oneKg = await request(app).post("/orders").send(orderWithSize("1 kg"));
+    expect(oneKg.status).toBe(400);
+    expect(oneKg.body.error).toMatch(/out of stock/i);
+
+    const defaultSize = await request(app).post("/orders").send(orderWithSize(undefined));
+    expect(defaultSize.status).toBe(201);
+  });
+});
+
+describe("POST /orders — availability toggles", () => {
+  async function seedItem(overrides: Record<string, unknown> = {}) {
+    return MenuItemModel.create({
+      _id: "choco-crush",
+      brandId: "tbc",
+      signatureName: "Choco Crush",
+      commonName: "Rich Chocolate Shake",
+      description: "A rich, indulgent chocolate shake.",
+      price: 220,
+      category: "signature-shakes",
+      image: "https://example.com/choco-crush.jpg",
+      flavorBadges: ["Chocolate Lover"],
+      ...overrides,
+    });
+  }
+
+  it("rejects ordering a whole item marked out of stock", async () => {
+    await seedItem({ isAvailable: false });
+    const response = await request(app)
+      .post("/orders")
+      .send({
+        items: [{ lineId: "l1", menuItemId: "choco-crush", quantity: 1, customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] } }],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/out of stock/i);
+  });
+
+  it("rejects an add-on marked out of stock, while the item itself still orders fine without it", async () => {
+    await seedItem();
+    await MenuAddOnPriceModel.create({ name: "Whipped Cream", price: 30, isAvailable: false });
+
+    const withAddOn = await request(app)
+      .post("/orders")
+      .send({
+        items: [
+          { lineId: "l1", menuItemId: "choco-crush", quantity: 1, customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: ["Whipped Cream"] } },
+        ],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+    expect(withAddOn.status).toBe(400);
+    expect(withAddOn.body.error).toMatch(/out of stock/i);
+
+    const withoutAddOn = await request(app)
+      .post("/orders")
+      .send({
+        items: [{ lineId: "l1", menuItemId: "choco-crush", quantity: 1, customization: { sugarLevel: "regular", iceLevel: "regular", addOnIds: [] } }],
+        brandId: "tbc",
+        delivery: validDelivery,
+        deliveryFor: "self",
+        paymentMethod: "cod",
+      });
+    expect(withoutAddOn.status).toBe(201);
+  });
+});

@@ -21,6 +21,11 @@ export type MenuCategory = z.infer<typeof MenuCategorySchema>;
 export const MenuAddOnSchema = z.object({
   name: z.string(),
   price: z.number().nonnegative(),
+  /** False when the admin has marked this add-on out of stock — resolved fresh from the shared
+   * catalog at read time, same as `price`. The client shows it struck through/disabled rather
+   * than hiding it (it still exists, just not orderable right now); the server rejects an order
+   * that includes it either way, never trusting the client to have honored the display state. */
+  isAvailable: z.boolean(),
 });
 export type MenuAddOn = z.infer<typeof MenuAddOnSchema>;
 
@@ -32,14 +37,35 @@ export const MenuAddOnPriceSchema = z.object({
   id: z.string(),
   name: z.string(),
   price: z.number().positive(),
+  /** Out-of-stock toggle — global across every brand/item that offers this add-on, since it's a
+   * shared supply (e.g. "out of whipped cream" is true for every item that offers it, not just
+   * one). Defaults true so every add-on created before this existed keeps working unchanged. */
+  isAvailable: z.boolean().default(true),
 });
 export type MenuAddOnPrice = z.infer<typeof MenuAddOnPriceSchema>;
 
 export const UpsertMenuAddOnPriceRequestSchema = z.object({
   name: z.string().min(1),
   price: z.number().positive(),
+  isAvailable: z.boolean().default(true),
 });
 export type UpsertMenuAddOnPriceRequest = z.infer<typeof UpsertMenuAddOnPriceRequestSchema>;
+
+/** One extra size a customer can pick instead of the item's default (e.g. a 1kg biryani instead
+ * of the default 500g, or a 500ml shake instead of the default 300ml) — `label` is free text
+ * (no fixed unit), same "brand never needs a code change to name its own thing" reasoning as
+ * MenuCategorySchema. Priced directly by the admin, not derived from a formula/multiplier, so a
+ * bigger size can cost whatever it actually costs to make (packaging, bulk discount, etc.) rather
+ * than always scaling linearly with the default size's price. */
+export const MenuItemSizeVariantSchema = z.object({
+  label: z.string().min(1),
+  price: z.number().positive(),
+  /** Out-of-stock toggle for just this one size — the item itself (its default size) and any
+   * other size variant stay orderable regardless. Defaults true so every variant created before
+   * this existed keeps working unchanged. */
+  isAvailable: z.boolean().default(true),
+});
+export type MenuItemSizeVariant = z.infer<typeof MenuItemSizeVariantSchema>;
 
 export const MenuItemSchema = z.object({
   id: z.string(),
@@ -54,10 +80,24 @@ export const MenuItemSchema = z.object({
   isPopular: z.boolean().optional(),
   isNew: z.boolean().optional(),
   isStaffPick: z.boolean().optional(),
+  /** Out-of-stock toggle for the whole item (its default size included) — false means every size
+   * of this item is unorderable until switched back on. The item still shows on the menu, struck
+   * through/disabled rather than hidden, so a customer knows it exists but isn't available right
+   * now. Defaults true so every item created before this existed keeps working unchanged. */
+  isAvailable: z.boolean().default(true),
   /** Other menu item ids this pairs well with — powers "frequently bought together" and recommendations. */
   pairsWith: z.array(z.string()).optional(),
   /** When set, this item's real charged price is `price * (1 - salePercent/100)` — `price` stays the shown strikethrough price. Only a few items should carry this, not the whole menu. */
   salePercent: z.number().min(1).max(99).optional(),
+  /** Display label for `price`'s own portion — "300 ml" for a shake, "500 gm" for a biryani,
+   * whatever unit actually applies. Free text, brand-agnostic, purely informational (never
+   * affects pricing on its own — see MenuItemSizeVariantSchema for that). Optional so an item
+   * with no meaningful portion concept doesn't need to fake one. */
+  portionSize: z.string().optional(),
+  /** Extra sizes beyond the default (`price`/`portionSize` above) a customer can pick instead —
+   * e.g. a 1kg option alongside the default 500g. Empty means this item only ever comes in its
+   * one default size. Every size (default included) is priced directly by the admin. */
+  sizeVariants: z.array(MenuItemSizeVariantSchema).default([]),
   /** False for an item with no "sugar level"/"ice level" concept (a biryani, a momo plate, ...) —
    * the customize screen skips both pickers entirely rather than showing a nonsensical default.
    * Defaults true so every existing shake/cold-coffee/mocktail item keeps behaving exactly as
@@ -75,23 +115,37 @@ export type MenuItem = z.infer<typeof MenuItemSchema>;
 
 /** Admin create/update payload — `id` is the slug (auto-generated from `signatureName` for a new
  * item; unchanged for an edit, since it's also the Mongo `_id` and other records key off it). */
-export const UpsertMenuItemRequestSchema = z.object({
-  id: z.string().min(1),
-  brandId: z.string().min(1),
-  signatureName: z.string().min(1),
-  commonName: z.string().min(1),
-  description: z.string().min(1),
-  price: z.number().positive(),
-  category: MenuCategorySchema,
-  image: z.string().min(1),
-  flavorBadges: z.array(z.string()).default([]),
-  isPopular: z.boolean().optional(),
-  isNew: z.boolean().optional(),
-  isStaffPick: z.boolean().optional(),
-  salePercent: z.number().min(1).max(99).optional(),
-  hasSugarIceCustomization: z.boolean().default(true),
-  addOnNames: z.array(z.string()).default([]),
-});
+export const UpsertMenuItemRequestSchema = z
+  .object({
+    id: z.string().min(1),
+    brandId: z.string().min(1),
+    signatureName: z.string().min(1),
+    commonName: z.string().min(1),
+    description: z.string().min(1),
+    price: z.number().positive(),
+    category: MenuCategorySchema,
+    image: z.string().min(1),
+    flavorBadges: z.array(z.string()).default([]),
+    isPopular: z.boolean().optional(),
+    isNew: z.boolean().optional(),
+    isStaffPick: z.boolean().optional(),
+    isAvailable: z.boolean().default(true),
+    salePercent: z.number().min(1).max(99).optional(),
+    portionSize: z.string().optional(),
+    sizeVariants: z.array(MenuItemSizeVariantSchema).default([]),
+    hasSugarIceCustomization: z.boolean().default(true),
+    addOnNames: z.array(z.string()).default([]),
+  })
+  // Every size variant needs a labeled default to distinguish itself from — a picker with one
+  // unlabeled size and one labeled "1 kg" reads as broken, not as "two sizes."
+  .refine((data) => data.sizeVariants.length === 0 || !!data.portionSize, {
+    message: "Set a portion size for the default price before adding extra sizes",
+    path: ["portionSize"],
+  })
+  .refine((data) => new Set(data.sizeVariants.map((v) => v.label)).size === data.sizeVariants.length, {
+    message: "Size labels must be unique",
+    path: ["sizeVariants"],
+  });
 export type UpsertMenuItemRequest = z.infer<typeof UpsertMenuItemRequestSchema>;
 
 /**

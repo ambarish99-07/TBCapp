@@ -19,6 +19,11 @@ export const CustomizationSchema = z.object({
   /** Names from the shared MenuAddOnPrice catalog (see menu.ts) — no longer a closed enum, so a
    * new brand's own add-ons (e.g. "Extra Raita") need no shared-types change to exist. */
   addOnIds: z.array(z.string()),
+  /** Which size the customer picked — must match the item's own `portionSize` (the default) or
+   * one of its `sizeVariants` labels (see MenuItem in menu.ts); absent means "the default size,"
+   * same as sugarLevel/iceLevel above being absent means "no such concept for this item." Never
+   * trusted for pricing — the server re-resolves the price for whichever label this names. */
+  selectedSizeLabel: z.string().optional(),
   /** Free-text notes from the customer (e.g. "extra hot", "no straw") — shown to the kitchen as-is, never parsed. */
   comment: z.string().max(200).optional(),
 });

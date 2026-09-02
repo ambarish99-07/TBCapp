@@ -7,6 +7,8 @@ const CustomizationSchema = new Schema(
     sugarLevel: { type: String, enum: ["less", "regular", "extra"] },
     iceLevel: { type: String, enum: ["less", "regular", "extra"] },
     addOnIds: { type: [String], default: [] },
+    // Which size was ordered — absent means the item's default size. See MenuItem.sizeVariants.
+    selectedSizeLabel: { type: String },
   },
   { _id: false }
 );

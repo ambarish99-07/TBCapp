@@ -23,17 +23,23 @@ export function upsertAddOnPrice(data: UpsertMenuAddOnPriceRequest) {
 }
 
 /** Fetched once per request (not once per item) — same pattern GG Tiffin's buildAddOnPriceLookup uses. */
-export async function buildAddOnPriceLookup(): Promise<Map<string, number>> {
+export async function buildAddOnPriceLookup(): Promise<Map<string, { price: number; isAvailable: boolean }>> {
   const prices = await MenuAddOnPriceModel.find().lean();
-  return new Map(prices.map((p) => [p.name, p.price]));
+  return new Map(prices.map((p) => [p.name, { price: p.price, isAvailable: p.isAvailable ?? true }]));
 }
 
-/** Resolves an item's `addOnNames` into priced `{name, price}` pairs — any name whose price has
- * since been deleted from the catalog is dropped rather than shown at a misleading ₹0. */
-export function resolveItemAddOns(addOnNames: string[], lookup: Map<string, number>): MenuAddOn[] {
+/** Resolves an item's `addOnNames` into priced `{name, price, isAvailable}` triples — any name
+ * whose price has since been deleted from the catalog is dropped rather than shown at a
+ * misleading ₹0. An unavailable one stays in the list (the client shows it struck through/
+ * disabled) rather than being dropped like a deleted one — the association still exists, it's
+ * just temporarily out of stock. */
+export function resolveItemAddOns(addOnNames: string[], lookup: Map<string, { price: number; isAvailable: boolean }>): MenuAddOn[] {
   return addOnNames
-    .map((name) => ({ name, price: lookup.get(name) }))
-    .filter((addOn): addOn is MenuAddOn => addOn.price !== undefined);
+    .map((name) => {
+      const entry = lookup.get(name);
+      return entry ? { name, price: entry.price, isAvailable: entry.isAvailable } : null;
+    })
+    .filter((addOn): addOn is MenuAddOn => addOn !== null);
 }
 
 /** Attaches the resolved `addOns` field to every item in one batch — the shared last step for

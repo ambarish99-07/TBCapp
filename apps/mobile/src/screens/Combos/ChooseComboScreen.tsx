@@ -44,6 +44,8 @@ export function ChooseComboScreen({ route, navigation }: Props) {
   }
 
   function toggle(itemId: string) {
+    const item = menuItems?.find((candidate) => candidate.id === itemId);
+    if (item?.isAvailable === false) return;
     setSelectedIds((current) => {
       if (current.includes(itemId)) return current.filter((id) => id !== itemId);
       if (current.length >= (combo!.type === "choose-n" ? combo!.chooseCount : 0)) return current;
@@ -83,13 +85,18 @@ export function ChooseComboScreen({ route, navigation }: Props) {
         keyExtractor={(id) => id}
         renderItem={({ item: itemId }) => {
           const item = menuItems?.find((candidate) => candidate.id === itemId);
+          const isAvailable = item?.isAvailable ?? true;
           const isSelected = selectedIds.includes(itemId);
           return (
-            <Pressable style={[styles.row, isSelected && styles.rowSelected]} onPress={() => toggle(itemId)}>
+            <Pressable
+              style={[styles.row, isSelected && styles.rowSelected, !isAvailable && styles.rowDisabled]}
+              onPress={() => toggle(itemId)}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowBrand, isSelected && styles.rowTextSelected]}>{brandName(itemId)}</Text>
-                <Text style={[styles.rowText, isSelected && styles.rowTextSelected]}>
+                <Text style={[styles.rowText, isSelected && styles.rowTextSelected, !isAvailable && styles.rowTextUnavailable]}>
                   {item?.signatureName ?? itemId} {item ? `· ₹${item.price}` : ""}
+                  {!isAvailable ? " · Out of stock" : ""}
                 </Text>
               </View>
               {isSelected && <Text style={styles.checkmark}>✓</Text>}
@@ -120,8 +127,10 @@ const makeStyles = (colors: ColorPalette) =>
       marginBottom: 8,
     },
     rowSelected: { backgroundColor: colors.primary },
+    rowDisabled: { opacity: 0.5 },
     rowBrand: { fontSize: 10, fontWeight: "700", color: colors.primary, textTransform: "uppercase" },
     rowText: { fontSize: 14, color: colors.text, fontWeight: "600", marginTop: 2 },
+    rowTextUnavailable: { textDecorationLine: "line-through" },
     rowTextSelected: { color: "#fff" },
     checkmark: { color: "#fff", fontWeight: "700" },
     addButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(2), alignItems: "center", marginTop: theme.spacing(2) },

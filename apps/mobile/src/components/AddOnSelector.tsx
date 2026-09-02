@@ -17,8 +17,8 @@ export function AddOnSelector({ availableAddOns, selected, onChange, disabled }:
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  function toggle(name: string) {
-    if (disabled) return;
+  function toggle(name: string, isAvailable: boolean) {
+    if (disabled || !isAvailable) return;
     onChange(selected.includes(name) ? selected.filter((existing) => existing !== name) : [...selected, name]);
   }
 
@@ -29,11 +29,11 @@ export function AddOnSelector({ availableAddOns, selected, onChange, disabled }:
         return (
           <Pressable
             key={addOn.name}
-            onPress={() => toggle(addOn.name)}
-            style={[styles.chip, isSelected && styles.chipSelected, disabled && styles.chipDisabled]}
+            onPress={() => toggle(addOn.name, addOn.isAvailable)}
+            style={[styles.chip, isSelected && styles.chipSelected, (disabled || !addOn.isAvailable) && styles.chipDisabled]}
           >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-              {addOn.name} (+₹{addOn.price})
+            <Text style={[styles.chipText, isSelected && styles.chipTextSelected, !addOn.isAvailable && styles.chipTextUnavailable]}>
+              {addOn.name} (+₹{addOn.price}){!addOn.isAvailable ? " · Out of stock" : ""}
             </Text>
           </Pressable>
         );
@@ -57,5 +57,6 @@ const makeStyles = (colors: ColorPalette) =>
     chipDisabled: { opacity: 0.4 },
     chipText: { fontSize: 12, color: colors.text },
     chipTextSelected: { color: "#fff" },
+    chipTextUnavailable: { textDecorationLine: "line-through" },
     note: { fontSize: 12, color: colors.muted, marginTop: 4 },
   });

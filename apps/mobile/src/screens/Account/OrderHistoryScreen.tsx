@@ -78,14 +78,26 @@ export function OrderHistoryScreen({ navigation }: Props) {
     for (const line of order.items) {
       if (isComboLineId(line.menuItemId)) continue;
       const liveItem = allMenuItems?.find((item) => item.id === line.menuItemId);
-      if (!liveItem) continue;
-      const unitPrice = liveItem.salePercent ? round(liveItem.price * (1 - liveItem.salePercent / 100)) : liveItem.price;
+      if (!liveItem || liveItem.isAvailable === false) continue;
+      // Re-resolved against the item's current sizes, not just re-priced — if the size ordered
+      // last time was since removed or is now out of stock, this falls back to today's default
+      // size rather than pretending an unavailable size still exists.
+      const orderedSizeLabel = line.customization.selectedSizeLabel;
+      const orderedVariant = (liveItem.sizeVariants ?? []).find((v) => v.label === orderedSizeLabel);
+      const orderedSizeStillAvailable =
+        !orderedSizeLabel || orderedSizeLabel === liveItem.portionSize || (!!orderedVariant && (orderedVariant.isAvailable ?? true));
+      const selectedSizeLabel = orderedSizeStillAvailable ? orderedSizeLabel : undefined;
+      const sizeBasePrice =
+        selectedSizeLabel && selectedSizeLabel !== liveItem.portionSize
+          ? ((liveItem.sizeVariants ?? []).find((v) => v.label === selectedSizeLabel)?.price ?? liveItem.price)
+          : liveItem.price;
+      const unitPrice = liveItem.salePercent ? round(sizeBasePrice * (1 - liveItem.salePercent / 100)) : sizeBasePrice;
       // Today's add-ons, not the order's own historical ones — same "re-price at today's rate"
-      // principle as the item itself. Any add-on since removed from this item is dropped
+      // principle as the item itself. Any add-on since removed or now out of stock is dropped
       // entirely, kept in lockstep across both arrays rather than defaulted to a misleading ₹0.
       const liveAddOns = line.customization.addOnIds
         .map((name) => liveItem.addOns?.find((a) => a.name === name))
-        .filter((addOn): addOn is { name: string; price: number } => !!addOn);
+        .filter((addOn): addOn is { name: string; price: number; isAvailable: boolean } => !!addOn && addOn.isAvailable);
       const hasSugarIce = liveItem.hasSugarIceCustomization ?? true;
       addLineWithBrandGuard({
         lineId: `${liveItem.id}-${Date.now()}-${addedCount}`,
@@ -95,12 +107,13 @@ export function OrderHistoryScreen({ navigation }: Props) {
         commonName: liveItem.commonName,
         image: liveItem.image,
         unitPrice,
-        originalUnitPrice: liveItem.price,
+        originalUnitPrice: sizeBasePrice,
         addOnPrices: liveAddOns.map((a) => a.price),
         quantity: line.quantity,
         sugarLevel: hasSugarIce ? (line.customization.sugarLevel ?? "regular") : undefined,
         iceLevel: hasSugarIce ? (line.customization.iceLevel ?? "regular") : undefined,
         addOnIds: liveAddOns.map((a) => a.name),
+        selectedSizeLabel,
         comment: line.customization.comment,
         isCombo: false,
         category: liveItem.category === "signature-shakes" || liveItem.category === "cold-coffee" ? liveItem.category : undefined,
@@ -108,7 +121,7 @@ export function OrderHistoryScreen({ navigation }: Props) {
       addedCount += 1;
     }
     if (addedCount === 0) {
-      Alert.alert("Can't reorder this one", "None of these items are on the menu anymore.");
+      Alert.alert("Can't reorder this one", "None of these items are on the menu anymore, or they're currently out of stock.");
       return;
     }
     navigation.navigate("Cart");

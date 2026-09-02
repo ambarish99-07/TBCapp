@@ -8,6 +8,9 @@ const MenuAddOnPriceSchema = new Schema(
   {
     name: { type: String, required: true, unique: true },
     price: { type: Number, required: true, min: 0 },
+    // Out-of-stock toggle, shared across every brand/item that offers this add-on — see
+    // @tbc/shared-types' MenuAddOnPriceSchema doc-comment.
+    isAvailable: { type: Boolean, required: true, default: true },
   },
   {
     timestamps: true,

@@ -16,20 +16,26 @@ interface Props {
 export function MenuItemCard({ item, onAddPress }: Props) {
   const { colors, spacing, radius } = useTheme();
   const styles = useMemo(() => makeStyles(colors, spacing, radius), [colors, spacing, radius]);
+  const isAvailable = item.isAvailable ?? true;
   const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
 
   return (
-    <Pressable style={styles.card} onPress={onAddPress}>
+    <Pressable style={styles.card} onPress={isAvailable ? onAddPress : undefined}>
       <View style={styles.imageWrap}>
-        <Image source={{ uri: item.image }} style={styles.image} />
-        {item.salePercent && (
+        <Image source={{ uri: item.image }} style={[styles.image, !isAvailable && styles.imageUnavailable]} />
+        {isAvailable && item.salePercent && (
           <View style={styles.saleCorner}>
             <Text style={styles.saleCornerText}>{item.salePercent}% OFF</Text>
           </View>
         )}
+        {!isAvailable && (
+          <View style={styles.outOfStockCorner}>
+            <Text style={styles.outOfStockCornerText}>OUT OF STOCK</Text>
+          </View>
+        )}
       </View>
       <View style={styles.body}>
-        <Text style={styles.name}>{item.signatureName}</Text>
+        <Text style={[styles.name, !isAvailable && styles.nameUnavailable]}>{item.signatureName}</Text>
         <Text style={styles.subtitle}>{item.commonName}</Text>
         <View style={styles.badgeRow}>
           {item.isStaffPick && <Text style={styles.badge}>Staff Pick</Text>}
@@ -37,7 +43,9 @@ export function MenuItemCard({ item, onAddPress }: Props) {
           {item.isNew && <Text style={styles.badge}>New</Text>}
         </View>
         <View style={styles.bottomRow}>
-          {item.salePercent ? (
+          {!isAvailable ? (
+            <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
+          ) : item.salePercent ? (
             <View style={styles.priceRow}>
               <Text style={styles.priceStrikethrough}>₹{item.price}</Text>
               <Text style={styles.price}>₹{effectivePrice}</Text>
@@ -45,9 +53,11 @@ export function MenuItemCard({ item, onAddPress }: Props) {
           ) : (
             <Text style={styles.price}>₹{item.price}</Text>
           )}
-          <Pressable style={styles.addButton} onPress={onAddPress}>
-            <Text style={styles.addButtonText}>Add</Text>
-          </Pressable>
+          {isAvailable && (
+            <Pressable style={styles.addButton} onPress={onAddPress}>
+              <Text style={styles.addButtonText}>Add</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </Pressable>
@@ -65,8 +75,10 @@ const makeStyles = (colors: ColorPalette, spacing: (n: number) => number, radius
     },
     imageWrap: { width: 96, height: 96 },
     image: { width: "100%", height: "100%" },
+    imageUnavailable: { opacity: 0.4 },
     body: { flex: 1, padding: spacing(1.5) },
     name: { fontSize: 16, fontWeight: "700", color: colors.text },
+    nameUnavailable: { color: colors.muted, textDecorationLine: "line-through" },
     subtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
     badgeRow: { flexDirection: "row", gap: 6, marginTop: 6 },
     badge: {
@@ -93,6 +105,16 @@ const makeStyles = (colors: ColorPalette, spacing: (n: number) => number, radius
       paddingVertical: 2,
     },
     saleCornerText: { color: "#fff", fontSize: 9, fontWeight: "700" },
+    outOfStockCorner: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(0,0,0,0.75)",
+      paddingVertical: 3,
+      alignItems: "center",
+    },
+    outOfStockCornerText: { color: "#fff", fontSize: 9, fontWeight: "800", letterSpacing: 0.3 },
     addButton: { backgroundColor: colors.primary, borderRadius: radius, paddingVertical: 6, paddingHorizontal: 18 },
     addButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   });

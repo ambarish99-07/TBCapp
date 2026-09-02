@@ -51,15 +51,20 @@ export function CategoryResultsScreen({ route }: Props) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
         renderItem={({ item }) => {
+          const isAvailable = item.isAvailable ?? true;
           const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
           return (
-            <Pressable style={styles.card} onPress={() => handlePress(item)}>
-              <Image source={{ uri: item.image }} style={styles.image} />
+            <Pressable style={styles.card} onPress={isAvailable ? () => handlePress(item) : undefined}>
+              <Image source={{ uri: item.image }} style={[styles.image, !isAvailable && styles.imageUnavailable]} />
               <View style={styles.body}>
                 <Text style={styles.brandTag}>{brandName(item.brandId)}</Text>
-                <Text style={styles.name}>{item.signatureName}</Text>
+                <Text style={[styles.name, !isAvailable && styles.nameUnavailable]}>{item.signatureName}</Text>
                 <Text style={styles.subtitle}>{item.commonName}</Text>
-                <Text style={styles.price}>₹{effectivePrice}</Text>
+                {isAvailable ? (
+                  <Text style={styles.price}>₹{effectivePrice}</Text>
+                ) : (
+                  <Text style={styles.outOfStock}>Out of Stock</Text>
+                )}
               </View>
             </Pressable>
           );
@@ -84,9 +89,12 @@ const makeStyles = (colors: ColorPalette) =>
       overflow: "hidden",
     },
     image: { width: 96, height: 96 },
+    imageUnavailable: { opacity: 0.4 },
     body: { flex: 1, padding: theme.spacing(1.5) },
     brandTag: { fontSize: 10, fontWeight: "700", color: colors.primary, textTransform: "uppercase" },
     name: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 2 },
+    nameUnavailable: { color: colors.muted, textDecorationLine: "line-through" },
     subtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
     price: { marginTop: 6, fontSize: 14, fontWeight: "700", color: colors.primary },
+    outOfStock: { marginTop: 6, fontSize: 12, fontWeight: "700", color: colors.danger },
   });

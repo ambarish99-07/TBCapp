@@ -1,3 +1,4 @@
+import { round } from "@tbc/pricing";
 import type { IceLevel, MenuItem, SugarLevel } from "@tbc/shared-types";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text } from "react-native";
@@ -27,28 +28,50 @@ export function EditCartItemModal({ line, item, onClose }: Props) {
   const [iceLevel, setIceLevel] = useState<IceLevel>("regular");
   const [addOnIds, setAddOnIds] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const [selectedSizeLabel, setSelectedSizeLabel] = useState<string | undefined>(undefined);
+
+  // Every size this item comes in — see AddItemModal's identical derivation.
+  const sizes = useMemo(
+    () =>
+      item
+        ? [
+            { label: item.portionSize ?? "Regular", price: item.price, isAvailable: true },
+            ...(item.sizeVariants ?? []).map((v) => ({ ...v, isAvailable: v.isAvailable ?? true })),
+          ]
+        : [],
+    [item]
+  );
 
   // Re-seed local state from the line being edited each time a new one opens.
   useEffect(() => {
-    if (line) {
+    if (line && item) {
       setSugarLevel(line.sugarLevel ?? "regular");
       setIceLevel(line.iceLevel ?? "regular");
       setAddOnIds(line.addOnIds);
       setComment(line.comment ?? "");
+      setSelectedSizeLabel(line.selectedSizeLabel ?? item.portionSize);
     }
-  }, [line]);
+  }, [line, item]);
 
   const visible = line !== null && item !== null;
 
   function handleUpdate() {
     if (!line || !item) return;
     const hasSugarIce = item.hasSugarIceCustomization ?? true;
+    const sizeBasePrice =
+      selectedSizeLabel && selectedSizeLabel !== item.portionSize
+        ? ((item.sizeVariants ?? []).find((v) => v.label === selectedSizeLabel)?.price ?? item.price)
+        : item.price;
+    const unitPrice = item.salePercent ? round(sizeBasePrice * (1 - item.salePercent / 100)) : sizeBasePrice;
     updateLineCustomization(line.lineId, {
       sugarLevel: hasSugarIce ? sugarLevel : undefined,
       iceLevel: hasSugarIce ? iceLevel : undefined,
       addOnIds,
       addOnPrices: addOnIds.map((name) => item.addOns?.find((a) => a.name === name)?.price ?? 0),
       comment: comment.trim(),
+      selectedSizeLabel: sizes.length > 1 ? selectedSizeLabel : undefined,
+      unitPrice,
+      originalUnitPrice: sizeBasePrice,
     });
     onClose();
   }
@@ -68,6 +91,9 @@ export function EditCartItemModal({ line, item, onClose }: Props) {
                 onSugarLevelChange={setSugarLevel}
                 iceLevel={iceLevel}
                 onIceLevelChange={setIceLevel}
+                sizes={sizes}
+                selectedSizeLabel={selectedSizeLabel ?? item.portionSize}
+                onSelectedSizeLabelChange={setSelectedSizeLabel}
                 availableAddOns={item.addOns ?? []}
                 addOnIds={addOnIds}
                 onAddOnIdsChange={setAddOnIds}

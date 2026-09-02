@@ -1,4 +1,5 @@
-import type { Brand, MenuAddOnPrice, MenuItem } from "@tbc/shared-types";
+import type { Brand, MenuAddOnPrice, MenuItem, MenuItemSizeVariant } from "@tbc/shared-types";
+import axios from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
@@ -9,6 +10,14 @@ import { Input } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
 
 const CATEGORY_DATALIST_ID = "menu-category-suggestions";
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const message = (err.response?.data as { error?: string } | undefined)?.error;
+    if (message) return message;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 function slugify(name: string): string {
   return name
@@ -36,18 +45,99 @@ function AddOnPicker({ addOnPrices, selected, onToggle }: { addOnPrices: MenuAdd
   }
   return (
     <div className="flex flex-wrap gap-2">
-      {addOnPrices.map((addOn) => (
-        <button
-          key={addOn.id}
-          type="button"
-          onClick={() => onToggle(addOn.name)}
-          className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
-            selected.includes(addOn.name) ? "border-primary bg-primary/10 text-primary-dark" : "border-border text-text hover:bg-surface"
-          }`}
-        >
-          {addOn.name} (₹{addOn.price})
-        </button>
-      ))}
+      {addOnPrices.map((addOn) => {
+        const isAvailable = addOn.isAvailable ?? true;
+        return (
+          <button
+            key={addOn.id}
+            type="button"
+            onClick={() => onToggle(addOn.name)}
+            title={isAvailable ? undefined : "Currently out of stock — toggle it back on in Add-On Prices below once restocked."}
+            className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+              selected.includes(addOn.name) ? "border-primary bg-primary/10 text-primary-dark" : "border-border text-text hover:bg-surface"
+            } ${isAvailable ? "" : "text-muted line-through"}`}
+          >
+            {addOn.name} (₹{addOn.price}){!isAvailable && " · Out of stock"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Extra sizes beyond the item's default (`price`/`portionSize`) — e.g. a 1kg option alongside a
+ * default 500g biryani, or a 500ml option alongside a default 300ml shake. Every size, default
+ * included, is priced directly here, not derived from a formula — a bigger size can cost whatever
+ * it actually costs (packaging, bulk discount, etc.). Purely a controlled list: the caller decides
+ * whether `onChange` buffers into local form state (the create form) or saves immediately (an
+ * existing item's card), so this one component works for both.
+ */
+function SizeVariantsEditor({ variants, onChange }: { variants: MenuItemSizeVariant[]; onChange: (next: MenuItemSizeVariant[]) => void }) {
+  const [newLabel, setNewLabel] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+
+  function handleAdd() {
+    const label = newLabel.trim();
+    const price = Number(newPrice);
+    if (!label || !price || price <= 0 || variants.some((v) => v.label === label)) return;
+    onChange([...variants, { label, price, isAvailable: true }]);
+    setNewLabel("");
+    setNewPrice("");
+  }
+
+  return (
+    <div>
+      {variants.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {variants.map((variant) => {
+            const isAvailable = variant.isAvailable ?? true;
+            return (
+              <div
+                key={variant.label}
+                className={`flex items-center gap-1.5 rounded-full border py-1 pl-3 pr-1.5 ${isAvailable ? "border-border" : "border-danger/30 bg-danger-soft"}`}
+              >
+                <span className={`text-xs font-semibold ${isAvailable ? "text-text" : "text-danger line-through"}`}>{variant.label}</span>
+                <Input
+                  type="number"
+                  min={1}
+                  defaultValue={variant.price}
+                  onBlur={(e) => {
+                    const price = Number(e.target.value);
+                    if (!Number.isNaN(price) && price > 0 && price !== variant.price) {
+                      onChange(variants.map((v) => (v.label === variant.label ? { ...v, price } : v)));
+                    }
+                  }}
+                  className="w-16 px-1.5 py-0.5 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange(variants.map((v) => (v.label === variant.label ? { ...v, isAvailable: !isAvailable } : v)))}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isAvailable ? "bg-surface text-muted hover:bg-border" : "bg-danger text-white"}`}
+                  title={isAvailable ? "Mark out of stock" : "Mark back in stock"}
+                >
+                  {isAvailable ? "In Stock" : "Out"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange(variants.filter((v) => v.label !== variant.label))}
+                  className="px-1 text-sm font-bold text-danger"
+                  aria-label={`Remove size ${variant.label}`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Input placeholder="Size (e.g. 1 kg)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} className="w-32" />
+        <Input type="number" min={1} placeholder="Price (₹)" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} className="w-24" />
+        <Button type="button" variant="secondary" onClick={handleAdd}>
+          + Add Size
+        </Button>
+      </div>
     </div>
   );
 }
@@ -61,6 +151,7 @@ const emptyForm = {
   category: "",
   flavorBadges: "",
   salePercent: "",
+  portionSize: "",
   isPopular: false,
   isNew: false,
   isStaffPick: false,
@@ -79,9 +170,19 @@ function MenuItemCard({
   onDelete: (id: string) => void;
 }) {
   const [isUploading, setIsUploading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function save(patch: Record<string, unknown>) {
+    setSaveError(null);
+    try {
+      await saveNow(patch);
+    } catch (err) {
+      setSaveError(extractErrorMessage(err, "Failed to save"));
+    }
+  }
+
+  async function saveNow(patch: Record<string, unknown>) {
     const { data } = await adminClient.put<{ item: MenuItem }>("/menu", {
       id: item.id,
       brandId: item.brandId,
@@ -95,7 +196,10 @@ function MenuItemCard({
       isPopular: item.isPopular,
       isNew: item.isNew,
       isStaffPick: item.isStaffPick,
+      isAvailable: item.isAvailable ?? true,
       salePercent: item.salePercent,
+      portionSize: item.portionSize,
+      sizeVariants: item.sizeVariants ?? [],
       hasSugarIceCustomization: item.hasSugarIceCustomization ?? true,
       addOnNames: item.addOnNames ?? [],
       ...patch,
@@ -121,10 +225,28 @@ function MenuItemCard({
     save({ addOnNames: current.includes(name) ? current.filter((n) => n !== name) : [...current, name] });
   }
 
+  const isAvailable = item.isAvailable ?? true;
+
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className={`flex flex-col gap-3 ${isAvailable ? "" : "border-danger/40 bg-danger-soft/30"}`}>
+      <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border bg-white px-3 py-2">
+        <span className={`text-sm font-bold ${isAvailable ? "text-success" : "text-danger"}`}>
+          {isAvailable ? "In Stock" : "Out of Stock"}
+        </span>
+        <input
+          type="checkbox"
+          checked={isAvailable}
+          onChange={(e) => save({ isAvailable: e.target.checked })}
+          className="h-5 w-5 accent-primary"
+        />
+      </label>
+
       <div className="relative">
-        <img src={item.image} alt={item.signatureName} className="h-36 w-full rounded-lg object-cover" />
+        <img
+          src={item.image}
+          alt={item.signatureName}
+          className={`h-36 w-full rounded-lg object-cover ${isAvailable ? "" : "opacity-50 grayscale"}`}
+        />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
@@ -172,18 +294,36 @@ function MenuItemCard({
         placeholder="Flavor badges, comma separated"
       />
 
-      <Input
-        type="number"
-        min={1}
-        max={99}
-        defaultValue={item.salePercent ?? ""}
-        placeholder="Sale % (optional)"
-        onBlur={(e) => {
-          const value = e.target.value.trim();
-          const parsed = value ? Number(value) : undefined;
-          if (parsed !== item.salePercent) save({ salePercent: parsed });
-        }}
-      />
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          max={99}
+          defaultValue={item.salePercent ?? ""}
+          placeholder="Sale % (optional)"
+          onBlur={(e) => {
+            const value = e.target.value.trim();
+            const parsed = value ? Number(value) : undefined;
+            if (parsed !== item.salePercent) save({ salePercent: parsed });
+          }}
+          className="w-32"
+        />
+        <Input
+          defaultValue={item.portionSize ?? ""}
+          placeholder="Portion size (e.g. 300 ml)"
+          title="Shown to customers next to the price above — the default size's own portion."
+          onBlur={(e) => {
+            const value = e.target.value.trim() || undefined;
+            if (value !== item.portionSize) save({ portionSize: value });
+          }}
+          className="flex-1"
+        />
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Sizes (optional)</p>
+        <SizeVariantsEditor variants={item.sizeVariants ?? []} onChange={(next) => save({ sizeVariants: next })} />
+      </div>
 
       <div className="flex flex-wrap gap-3 text-sm font-semibold text-text">
         <label className="flex items-center gap-1.5">
@@ -214,6 +354,8 @@ function MenuItemCard({
         <AddOnPicker addOnPrices={addOnPrices} selected={item.addOnNames ?? []} onToggle={toggleAddOn} />
       </div>
 
+      {saveError && <p className="text-xs font-medium text-danger">{saveError}</p>}
+
       <Button variant="danger" onClick={() => onDelete(item.id)}>
         Delete
       </Button>
@@ -232,6 +374,7 @@ export function MenuItemsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [newItemAddOns, setNewItemAddOns] = useState<string[]>([]);
+  const [newItemSizeVariants, setNewItemSizeVariants] = useState<MenuItemSizeVariant[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -295,15 +438,18 @@ export function MenuItemsPage() {
         isNew: form.isNew,
         isStaffPick: form.isStaffPick,
         salePercent: form.salePercent ? Number(form.salePercent) : undefined,
+        portionSize: form.portionSize.trim() || undefined,
+        sizeVariants: newItemSizeVariants,
         hasSugarIceCustomization: form.hasSugarIceCustomization,
         addOnNames: newItemAddOns,
       });
       setForm(emptyForm);
       setNewItemAddOns([]);
+      setNewItemSizeVariants([]);
       setImageFile(null);
       await reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add item");
+      setError(extractErrorMessage(err, "Failed to add item"));
     } finally {
       setIsSubmitting(false);
     }
@@ -324,8 +470,8 @@ export function MenuItemsPage() {
     await reload();
   }
 
-  async function handleAddOnPriceChange(name: string, price: number) {
-    await adminClient.put("/menu/add-on-prices", { name, price });
+  async function handleAddOnPriceChange(addOn: MenuAddOnPrice, patch: Partial<{ price: number; isAvailable: boolean }>) {
+    await adminClient.put("/menu/add-on-prices", { name: addOn.name, price: addOn.price, isAvailable: addOn.isAvailable ?? true, ...patch });
     await reload();
   }
 
@@ -345,21 +491,34 @@ export function MenuItemsPage() {
           Raita" for a biryani item) get a row here once, then any item on any brand can offer them. */}
       <Card title="Add-On Prices" description="Shared across every brand's menu — add a new named add-on here, then offer it on whichever items want it below." className="mb-6">
         <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {addOnPrices.map((addOn) => (
-            <div key={addOn.id}>
-              <p className="mb-1 text-xs font-bold text-muted">{addOn.name}</p>
-              <Input
-                type="number"
-                min={0}
-                defaultValue={addOn.price}
-                onBlur={(e) => {
-                  const value = Number(e.target.value);
-                  if (!Number.isNaN(value) && value >= 0 && value !== addOn.price) handleAddOnPriceChange(addOn.name, value);
-                }}
-                className="w-full"
-              />
-            </div>
-          ))}
+          {addOnPrices.map((addOn) => {
+            const isAvailable = addOn.isAvailable ?? true;
+            return (
+              <div key={addOn.id}>
+                <p className={`mb-1 text-xs font-bold ${isAvailable ? "text-muted" : "text-danger line-through"}`}>{addOn.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    defaultValue={addOn.price}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value);
+                      if (!Number.isNaN(value) && value >= 0 && value !== addOn.price) handleAddOnPriceChange(addOn, { price: value });
+                    }}
+                    className="w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddOnPriceChange(addOn, { isAvailable: !isAvailable })}
+                    title={isAvailable ? "Mark out of stock" : "Mark back in stock"}
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase ${isAvailable ? "bg-surface text-muted hover:bg-border" : "bg-danger text-white"}`}
+                  >
+                    {isAvailable ? "In Stock" : "Out"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
         <form onSubmit={handleAddOnPriceSubmit} className="flex flex-wrap items-center gap-2">
           <Input placeholder="New add-on name (e.g. Extra Raita)" value={newAddOnName} onChange={(e) => setNewAddOnName(e.target.value)} className="flex-1" />
@@ -413,12 +572,23 @@ export function MenuItemsPage() {
             value={form.salePercent}
             onChange={(e) => setForm({ ...form, salePercent: e.target.value })}
           />
+          <Input
+            placeholder="Portion size (e.g. 300 ml)"
+            title="Shown to customers next to the price — this item's default size's own portion."
+            value={form.portionSize}
+            onChange={(e) => setForm({ ...form, portionSize: e.target.value })}
+          />
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
             onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
             className="text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
           />
+
+          <div className="sm:col-span-2 lg:col-span-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Sizes (optional)</p>
+            <SizeVariantsEditor variants={newItemSizeVariants} onChange={setNewItemSizeVariants} />
+          </div>
 
           <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-text sm:col-span-2 lg:col-span-3">
             <label className="flex items-center gap-1.5">

@@ -129,16 +129,16 @@ describe("Free-text category and per-item add-ons (future food-brand readiness)"
     expect(created.body.item.category).toBe("Biryani");
     expect(created.body.item.hasSugarIceCustomization).toBe(false);
     expect(created.body.item.addOns).toEqual([
-      { name: "Extra Raita", price: 30 },
-      { name: "Papad", price: 15 },
+      { name: "Extra Raita", price: 30, isAvailable: true },
+      { name: "Papad", price: 15, isAvailable: true },
     ]);
 
     // The public listing resolves the same addOns field, not just the admin upsert response.
     const list = await request(app).get("/menu").query({ brandId: "tbc" });
     const listedItem = list.body.items.find((i: { id: string }) => i.id === "chicken-biryani");
     expect(listedItem.addOns).toEqual([
-      { name: "Extra Raita", price: 30 },
-      { name: "Papad", price: 15 },
+      { name: "Extra Raita", price: 30, isAvailable: true },
+      { name: "Papad", price: 15, isAvailable: true },
     ]);
   });
 
@@ -152,7 +152,7 @@ describe("Free-text category and per-item add-ons (future food-brand readiness)"
       .send({ ...validItem, addOnNames: ["Extra Gravy", "Never Existed"] });
 
     const list = await request(app).get("/menu").query({ brandId: "tbc" });
-    expect(list.body.items[0].addOns).toEqual([{ name: "Extra Gravy", price: 20 }]);
+    expect(list.body.items[0].addOns).toEqual([{ name: "Extra Gravy", price: 20, isAvailable: true }]);
   });
 });
 
@@ -229,5 +229,58 @@ describe("POST /menu/upload-image", () => {
       .attach("image", Buffer.from("hello"), { filename: "a.txt", contentType: "text/plain" });
     // Rejected by multer's fileFilter, surfaced via the app's generic error handler.
     expect(response.status).toBe(500);
+  });
+});
+
+describe("Out-of-stock toggles — item, size variant, and add-on", () => {
+  it("defaults every item, size variant, and add-on to available, and lets the admin flip each one independently", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+
+    const created = await request(app)
+      .put("/menu")
+      .set("Authorization", authHeader)
+      .send({
+        ...validItem,
+        portionSize: "300 ml",
+        sizeVariants: [{ label: "500 ml", price: 199 }],
+      });
+    expect(created.body.item.isAvailable).toBe(true);
+    expect(created.body.item.sizeVariants[0].isAvailable).toBe(true);
+
+    // Turn the item itself out of stock.
+    const itemOff = await request(app)
+      .put("/menu")
+      .set("Authorization", authHeader)
+      .send({ ...validItem, portionSize: "300 ml", sizeVariants: [{ label: "500 ml", price: 199 }], isAvailable: false });
+    expect(itemOff.body.item.isAvailable).toBe(false);
+
+    // Turn it back on, then turn just the size variant off instead.
+    const variantOff = await request(app)
+      .put("/menu")
+      .set("Authorization", authHeader)
+      .send({
+        ...validItem,
+        portionSize: "300 ml",
+        sizeVariants: [{ label: "500 ml", price: 199, isAvailable: false }],
+        isAvailable: true,
+      });
+    expect(variantOff.body.item.isAvailable).toBe(true);
+    expect(variantOff.body.item.sizeVariants[0].isAvailable).toBe(false);
+  });
+
+  it("toggles an add-on's availability without needing to also resend its price from memory", async () => {
+    const token = await adminToken();
+    const authHeader = `Bearer ${token}`;
+    const create = await request(app).put("/menu/add-on-prices").set("Authorization", authHeader).send({ name: "Whipped Cream", price: 30 });
+    expect(create.body.addOnPrice.isAvailable).toBe(true);
+
+    const off = await request(app)
+      .put("/menu/add-on-prices")
+      .set("Authorization", authHeader)
+      .send({ name: "Whipped Cream", price: 30, isAvailable: false });
+    expect(off.status).toBe(200);
+    expect(off.body.addOnPrice.isAvailable).toBe(false);
+    expect(off.body.addOnPrice.price).toBe(30);
   });
 });

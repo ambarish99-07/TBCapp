@@ -51,10 +51,35 @@ function resolveComboConstituentIds(
   return chosenIds;
 }
 
-/** A few items may carry a salePercent — the charged price is the marked-down one, `price` stays the strikethrough display value. */
-function resolveUnitPrice(menuItem: { price: number; salePercent?: number | null }): number {
-  if (!menuItem.salePercent) return menuItem.price;
-  return round(menuItem.price * (1 - menuItem.salePercent / 100));
+/**
+ * The base price for whichever size the customer picked — the item's own default (`price`) when
+ * no size was selected or it matches `portionSize`, or the matching entry in `sizeVariants`
+ * otherwise. Never trusts a client-submitted price for a size, same as add-ons: only the label is
+ * taken from the request, the price always comes from what's actually stored on the item.
+ */
+function resolveSizeBasePrice(
+  menuItem: {
+    price: number;
+    portionSize?: string | null;
+    sizeVariants?: { label: string; price: number; isAvailable?: boolean | null }[] | null;
+  },
+  selectedSizeLabel: string | undefined
+): number {
+  if (!selectedSizeLabel || selectedSizeLabel === menuItem.portionSize) return menuItem.price;
+  const variant = menuItem.sizeVariants?.find((v) => v.label === selectedSizeLabel);
+  if (!variant) {
+    throw new PriceResolutionError(`This item isn't available in size "${selectedSizeLabel}"`);
+  }
+  if (variant.isAvailable === false) {
+    throw new PriceResolutionError(`Size "${selectedSizeLabel}" is currently out of stock`);
+  }
+  return variant.price;
+}
+
+/** A few items may carry a salePercent — the charged price is the marked-down one, `basePrice` stays the strikethrough display value. */
+function resolveUnitPrice(menuItem: { salePercent?: number | null }, basePrice: number): number {
+  if (!menuItem.salePercent) return basePrice;
+  return round(basePrice * (1 - menuItem.salePercent / 100));
 }
 
 const DRINK_CATEGORIES = new Set<string>(["signature-shakes", "cold-coffee"] satisfies DrinkCategory[]);
@@ -108,6 +133,10 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       if (constituentItems.length !== constituentIds.length) {
         throw new PriceResolutionError("One or more combo items no longer exist");
       }
+      const outOfStockConstituent = constituentItems.find((item) => item.isAvailable === false);
+      if (outOfStockConstituent) {
+        throw new PriceResolutionError(`${outOfStockConstituent.signatureName} is currently out of stock`);
+      }
 
       // Always the base price, never a sale-discounted one — the combo discount
       // and a per-item sale are separate mechanisms and shouldn't stack.
@@ -140,16 +169,23 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
     if (!menuItem) {
       throw new PriceResolutionError(`Unknown menu item: ${line.menuItemId}`);
     }
+    if (menuItem.isAvailable === false) {
+      throw new PriceResolutionError(`${menuItem.signatureName} is currently out of stock`);
+    }
 
     const addOnPrices = line.customization.addOnIds.map((addOnName) => {
-      const price = addOnPriceLookup.get(addOnName);
-      if (price === undefined) {
+      const entry = addOnPriceLookup.get(addOnName);
+      if (entry === undefined) {
         throw new PriceResolutionError(`Unknown add-on: ${addOnName}`);
       }
-      return price;
+      if (!entry.isAvailable) {
+        throw new PriceResolutionError(`Add-on "${addOnName}" is currently out of stock`);
+      }
+      return entry.price;
     });
 
-    const unitPrice = resolveUnitPrice(menuItem);
+    const sizeBasePrice = resolveSizeBasePrice(menuItem, line.customization.selectedSizeLabel);
+    const unitPrice = resolveUnitPrice(menuItem, sizeBasePrice);
     // Both the saved order line and the pricing line only ever care about "is this a drink
     // category the milestone rewards track" — anything else (mocktails, premium mains, ...) must
     // stay undefined here, not the raw menu category, since Order.model's `category` enum only
@@ -163,7 +199,10 @@ export async function resolveCartLines(lines: CartLineRequest[], brandId: string
       commonName: menuItem.commonName,
       image: menuItem.image,
       unitPrice,
-      originalUnitPrice: menuItem.price,
+      // The selected size's own pre-discount price, for strikethrough display — not always the
+      // default size's price, since a customer who picked a bigger size should see THAT size's
+      // sale discount, not the default size's.
+      originalUnitPrice: sizeBasePrice,
       addOnPrices,
       quantity: line.quantity,
       customization: line.customization,

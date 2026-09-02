@@ -23,6 +23,21 @@ export function AddItemModal({ item, onClose }: Props) {
   const [addOnIds, setAddOnIds] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [selectedSizeLabel, setSelectedSizeLabel] = useState<string | undefined>(undefined);
+
+  // Every size this item comes in — its own default plus any extra sizeVariants, in that order.
+  // A single-entry list means there's really only one size, so CustomizationFields skips the
+  // picker entirely rather than showing a pointless one-option row.
+  const sizes = useMemo(
+    () =>
+      item
+        ? [
+            { label: item.portionSize ?? "Regular", price: item.price, isAvailable: true },
+            ...(item.sizeVariants ?? []).map((v) => ({ ...v, isAvailable: v.isAvailable ?? true })),
+          ]
+        : [],
+    [item]
+  );
 
   // Fresh defaults every time a new item is opened for adding.
   useEffect(() => {
@@ -32,14 +47,22 @@ export function AddItemModal({ item, onClose }: Props) {
       setAddOnIds([]);
       setComment("");
       setQuantity(1);
+      setSelectedSizeLabel(item.portionSize);
     }
   }, [item]);
 
   const visible = item !== null;
 
+  // The selected size's own base price (before any sale discount) — defaults to the item's own
+  // default price when no size is picked or the default size itself is selected.
+  const sizeBasePrice =
+    item && selectedSizeLabel && selectedSizeLabel !== item.portionSize
+      ? (item.sizeVariants ?? []).find((v) => v.label === selectedSizeLabel)?.price ?? item.price
+      : (item?.price ?? 0);
+  const effectivePrice = item?.salePercent ? round(sizeBasePrice * (1 - item.salePercent / 100)) : sizeBasePrice;
+
   function handleAdd() {
     if (!item) return;
-    const effectivePrice = item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price;
     const hasSugarIce = item.hasSugarIceCustomization ?? true;
     addLineWithBrandGuard({
       lineId: `${item.id}-${Date.now()}`,
@@ -49,12 +72,13 @@ export function AddItemModal({ item, onClose }: Props) {
       commonName: item.commonName,
       image: item.image,
       unitPrice: effectivePrice,
-      originalUnitPrice: item.price,
+      originalUnitPrice: sizeBasePrice,
       addOnPrices: addOnIds.map((name) => item.addOns?.find((a) => a.name === name)?.price ?? 0),
       quantity,
       sugarLevel: hasSugarIce ? sugarLevel : undefined,
       iceLevel: hasSugarIce ? iceLevel : undefined,
       addOnIds,
+      selectedSizeLabel: sizes.length > 1 ? selectedSizeLabel : undefined,
       comment: comment.trim() || undefined,
       isCombo: false,
       // The 6th/10th-order milestone rewards are TBC-specific (see @tbc/pricing's DrinkCategory) —
@@ -73,13 +97,19 @@ export function AddItemModal({ item, onClose }: Props) {
             <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>{item.signatureName}</Text>
               {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
-              <Text style={styles.price}>₹{item.salePercent ? round(item.price * (1 - item.salePercent / 100)) : item.price}</Text>
+              <Text style={styles.price}>
+                ₹{effectivePrice}
+                {sizes.length <= 1 && item.portionSize ? ` · ${item.portionSize}` : ""}
+              </Text>
               <CustomizationFields
                 hasSugarIceCustomization={item.hasSugarIceCustomization ?? true}
                 sugarLevel={sugarLevel}
                 onSugarLevelChange={setSugarLevel}
                 iceLevel={iceLevel}
                 onIceLevelChange={setIceLevel}
+                sizes={sizes}
+                selectedSizeLabel={selectedSizeLabel ?? item.portionSize}
+                onSelectedSizeLabelChange={setSelectedSizeLabel}
                 availableAddOns={item.addOns ?? []}
                 addOnIds={addOnIds}
                 onAddOnIdsChange={setAddOnIds}

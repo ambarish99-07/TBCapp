@@ -136,7 +136,13 @@ export function CartScreen({ navigation }: Props) {
           lineId: line.lineId,
           menuItemId: line.menuItemId,
           quantity: line.quantity,
-          customization: { sugarLevel: line.sugarLevel, iceLevel: line.iceLevel, addOnIds: line.addOnIds, comment: line.comment },
+          customization: {
+            sugarLevel: line.sugarLevel,
+            iceLevel: line.iceLevel,
+            addOnIds: line.addOnIds,
+            selectedSizeLabel: line.selectedSizeLabel,
+            comment: line.comment,
+          },
         })),
         delivery: {
           fullName: user.fullName,
@@ -200,12 +206,13 @@ export function CartScreen({ navigation }: Props) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineName}>{line.signatureName}</Text>
                 {line.isCombo && line.commonName && <Text style={styles.lineCombo}>{line.commonName}</Text>}
-                {/* Absent entirely for a combo or an item with no sugar/ice concept — never a
-                    misleading "Sugar: undefined". */}
-                {(line.sugarLevel || line.addOnIds.length > 0) && (
+                {/* Absent entirely for a combo, an item with no sugar/ice concept, or one with
+                    only its default size — never a misleading "Sugar: undefined". */}
+                {(line.selectedSizeLabel || line.sugarLevel || line.addOnIds.length > 0) && (
                   <Text style={styles.lineMeta}>
-                    {line.sugarLevel && `Sugar: ${line.sugarLevel} · Ice: ${line.iceLevel}`}
-                    {line.addOnIds.length > 0 ? `${line.sugarLevel ? " · " : ""}${line.addOnIds.length} add-on(s)` : ""}
+                    {line.selectedSizeLabel ? `Size: ${line.selectedSizeLabel}` : ""}
+                    {line.sugarLevel && `${line.selectedSizeLabel ? " · " : ""}Sugar: ${line.sugarLevel} · Ice: ${line.iceLevel}`}
+                    {line.addOnIds.length > 0 ? `${line.selectedSizeLabel || line.sugarLevel ? " · " : ""}${line.addOnIds.length} add-on(s)` : ""}
                   </Text>
                 )}
                 {line.comment && <Text style={styles.lineComment}>"{line.comment}"</Text>}

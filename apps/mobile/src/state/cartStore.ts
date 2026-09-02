@@ -26,6 +26,10 @@ export interface CartLine {
   iceLevel?: IceLevel;
   /** Names from the shared add-on price catalog — no longer a closed enum, see @tbc/shared-types. */
   addOnIds: string[];
+  /** Which size was picked — absent means the item's own default size (see MenuItem.sizeVariants
+   * in @tbc/shared-types). unitPrice/originalUnitPrice above already reflect this size's price;
+   * this field is only carried along so checkout/order-history can show which size was chosen. */
+  selectedSizeLabel?: string;
   /** Free-text notes from the customer, sent through as-is to the kitchen. */
   comment?: string;
   isCombo: boolean;
@@ -66,7 +70,18 @@ interface CartState {
    * through here rather than the store re-deriving them from a fixed map. */
   updateLineCustomization: (
     lineId: string,
-    updates: { sugarLevel?: SugarLevel; iceLevel?: IceLevel; addOnIds: string[]; addOnPrices: number[]; comment: string }
+    updates: {
+      sugarLevel?: SugarLevel;
+      iceLevel?: IceLevel;
+      addOnIds: string[];
+      addOnPrices: number[];
+      comment: string;
+      /** Present only when the item has more than one size — changing it also means
+       * unitPrice/originalUnitPrice must be recomputed, unlike every other field here. */
+      selectedSizeLabel?: string;
+      unitPrice?: number;
+      originalUnitPrice?: number;
+    }
   ) => void;
   clear: () => void;
   /**
@@ -120,6 +135,9 @@ export const useCartStore = create<CartState>((set, get) => ({
               addOnIds: updates.addOnIds,
               addOnPrices: updates.addOnPrices,
               comment: updates.comment || undefined,
+              selectedSizeLabel: updates.selectedSizeLabel,
+              unitPrice: updates.unitPrice ?? l.unitPrice,
+              originalUnitPrice: updates.originalUnitPrice ?? l.originalUnitPrice,
             }
           : l
       ),

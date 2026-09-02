@@ -1,5 +1,15 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
 
+const MenuItemSizeVariantSchema = new Schema(
+  {
+    label: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    // Out-of-stock toggle for just this one size — see @tbc/shared-types' doc-comment.
+    isAvailable: { type: Boolean, required: true, default: true },
+  },
+  { _id: false }
+);
+
 const MenuItemSchema = new Schema(
   {
     // Human-readable slug ids (e.g. "choco-crush") are used directly as _id so
@@ -17,9 +27,17 @@ const MenuItemSchema = new Schema(
     isPopular: { type: Boolean, default: false },
     isNew: { type: Boolean, default: false },
     isStaffPick: { type: Boolean, default: false },
+    // Out-of-stock toggle for the whole item — see @tbc/shared-types' MenuItemSchema doc-comment.
+    isAvailable: { type: Boolean, required: true, default: true },
     pairsWith: { type: [String], default: [] },
     /** When set, the charged price is price * (1 - salePercent/100); `price` stays the shown strikethrough value. Only a few items should carry this. */
     salePercent: { type: Number, min: 1, max: 99 },
+    // Display label for `price`'s own portion (e.g. "300 ml", "500 gm") — see
+    // @tbc/shared-types' MenuItemSchema doc-comment. Purely informational.
+    portionSize: { type: String },
+    // Extra sizes beyond the default, each priced directly by the admin — see
+    // @tbc/shared-types' MenuItemSizeVariantSchema doc-comment.
+    sizeVariants: { type: [MenuItemSizeVariantSchema], default: [] },
     // False for an item with no sugar/ice concept at all (a biryani, a momo plate, ...) — see
     // @tbc/shared-types' MenuItemSchema doc-comment.
     hasSugarIceCustomization: { type: Boolean, required: true, default: true },
