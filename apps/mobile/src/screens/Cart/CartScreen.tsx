@@ -21,7 +21,7 @@ import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { useAuthContext } from "../../state/useAuthContext";
 import { hasCompleteAddress } from "../../utils/profile";
-import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
+import { launchRazorpayCheckout } from "../../utils/razorpayCheckout";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Cart">;
@@ -161,16 +161,18 @@ export function CartScreen({ navigation }: Props) {
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
         const razorpayOrder = await createRazorpayOrderRequest(order.id, order.accessToken);
-        const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
-        if (paymentResult) {
-          await verifyRazorpayPaymentRequest({
-            orderId: order.id,
-            accessToken: order.accessToken,
-            razorpay_order_id: razorpayOrder.razorpayOrderId,
-            razorpay_payment_id: paymentResult.razorpay_payment_id,
-            razorpay_signature: paymentResult.razorpay_signature,
-          });
-        }
+        const paymentResult = await launchRazorpayCheckout({
+          ...razorpayOrder,
+          description: `Order #${order.orderNumber}`,
+          prefill: { email: user.email, phone: user.phone, fullName: user.fullName },
+        });
+        await verifyRazorpayPaymentRequest({
+          orderId: order.id,
+          accessToken: order.accessToken,
+          razorpay_order_id: razorpayOrder.razorpayOrderId,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
       }
 
       // The server just advanced loyalty.completedOrderCount (COD: at creation above; Razorpay:

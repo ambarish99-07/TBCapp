@@ -5,7 +5,7 @@ export interface PaymentOption {
   label: string;
   /** Every UPI/card/net-banking option funnels into the same "razorpay" order-level
    * payment method — the actual Razorpay Checkout UI is where the customer picks
-   * their specific app/bank once that's wired up (see razorpayPlaceholder.ts). */
+   * their specific app/bank (see utils/razorpayCheckout.ts). */
   apiMethod: PaymentMethod;
 }
 

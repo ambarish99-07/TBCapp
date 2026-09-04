@@ -15,7 +15,7 @@ import { useAuthStore } from "../../state/authStore";
 import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { hasCompleteAddress } from "../../utils/profile";
-import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
+import { launchRazorpayCheckout } from "../../utils/razorpayCheckout";
 import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -94,14 +94,16 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
         const razorpayOrder = await createTiffinRazorpayOrderRequest(subscription.id);
-        const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
-        if (paymentResult) {
-          await verifyTiffinRazorpayPaymentRequest(subscription.id, {
-            razorpay_order_id: razorpayOrder.razorpayOrderId,
-            razorpay_payment_id: paymentResult.razorpay_payment_id,
-            razorpay_signature: paymentResult.razorpay_signature,
-          });
-        }
+        const paymentResult = await launchRazorpayCheckout({
+          ...razorpayOrder,
+          description: `Tiffin plan #${subscription.subscriptionNumber}`,
+          prefill: { email: user.email, phone: user.phone, fullName: user.fullName },
+        });
+        await verifyTiffinRazorpayPaymentRequest(subscription.id, {
+          razorpay_order_id: razorpayOrder.razorpayOrderId,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
       }
 
       setConfirmed(true);

@@ -46,7 +46,9 @@ packages/
                      of truth for every request/response/DB-document shape
 apps/
   api/             Express + Mongoose + TypeScript backend
-  mobile/          React Native (Expo managed) customer app
+  mobile/          React Native (Expo) customer app — managed workflow, except for one native
+                   module (react-native-razorpay, see §5); needs a Dev Client build, not Expo
+                   Go, to actually open the Razorpay checkout sheet
   admin/           React + Vite staff dashboard (plain web app, not React Native)
 ```
 
@@ -56,7 +58,18 @@ apps/
 - **Payments**: Razorpay, HMAC-SHA256 signature verification server-side
   (`apps/api/src/modules/payments/verifySignature.ts`). COD is trusted immediately; Razorpay orders
   only count as "paid"/complete after signature verification succeeds — this COD-vs-Razorpay split
-  shows up repeatedly (loyalty counter advancement, WhatsApp alerts, refund eligibility).
+  shows up repeatedly (loyalty counter advancement, WhatsApp alerts, refund eligibility). Server
+  side (create-order + verify, across all four payment surfaces: Cart orders, Tiffin monthly
+  plans, Tiffin single-meal, Premium Membership) has been complete since early in the project.
+  Client side, the actual checkout sheet (`apps/mobile/src/utils/razorpayCheckout.ts`,
+  `react-native-razorpay`) is now wired for real too — it was a placeholder that just showed an
+  alert until 2026-09-04. `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` in `apps/api/.env` are still
+  unset (no real Razorpay account credentials exist yet), so nothing has been paid for through it
+  end-to-end — and even once keys are added, testing it live needs an Expo **Dev Client** build,
+  not Expo Go (react-native-razorpay is a third-party native module; Expo Go can't load it). The
+  `require()` inside `launchRazorpayCheckout` is deliberately lazy so Expo Go keeps working for
+  everything else in the meantime — see that file's own comment for why a static import would
+  crash the whole app on launch instead.
 - **WhatsApp**: Meta Business Cloud API, fail-silent if unconfigured (`apps/api/src/integrations/whatsapp`).
 - **DB**: MongoDB via Mongoose. Local dev uses `mongodb-memory-server` (see §7), not a real Mongo
   install — **data does not persist across restarts of the dev Mongo process.**
@@ -372,6 +385,21 @@ tabs page) is keyed by `brandId` and works identically for a brand created five 
   placeholders, not real geolocation.
 - No real rider/dispatch system — delivery partners are a fixed fake pool, not live people.
 - Refunds are recorded, never actually pushed through Razorpay's refund API.
+- No Razorpay **webhook** — reconciliation relies entirely on the client calling
+  `/razorpay/*-verify` itself right after `RazorpayCheckout.open()` resolves. If that call never
+  fires (app killed, network drop, the customer completes payment but the app doesn't get the
+  callback), the order/subscription/purchase is stuck at `payment.status: "pending"` with no
+  automatic recovery — someone has to notice and follow up manually. Deliberately not built yet:
+  each of the four payment surfaces' verify logic (Cart orders, Tiffin plans, Tiffin single-meal,
+  Premium Membership) has its own side effects on success (loyalty advancement, membership expiry
+  extension, WhatsApp alerts) that aren't guarded to be safely callable twice — wiring a webhook
+  to reuse them as-is risks double-firing those the first time both the client's own verify call
+  and a webhook retry land for the same payment. Needs an idempotency pass first.
+- No real Razorpay Dev Client build exists yet — `react-native-razorpay` is installed and coded
+  against (see the Payments bullet above), but nobody has run `expo prebuild` /
+  `eas build --profile development` (or a local Android build) to actually produce and install
+  one. Until that happens, tapping "Pay with Razorpay" anywhere in the app fails with a caught,
+  friendly error under both Expo Go and a plain unmodified build.
 - WhatsApp templates are placeholder names pending real Meta Business template approval.
 - A handful of tiffin dishes have no dedicated photo (see §4.5) — pending real photos from the
   business.

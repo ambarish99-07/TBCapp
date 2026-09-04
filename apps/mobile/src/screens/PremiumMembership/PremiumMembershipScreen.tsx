@@ -13,7 +13,7 @@ import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
-import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
+import { launchRazorpayCheckout } from "../../utils/razorpayCheckout";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "PremiumMembership">;
@@ -27,6 +27,7 @@ export function PremiumMembershipScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
   const { data: status } = usePremiumMembershipStatus();
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
@@ -50,15 +51,17 @@ export function PremiumMembershipScreen({ navigation }: Props) {
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
         const razorpayOrder = await createMembershipRazorpayOrderRequest(purchase.id);
-        const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
-        if (paymentResult) {
-          const verified = await verifyMembershipRazorpayPaymentRequest(purchase.id, {
-            razorpay_order_id: razorpayOrder.razorpayOrderId,
-            razorpay_payment_id: paymentResult.razorpay_payment_id,
-            razorpay_signature: paymentResult.razorpay_signature,
-          });
-          finalUser = verified.user;
-        }
+        const paymentResult = await launchRazorpayCheckout({
+          ...razorpayOrder,
+          description: "Premium Membership",
+          prefill: { email: user?.email, phone: user?.phone, fullName: user?.fullName },
+        });
+        const verified = await verifyMembershipRazorpayPaymentRequest(purchase.id, {
+          razorpay_order_id: razorpayOrder.razorpayOrderId,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
+        finalUser = verified.user;
       }
 
       updateUser(finalUser);

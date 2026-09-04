@@ -13,7 +13,7 @@ import { useAuthStore } from "../../state/authStore";
 import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { hasCompleteAddress } from "../../utils/profile";
-import { launchRazorpayCheckoutPlaceholder } from "../../utils/razorpayPlaceholder";
+import { launchRazorpayCheckout } from "../../utils/razorpayCheckout";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinSingleMealCheckout">;
@@ -94,14 +94,16 @@ export function TiffinSingleMealCheckoutScreen({ route, navigation }: Props) {
 
       if (selectedPaymentOption.apiMethod === "razorpay") {
         const razorpayOrder = await createSingleMealRazorpayOrderRequest(order.id);
-        const paymentResult = await launchRazorpayCheckoutPlaceholder(razorpayOrder);
-        if (paymentResult) {
-          await verifySingleMealRazorpayPaymentRequest(order.id, {
-            razorpay_order_id: razorpayOrder.razorpayOrderId,
-            razorpay_payment_id: paymentResult.razorpay_payment_id,
-            razorpay_signature: paymentResult.razorpay_signature,
-          });
-        }
+        const paymentResult = await launchRazorpayCheckout({
+          ...razorpayOrder,
+          description: `Tiffin order #${order.orderNumber}`,
+          prefill: { email: user.email, phone: user.phone, fullName: user.fullName },
+        });
+        await verifySingleMealRazorpayPaymentRequest(order.id, {
+          razorpay_order_id: razorpayOrder.razorpayOrderId,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
       }
 
       setConfirmedOrderId(order.id);
