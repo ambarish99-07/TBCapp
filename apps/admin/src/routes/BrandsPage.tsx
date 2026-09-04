@@ -35,6 +35,10 @@ export function BrandsPage() {
   // Per-row "uploading…" state for the existing-brands table's own logo swap, keyed by brand id
   // so uploading for one brand doesn't disable every other row's control.
   const [uploadingLogoForId, setUploadingLogoForId] = useState<string | null>(null);
+  // Same idea, one per hero variant — a brand can have a light hero, a dark hero, both uploading
+  // independently of each other and of the logo control above.
+  const [uploadingHeroForId, setUploadingHeroForId] = useState<string | null>(null);
+  const [uploadingHeroDarkForId, setUploadingHeroDarkForId] = useState<string | null>(null);
 
   async function reload() {
     setIsLoading(true);
@@ -106,6 +110,35 @@ export function BrandsPage() {
     }
   }
 
+  /** Same upload endpoint as the logo, just written onto heroImageUrl or heroImageUrlDark
+   * depending on which of the two hero columns the admin used. */
+  async function handleExistingHeroChange(id: string, variant: "light" | "dark", e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const setUploading = variant === "dark" ? setUploadingHeroDarkForId : setUploadingHeroForId;
+    setUploading(id);
+    try {
+      const url = await uploadBrandLogo(file);
+      await adminClient.put(`/admin/brands/${id}`, variant === "dark" ? { heroImageUrlDark: url } : { heroImageUrl: url });
+      await reload();
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  /** Swaps `brand` at `index` with its neighbor in `direction`, then renumbers every brand
+   * 0..n-1 in the resulting order and persists all of it. Renumbering everything (rather than
+   * swapping just the two displayOrder values) is deliberate — it's self-healing for any brand
+   * that predates this field and still has no displayOrder of its own. */
+  async function handleMove(index: number, direction: "up" | "down") {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= brands.length) return;
+    const reordered = [...brands];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    await Promise.all(reordered.map((b, i) => adminClient.put(`/admin/brands/${b.id}`, { displayOrder: i })));
+    await reload();
+  }
+
   async function handleDelete(id: string) {
     if (!confirm(`Delete brand "${id}"? This does not delete its menu items or orders.`)) return;
     await adminClient.delete(`/admin/brands/${id}`);
@@ -170,7 +203,10 @@ export function BrandsPage() {
           <Table>
             <Thead>
               <Tr>
+                <Th>Order</Th>
                 <Th>Logo</Th>
+                <Th>Hero (light)</Th>
+                <Th>Hero (dark)</Th>
                 <Th>Id</Th>
                 <Th>Name</Th>
                 <Th>Tagline</Th>
@@ -180,8 +216,30 @@ export function BrandsPage() {
               </Tr>
             </Thead>
             <tbody>
-              {brands.map((brand) => (
+              {brands.map((brand, index) => (
                 <Tr key={brand.id}>
+                  <Td>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, "up")}
+                        disabled={index === 0}
+                        className="text-muted hover:text-text disabled:opacity-30"
+                        aria-label={`Move ${brand.name} up`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(index, "down")}
+                        disabled={index === brands.length - 1}
+                        className="text-muted hover:text-text disabled:opacity-30"
+                        aria-label={`Move ${brand.name} down`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </Td>
                   <Td>
                     <div className="flex items-center gap-2">
                       {brand.logoUrl ? (
@@ -196,6 +254,44 @@ export function BrandsPage() {
                           accept="image/png,image/jpeg,image/webp"
                           onChange={(e) => handleExistingLogoChange(brand.id, e)}
                           disabled={uploadingLogoForId === brand.id}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-2">
+                      {brand.heroImageUrl ? (
+                        <img src={brand.heroImageUrl} alt="" className="h-10 w-16 rounded-md object-cover" />
+                      ) : (
+                        <div className="h-10 w-16 rounded-md bg-surface" />
+                      )}
+                      <label className="cursor-pointer text-xs font-semibold text-primary-dark hover:underline">
+                        {uploadingHeroForId === brand.id ? "Uploading…" : "Change"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(e) => handleExistingHeroChange(brand.id, "light", e)}
+                          disabled={uploadingHeroForId === brand.id}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-2">
+                      {brand.heroImageUrlDark ? (
+                        <img src={brand.heroImageUrlDark} alt="" className="h-10 w-16 rounded-md object-cover" />
+                      ) : (
+                        <div className="h-10 w-16 rounded-md bg-surface" />
+                      )}
+                      <label className="cursor-pointer text-xs font-semibold text-primary-dark hover:underline">
+                        {uploadingHeroDarkForId === brand.id ? "Uploading…" : "Change"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(e) => handleExistingHeroChange(brand.id, "dark", e)}
+                          disabled={uploadingHeroDarkForId === brand.id}
                           className="hidden"
                         />
                       </label>

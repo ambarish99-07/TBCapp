@@ -8,6 +8,7 @@ import { useBrands } from "../api/brands.api";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useAuthStore } from "../state/authStore";
 import { useBrandStore } from "../state/brandStore";
+import { useTheme } from "../state/themeStore";
 
 const ROTATE_INTERVAL_MS = 4000;
 
@@ -42,6 +43,9 @@ interface Props {
  */
 export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: Props) {
   const { data: brands, isLoading, error } = useBrands();
+  // Only resolvedScheme is read from here — colors itself still comes in as a prop from the
+  // caller, same as before this addition.
+  const { resolvedScheme } = useTheme();
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
   const selectedBrandId = useBrandStore((state) => state.selectedBrandId);
   const isLoggedIn = useAuthStore((state) => !!state.user);
@@ -126,12 +130,15 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
   if (!brands || brands.length === 0) return null;
 
   const activeBrand = brands[activeIndex];
+  // Dark mode uses its own hero photo when the brand has set one, otherwise falls back to the
+  // same light-mode hero (and finally the logo) rather than showing nothing.
+  const activeHeroUri = (resolvedScheme === "dark" ? activeBrand.heroImageUrlDark : undefined) ?? activeBrand.heroImageUrl;
 
   return (
     <View style={styles.wrap}>
       <Pressable onPress={() => handleSelect(activeBrand, activeIndex)}>
         <ImageBackground
-          source={{ uri: activeBrand.heroImageUrl ?? activeBrand.logoUrl }}
+          source={{ uri: activeHeroUri ?? activeBrand.logoUrl }}
           style={styles.hero}
           imageStyle={styles.heroImageStyle}
           resizeMode="cover"
@@ -140,7 +147,7 @@ export function BrandCarousel({ colors, navigation, onOpenRestaurant, paused }: 
           <View style={styles.heroTextBlock}>
             {/* The dedicated hero photos already carry the brand name/tagline baked in — only show
                 app-rendered text as a fallback for a brand that doesn't have one yet. */}
-            {!activeBrand.heroImageUrl && (
+            {!activeHeroUri && (
               <>
                 <Text style={styles.heroName}>{activeBrand.name}</Text>
                 {activeBrand.tagline && <Text style={styles.heroTagline}>{activeBrand.tagline}</Text>}

@@ -28,18 +28,24 @@ export const lightColors: ColorPalette = {
   border: "#E4DCD3",
 };
 
+// Neutral near-black dark palette (2026-09-04) — background/surface/muted/border moved off the
+// old brownish-charcoal cast (#161210/#241C17/#3A2E22 all leaned warm/muddy) onto a true neutral
+// near-black. Food photography and the gold/teal premium-card gradient sit on a lot of dark
+// screen real estate, and a warm-brown backdrop dulled both; a neutral black reads richer and
+// lets photos, the cream text, and the gold accent actually pop instead of blending into it.
+// text/primary/accent/danger are unchanged from before this pass.
 export const darkColors: ColorPalette = {
-  background: "#161210",
-  surface: "#241C17",
+  background: "#0E0D0F",
+  surface: "#1C1A1D",
   text: "#F2E9DE",
-  muted: "#A8977F",
+  muted: "#9D9690",
   // Lighter than the light-theme primary so it still pops against a near-black
   // background, but dark enough that the "#fff" text every button already uses
   // stays legible without having to make button-text colors theme-aware too.
   primary: "#6AB8FF",
   accent: "#F5A623",
   danger: "#E5675C",
-  border: "#3A2E22",
+  border: "#2E2B2C",
 };
 
 export const theme = {

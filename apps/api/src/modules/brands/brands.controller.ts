@@ -1,7 +1,11 @@
 import { CreateBrandRequestSchema, UpdateBrandRequestSchema } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import { BrandModel } from "../../db/models/Brand.model.js";
-import { listComingSoonBrands as listComingSoonBrandsFromDb, listLiveBrands as listLiveBrandsFromDb } from "./brands.service.js";
+import {
+  listComingSoonBrands as listComingSoonBrandsFromDb,
+  listLiveBrands as listLiveBrandsFromDb,
+  nextDisplayOrder,
+} from "./brands.service.js";
 
 /** Mongoose documents carry `_id`, but the shared Brand schema the client relies on expects `id`. */
 function withId<T extends { _id: unknown }>(doc: T): Omit<T, "_id"> & { id: string } {
@@ -20,7 +24,9 @@ export const listComingSoonBrands: RequestHandler = async (_req, res) => {
 };
 
 export const listAllBrandsAdmin: RequestHandler = async (_req, res) => {
-  const brands = await BrandModel.find().sort({ createdAt: -1 }).lean();
+  // Same displayOrder-first sort the customer app uses, so the admin table visually matches
+  // what's about to show up in the carousel — not the old createdAt-newest-first management view.
+  const brands = await BrandModel.find().sort({ displayOrder: 1, createdAt: 1 }).lean();
   res.json({ brands: brands.map(withId) });
 };
 
@@ -38,7 +44,10 @@ export const createBrand: RequestHandler = async (req, res) => {
   }
 
   const { id, ...rest } = parsed.data;
-  const brand = await BrandModel.create({ _id: id, ...rest });
+  // Always append to the end unless the admin explicitly set a position — see nextDisplayOrder's
+  // own comment for why a brand can never be left with no displayOrder at all.
+  const displayOrder = rest.displayOrder ?? (await nextDisplayOrder());
+  const brand = await BrandModel.create({ _id: id, ...rest, displayOrder });
   res.status(201).json({ brand: withId(brand.toObject()) });
 };
 

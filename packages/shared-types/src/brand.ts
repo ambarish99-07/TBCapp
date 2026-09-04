@@ -12,9 +12,18 @@ export const BrandSchema = z.object({
   logoUrl: z.string().optional(),
   /** Wide lifestyle/product photo for the big carousel hero — falls back to logoUrl if unset. */
   heroImageUrl: z.string().optional(),
+  /** Optional dark-mode variant of the hero photo (e.g. a moodier/night-lit shot) — falls back to
+   * heroImageUrl (then logoUrl) when unset, so setting this is never required. */
+  heroImageUrlDark: z.string().optional(),
   primaryColor: z.string().optional(),
   accentColor: z.string().optional(),
   status: BrandStatusSchema,
+  /** Where this brand sits in the Home carousel and every other brand list — ascending, ties
+   * broken by createdAt. Optional on input; createBrand always fills it in (append-to-end) so a
+   * brand can never end up unset in storage, which matters because MongoDB sorts a *missing*
+   * field as lower than any number, and an unset brand jumping to the front would be worse than
+   * just defaulting it. */
+  displayOrder: z.number().optional(),
   createdAt: z.string(),
 });
 export type Brand = z.infer<typeof BrandSchema>;
