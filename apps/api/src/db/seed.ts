@@ -10,9 +10,6 @@ import { TiffinAddOnPriceModel } from "./models/TiffinAddOnPrice.model.js";
 import { TiffinDishModel } from "./models/TiffinDish.model.js";
 import { TiffinMealPriceModel } from "./models/TiffinMealPrice.model.js";
 import { TiffinPlanModel } from "./models/TiffinPlan.model.js";
-import { TiffinScheduledMealModel } from "./models/TiffinScheduledMeal.model.js";
-import { TiffinSingleMealOrderModel } from "./models/TiffinSingleMealOrder.model.js";
-import { TiffinSubscriptionModel } from "./models/TiffinSubscription.model.js";
 import { TIFFIN_ADD_ON_PRICE_SEED_DATA, TIFFIN_DISH_SEED_DATA } from "./tiffinDishSeedData.js";
 
 const TBC_BRAND_ID = "tbc";
@@ -623,13 +620,24 @@ async function seed() {
   const env = loadEnv();
   await connectToDatabase(env.MONGODB_URI);
 
-  await BrandModel.deleteMany({});
-  await MenuItemModel.deleteMany({});
-  await ComboModel.deleteMany({});
-  await TiffinSubscriptionModel.deleteMany({});
-  await TiffinScheduledMealModel.deleteMany({});
+  // Brand/MenuItem/Combo are upserted by their real _id below (see the findByIdAndUpdate loops),
+  // so wiping them first was always redundant for the rows seed.ts itself manages — and actively
+  // destructive for anything else in these collections, like an admin-added brand or menu item
+  // that isn't part of this file's hardcoded catalog. deleteMany-then-insertMany here is exactly
+  // what deleted "The Biryani Lane" (added via the admin panel, not seed.ts) not once but twice
+  // in one day — see git history/AGENT.md around 2026-09-04 for the incident. Removed.
+  //
+  // Tiffin subscriptions/scheduled meals/single-meal orders are real customer data seed.ts has
+  // never had anything to do with (nothing below recreates them) — deleting them here served no
+  // seeding purpose, only data loss. Removed too.
+  //
+  // TiffinPlan/TiffinMealPrice/TiffinDish/TiffinAddOnPrice/Coupon are still deleteMany'd: unlike
+  // the rows above, these are recreated via insertMany (not upserted by a stable key), so
+  // re-running seed without clearing them first would create duplicates rather than overwrite in
+  // place. Converting them to upsert-by-natural-key too (e.g. TiffinDish already has one: tier +
+  // dietType + mealType + dayOfWeek) would let this whole reset step go away — worth doing if
+  // these ever need to hold anything admin-added that isn't part of this file's own data.
   await TiffinPlanModel.deleteMany({});
-  await TiffinSingleMealOrderModel.deleteMany({});
   await TiffinMealPriceModel.deleteMany({});
   await TiffinDishModel.deleteMany({});
   await TiffinAddOnPriceModel.deleteMany({});
