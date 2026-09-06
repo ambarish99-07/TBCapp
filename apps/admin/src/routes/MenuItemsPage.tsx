@@ -150,6 +150,7 @@ const emptyForm = {
   price: "",
   category: "",
   flavorBadges: "",
+  dietType: "veg" as "veg" | "non-veg",
   salePercent: "",
   portionSize: "",
   isPopular: false,
@@ -193,6 +194,7 @@ function MenuItemCard({
       category: item.category,
       image: item.image,
       flavorBadges: item.flavorBadges,
+      dietType: item.dietType ?? "veg",
       isPopular: item.isPopular,
       isNew: item.isNew,
       isStaffPick: item.isStaffPick,
@@ -283,6 +285,21 @@ function MenuItemCard({
           onBlur={(e) => e.target.value.trim() && e.target.value !== item.category && save({ category: e.target.value.trim() })}
           className="flex-1"
         />
+      </div>
+
+      <div className="flex gap-2">
+        {(["veg", "non-veg"] as const).map((diet) => (
+          <button
+            key={diet}
+            type="button"
+            onClick={() => diet !== item.dietType && save({ dietType: diet })}
+            className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+              item.dietType === diet ? "border-primary bg-primary/10 text-primary-dark" : "border-border text-text hover:bg-surface"
+            }`}
+          >
+            {diet === "veg" ? "🟢 Veg" : "🔴 Non-Veg"}
+          </button>
+        ))}
       </div>
 
       <Input
@@ -420,10 +437,21 @@ export function MenuItemsPage() {
       setError("Please choose a photo for this item.");
       return;
     }
+    const id = form.id.trim() || slugify(form.signatureName);
+    // The ID field below is manually editable, and PUT /menu upserts by id with no server-side
+    // uniqueness check — saving under an id that already belongs to a different item silently
+    // overwrites it, no error, no trace of what was lost. Caught two real menu items this way
+    // already (see git history around 2026-09-06). This is the one guard against doing it again.
+    const collision = items.find((existing) => existing.id === id);
+    if (collision) {
+      const proceed = confirm(
+        `The ID "${id}" is already used by "${collision.signatureName}". Saving will REPLACE that item's data — this can't be undone. Continue?`
+      );
+      if (!proceed) return;
+    }
     setIsSubmitting(true);
     try {
       const image = await uploadImage(imageFile);
-      const id = form.id.trim() || slugify(form.signatureName);
       await adminClient.put("/menu", {
         id,
         brandId,
@@ -434,6 +462,7 @@ export function MenuItemsPage() {
         category: form.category,
         image,
         flavorBadges: form.flavorBadges.split(",").map((b) => b.trim()).filter(Boolean),
+        dietType: form.dietType,
         isPopular: form.isPopular,
         isNew: form.isNew,
         isStaffPick: form.isStaffPick,
@@ -538,11 +567,22 @@ export function MenuItemsPage() {
             required
           />
           <Input placeholder="Common name (e.g. Rich Chocolate Shake)" value={form.commonName} onChange={(e) => setForm({ ...form, commonName: e.target.value })} required />
-          <Input
-            placeholder="ID / slug"
-            value={form.id || slugify(form.signatureName)}
-            onChange={(e) => setForm({ ...form, id: e.target.value })}
-          />
+          <div>
+            <Input
+              placeholder="ID / slug"
+              value={form.id || slugify(form.signatureName)}
+              onChange={(e) => setForm({ ...form, id: e.target.value })}
+            />
+            {/* This is the item's permanent database key, not a display label — reusing one
+                already in use silently overwrites that item's data on save, with no undo. */}
+            {(() => {
+              const pendingId = form.id.trim() || slugify(form.signatureName);
+              const collision = pendingId && items.find((existing) => existing.id === pendingId);
+              return collision ? (
+                <p className="mt-1 text-xs font-semibold text-danger">Already used by "{collision.signatureName}" — saving will replace it.</p>
+              ) : null;
+            })()}
+          </div>
           <Input placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required />
           <Input
             type="number"
@@ -559,6 +599,20 @@ export function MenuItemsPage() {
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             required
           />
+          <div className="flex items-center gap-2">
+            {(["veg", "non-veg"] as const).map((diet) => (
+              <button
+                key={diet}
+                type="button"
+                onClick={() => setForm({ ...form, dietType: diet })}
+                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  form.dietType === diet ? "border-primary bg-primary/10 text-primary-dark" : "border-border text-text hover:bg-surface"
+                }`}
+              >
+                {diet === "veg" ? "🟢 Veg" : "🔴 Non-Veg"}
+              </button>
+            ))}
+          </div>
           <Input
             placeholder="Flavor badges, comma separated"
             value={form.flavorBadges}

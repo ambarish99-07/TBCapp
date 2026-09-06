@@ -74,11 +74,9 @@ export function RootNavigator() {
           <>
             <Stack.Navigator initialRouteName="Menu">
               <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
-              <Stack.Screen
-                name="RestaurantMenu"
-                component={RestaurantMenuScreen}
-                options={{ title: "Menu", headerRight: () => <CartHeaderButton /> }}
-              />
+              {/* No headerRight cart button here — RestaurantMenuScreen sets its own (a
+                  veg/non-veg diet mark instead), reactive to that brand's own menu. */}
+              <Stack.Screen name="RestaurantMenu" component={RestaurantMenuScreen} options={{ title: "Menu" }} />
               <Stack.Screen name="Addresses" component={AddressScreen} options={{ title: "Delivery Address" }} />
               <Stack.Screen name="PickLocation" component={PickLocationScreen} options={{ title: "Select Location" }} />
               <Stack.Screen name="AddAddress" component={AddAddressScreen} options={{ title: "Add Address" }} />

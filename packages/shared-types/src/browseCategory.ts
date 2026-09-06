@@ -12,6 +12,9 @@ export const BROWSE_CATEGORIES = [
   { id: "shakes", label: "Shakes", matchCategories: ["signature-shakes"] },
   { id: "cold-coffee", label: "Cold Coffee", matchCategories: ["cold-coffee"] },
   { id: "mocktails", label: "Mocktails", matchCategories: ["mocktails"] },
+  // Both cases matched defensively — a mistyped category casing has silently split a tab into
+  // two before (see AGENT.md / git history around 2026-09-06's "Premium"/"premium" incident).
+  { id: "biryani", label: "Biryani", matchCategories: ["Biryani", "biryani"] },
   { id: "veg", label: "Veg", matchCategories: ["veg"] },
   { id: "non-veg", label: "Non-Veg", matchCategories: ["non-veg"] },
   { id: "breads", label: "Breads", matchCategories: ["breads"] },

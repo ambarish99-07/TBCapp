@@ -57,6 +57,11 @@ export type UpsertMenuAddOnPriceRequest = z.infer<typeof UpsertMenuAddOnPriceReq
  * MenuCategorySchema. Priced directly by the admin, not derived from a formula/multiplier, so a
  * bigger size can cost whatever it actually costs to make (packaging, bulk discount, etc.) rather
  * than always scaling linearly with the default size's price. */
+/** Every brand's menu items were implicitly vegetarian until The Biryani Lane's real chicken/egg
+ * dishes existed — this is what the customer app's "Veg Only" filter reads. */
+export const MenuDietTypeSchema = z.enum(["veg", "non-veg"]);
+export type MenuDietType = z.infer<typeof MenuDietTypeSchema>;
+
 export const MenuItemSizeVariantSchema = z.object({
   label: z.string().min(1),
   price: z.number().positive(),
@@ -77,6 +82,10 @@ export const MenuItemSchema = z.object({
   category: MenuCategorySchema,
   image: z.string(),
   flavorBadges: z.array(z.string()),
+  /** Defaults "veg" so every item created before this field existed (every TBC/Alchemy Tails
+   * shake and mocktail, all genuinely vegetarian) keeps working unchanged — a brand with a real
+   * mixed menu (The Biryani Lane) sets this explicitly per item from the admin panel. */
+  dietType: MenuDietTypeSchema.default("veg"),
   isPopular: z.boolean().optional(),
   isNew: z.boolean().optional(),
   isStaffPick: z.boolean().optional(),
@@ -126,6 +135,7 @@ export const UpsertMenuItemRequestSchema = z
     category: MenuCategorySchema,
     image: z.string().min(1),
     flavorBadges: z.array(z.string()).default([]),
+    dietType: MenuDietTypeSchema.default("veg"),
     isPopular: z.boolean().optional(),
     isNew: z.boolean().optional(),
     isStaffPick: z.boolean().optional(),

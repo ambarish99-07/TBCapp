@@ -1,10 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { TiffinPlan, TiffinPlanStyle } from "@tbc/shared-types";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useTiffinPlans } from "../../api/tiffin.api";
 import { useUpcomingTiffinClosures } from "../../api/tiffinClosure.api";
+import { DietMark } from "../../components/DietMark";
 import { TiffinClosureBanner } from "../../components/TiffinClosureBanner";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
@@ -33,6 +34,12 @@ export function TiffinLandingScreen({ navigation }: Props) {
   const setVegOnly = useTiffinPreferencesStore((state) => state.setVegOnly);
   const vegPlans = (plans ?? []).filter((plan) => plan.dietType === "veg");
   const nonVegPlans = (plans ?? []).filter((plan) => plan.dietType === "non-veg");
+
+  // Same FSSAI-style mark as every catalog brand's own menu screen — GG Tiffin offers both diet
+  // types, so this reads red the moment any non-veg plan exists, same rule as everywhere else.
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <DietMark isNonVeg={nonVegPlans.length > 0} /> });
+  }, [navigation, nonVegPlans.length]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>

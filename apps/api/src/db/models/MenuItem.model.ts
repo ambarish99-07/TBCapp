@@ -24,6 +24,8 @@ const MenuItemSchema = new Schema(
     category: { type: String, required: true },
     image: { type: String, required: true },
     flavorBadges: { type: [String], default: [] },
+    // Defaults "veg" — see @tbc/shared-types' MenuDietTypeSchema doc-comment for why.
+    dietType: { type: String, enum: ["veg", "non-veg"], default: "veg" },
     isPopular: { type: Boolean, default: false },
     isNew: { type: Boolean, default: false },
     isStaffPick: { type: Boolean, default: false },

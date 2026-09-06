@@ -2,10 +2,11 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
 import type { Combo, MenuItem } from "@tbc/shared-types";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { useCombos, useMenuItems } from "../../api/menu.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
+import { DietMark } from "../../components/DietMark";
 import { MenuItemCard } from "../../components/MenuItemCard";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useBrandStore } from "../../state/brandStore";
@@ -88,6 +89,11 @@ export function RestaurantMenuScreen({ navigation }: Props) {
   const { data: combos } = useCombos();
   const [category, setCategory] = useState<string>("all");
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
+  // Local to this screen, not the shared GG Tiffin preference — a customer's diet choice for a
+  // shake/mocktail brand has nothing to do with their Tiffin one, and most brands (TBC, Alchemy
+  // Tails) have no non-veg items to filter in the first place, so the switch only shows at all
+  // when this brand's menu actually has some (see hasNonVegItems below).
+  const [vegOnly, setVegOnly] = useState(false);
 
   function itemPrice(id: string): number {
     return items?.find((item) => item.id === id)?.price ?? 0;
@@ -108,43 +114,82 @@ export function RestaurantMenuScreen({ navigation }: Props) {
   // aren't silently dropped from their old tab) for any brand's staff picks.
   const premiumTabCategory = premiumItems[0]?.category;
 
+  // Only shown at all when the brand actually has a non-veg item to hide — TBC/Alchemy Tails'
+  // menus are entirely vegetarian, so the switch would be dead weight there.
+  const hasNonVegItems = useMemo(() => (items ?? []).some((item) => item.dietType === "non-veg"), [items]);
+
+  // Replaces the header's old cart button — a purely informational FSSAI-style diet mark for
+  // *this brand's menu as a whole* (green square+dot if every item is veg, red square+triangle
+  // the moment any item isn't), not a per-item indicator. Cart is still reachable from here via
+  // CartSummaryBar once something's actually in it, and from Home's own cart icon otherwise.
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <DietMark isNonVeg={hasNonVegItems} /> });
+  }, [navigation, hasNonVegItems]);
+
   const filtered = useMemo(() => {
     if (!items) return [];
-    if (category === "all") return items;
-    if (category === PREMIUM_TAB) return premiumItems;
-    // Only the (relabeled) "Signature" tab de-dupes against Premium — every other category
-    // tab (Cold Coffee, Signature Shakes, ...) keeps showing its premium items too, so e.g.
-    // Caramel Brew appears under both Premium and Cold Coffee.
-    if (category === "mocktails") return items.filter((item) => item.category === category && !item.isStaffPick);
-    return items.filter((item) => item.category === category);
-  }, [items, category, premiumItems]);
+    const byCategory =
+      category === "all"
+        ? items
+        : category === PREMIUM_TAB
+          ? premiumItems
+          : // Only the (relabeled) "Signature" tab and TBL's "Biryani" tab de-dupe against
+            // Premium — every other category tab (Cold Coffee, Signature Shakes, ...) keeps
+            // showing its premium items too, so e.g. Caramel Brew appears under both Premium
+            // and Cold Coffee. "Biryani" dedupes instead (6 + 4 Premium = All's 10), per request.
+            category === "mocktails" || category === "Biryani"
+            ? items.filter((item) => item.category === category && !item.isStaffPick)
+            : items.filter((item) => item.category === category);
+    return vegOnly ? byCategory.filter((item) => item.dietType !== "non-veg") : byCategory;
+  }, [items, category, premiumItems, vegOnly]);
 
   const showingCombos = category === COMBOS_TAB;
 
   return (
     <View style={styles.screen}>
-      {(categories.length > 1 || (combos && combos.length > 0)) && (
-        <View style={styles.tabs}>
-          <Pressable onPress={() => setCategory("all")} style={[styles.tab, category === "all" && styles.tabActive]}>
-            <Text style={[styles.tabText, category === "all" && styles.tabTextActive]}>All</Text>
-          </Pressable>
-          {categories.map((cat) => (
-            <Fragment key={cat}>
-              <Pressable onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
-                <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
+      {/* A brand with only one real category (e.g. TBL: everything is "Biryani") still needs the
+          "All"/Premium tabs shown once there's a genuine second view to switch to — either
+          Combos or the injected Premium tab (driven by isStaffPick, not a real category value,
+          so categories.length alone can't see it coming). */}
+      {(categories.length > 1 || (combos && combos.length > 0) || !!premiumTabCategory || hasNonVegItems) && (
+        <View style={styles.tabsRow}>
+          {(categories.length > 1 || (combos && combos.length > 0) || !!premiumTabCategory) && (
+            <View style={styles.tabs}>
+              <Pressable onPress={() => setCategory("all")} style={[styles.tab, category === "all" && styles.tabActive]}>
+                <Text style={[styles.tabText, category === "all" && styles.tabTextActive]}>All</Text>
               </Pressable>
-              {/* "Premium" sits right beside whichever category its items actually belong to, rather than at the row's end. */}
-              {cat === premiumTabCategory && (
-                <Pressable onPress={() => setCategory(PREMIUM_TAB)} style={[styles.tab, category === PREMIUM_TAB && styles.tabActive]}>
-                  <Text style={[styles.tabText, category === PREMIUM_TAB && styles.tabTextActive]}>Premium</Text>
+              {categories.map((cat) => (
+                <Fragment key={cat}>
+                  <Pressable onPress={() => setCategory(cat)} style={[styles.tab, category === cat && styles.tabActive]}>
+                    <Text style={[styles.tabText, category === cat && styles.tabTextActive]}>{formatCategoryLabel(cat)}</Text>
+                  </Pressable>
+                  {/* "Premium" sits right beside whichever category its items actually belong to, rather than at the row's end. */}
+                  {cat === premiumTabCategory && (
+                    <Pressable onPress={() => setCategory(PREMIUM_TAB)} style={[styles.tab, category === PREMIUM_TAB && styles.tabActive]}>
+                      <Text style={[styles.tabText, category === PREMIUM_TAB && styles.tabTextActive]}>Premium</Text>
+                    </Pressable>
+                  )}
+                </Fragment>
+              ))}
+              {combos && combos.length > 0 && (
+                <Pressable onPress={() => setCategory(COMBOS_TAB)} style={[styles.tab, showingCombos && styles.tabActive]}>
+                  <Text style={[styles.tabText, showingCombos && styles.tabTextActive]}>Combos</Text>
                 </Pressable>
               )}
-            </Fragment>
-          ))}
-          {combos && combos.length > 0 && (
-            <Pressable onPress={() => setCategory(COMBOS_TAB)} style={[styles.tab, showingCombos && styles.tabActive]}>
-              <Text style={[styles.tabText, showingCombos && styles.tabTextActive]}>Combos</Text>
-            </Pressable>
+            </View>
+          )}
+          {hasNonVegItems && (
+            <View style={styles.vegSwitchGroup}>
+              <Text style={styles.vegSwitchLabel}>Veg Only</Text>
+              <Switch
+                value={vegOnly}
+                onValueChange={setVegOnly}
+                // Universal veg-indicator green (the dot on veg packaging), not the brand's own
+                // primary color — matches GG Tiffin's same switch elsewhere in the app.
+                trackColor={{ true: "#2E7D32" }}
+                thumbColor="#fff"
+              />
+            </View>
           )}
         </View>
       )}
@@ -200,7 +245,13 @@ export function RestaurantMenuScreen({ navigation }: Props) {
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: theme.spacing(2), paddingTop: theme.spacing(2) },
-    tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: theme.spacing(2) },
+    // Tabs (left, wraps onto more lines if there are many) and the Veg Only switch (right, fixed
+    // width) share this one row instead of stacking as two — the tabs' own flexWrap only wraps
+    // within their own flex-basis, so the switch stays put on the right even if they do.
+    tabsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing(1), marginBottom: theme.spacing(2) },
+    vegSwitchGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
+    vegSwitchLabel: { fontSize: 12, fontWeight: "700", color: colors.muted },
+    tabs: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: colors.surface },
     tabActive: { backgroundColor: colors.primary },
     tabText: { fontSize: 12, color: colors.text },
