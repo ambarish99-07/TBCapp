@@ -502,8 +502,13 @@ const makeStyles = (colors: ColorPalette) =>
     brandTabLast: { borderRightWidth: 0 },
     brandTabPressed: { backgroundColor: "rgba(93,190,207,0.22)" },
     brandTabIcon: { fontSize: 22 },
-    brandTabLogo: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "#164B63" },
-    brandTabLabel: { fontSize: 12, fontWeight: "800", color: "#164B63", marginTop: 5 },
+    // The strip's own background is a fixed translucent teal tint (not a real light/dark swap —
+    // see brandTabsRow above), so a fixed dark-navy label/ring read fine in light mode but nearly
+    // vanished in dark mode, where that same tint renders as a very dark teal-black. colors.text
+    // tracks the theme instead (near-black in light mode, cream in dark), so it stays legible
+    // against the tint either way.
+    brandTabLogo: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.text },
+    brandTabLabel: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 5 },
     search: {
       flex: 1,
       borderWidth: 1,
@@ -560,7 +565,11 @@ const makeStyles = (colors: ColorPalette) =>
     },
     tabItemActive: { backgroundColor: colors.primary + "14" },
     tabIconPair: { flexDirection: "row", gap: 2 },
-    tabLabel: { fontSize: 10, fontWeight: "700", color: colors.text, marginTop: 3 },
+    // tabBar's background is a fixed "#FFFFFF" by design (see its own comment above), not
+    // theme-aware — colors.text here made the label near-invisible in dark mode (off-white text
+    // on a bar that's always white). TAB_ICON_COLOR is the same fixed dark tone this row's icons
+    // already use, so the label stays legible on the permanently-white bar in either theme.
+    tabLabel: { fontSize: 10, fontWeight: "700", color: TAB_ICON_COLOR, marginTop: 3 },
     bottomIconEmoji: { fontSize: 20 },
     // Its own distinct pill, larger and warmer than the tab bar's dark neutral tone — logo on the
     // left, "GG" / "Tiffin" stacked in the middle, a small arrow on the right (echoing the
