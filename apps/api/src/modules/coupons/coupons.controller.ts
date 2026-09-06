@@ -11,12 +11,11 @@ function handleCouponError(err: unknown, res: Response): boolean {
   return false;
 }
 
+// brandId is optional here on purpose — omitted entirely (not sent as an empty string), it
+// returns every brand's active coupons at once, for the Account screen's brand-agnostic browse
+// page. The Cart screen's own "Apply Coupon" call always sends a real brandId, unaffected.
 export const getActiveCoupons: RequestHandler = async (req, res) => {
   const brandId = typeof req.query.brandId === "string" ? req.query.brandId : undefined;
-  if (!brandId) {
-    res.status(400).json({ error: "brandId query param is required" });
-    return;
-  }
   const coupons = await couponsService.listActiveCoupons(brandId, req.user?.userId ?? null);
   res.json({ coupons });
 };

@@ -16,6 +16,21 @@ export function useActiveCoupons(brandId: string | undefined) {
   });
 }
 
+/** Every currently-usable coupon across every brand at once, regardless of cart/order amount —
+ * powers the Account screen's "Coupons" browse page, which has no single cart to scope to the
+ * way the Cart screen's useActiveCoupons(brandId) does. Same endpoint, just called with no
+ * brandId param (the server returns everything instead of one brand's coupons — see
+ * coupons.service.ts's listActiveCoupons). */
+export function useAllActiveCoupons() {
+  return useQuery({
+    queryKey: ["active-coupons", "all"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ coupons: Coupon[] }>("/coupons/active");
+      return data.coupons;
+    },
+  });
+}
+
 // The server's own message ("Add ₹50 more to use this coupon", "This coupon has expired", etc.)
 // ends up as the thrown error's `.message` automatically — see apiClient's response interceptor.
 export async function validateCouponRequest(payload: ValidateCouponRequest): Promise<ValidateCouponResponse> {

@@ -385,11 +385,17 @@ const makeStyles = (colors: ColorPalette) =>
       justifyContent: "space-between",
       backgroundColor: colors.surface,
       borderRadius: theme.radius,
+      borderWidth: 1.5,
+      borderStyle: "dotted",
+      borderColor: colors.primary,
       paddingHorizontal: theme.spacing(1.5),
       paddingVertical: theme.spacing(1.25),
       marginBottom: theme.spacing(1),
     },
-    couponRowLabel: { color: colors.text, fontWeight: "700", fontSize: 14 },
+    // Matches the row's own dotted border now, rather than the plain body-text color — reads as
+    // a coupon call-to-action instead of a regular label, while colors.primary already contrasts
+    // reliably against colors.surface in both themes.
+    couponRowLabel: { color: colors.primary, fontWeight: "700", fontSize: 14 },
     couponRowChevron: { color: colors.muted, fontSize: 18, fontWeight: "700" },
     couponAppliedRow: {
       flexDirection: "row",

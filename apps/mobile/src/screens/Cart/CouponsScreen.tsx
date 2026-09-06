@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { cartSubtotal } from "@tbc/pricing";
 import { CROSS_BRAND_ID, type Coupon } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
@@ -67,6 +68,20 @@ export function CouponsScreen({ navigation }: Props) {
   const { data: coupons, isLoading } = useActiveCoupons(ownedLine?.brandId);
   const [applyingCode, setApplyingCode] = useState<string | null>(null);
 
+  // Same shape the server's own coupon math expects (see coupons.service.ts's resolveCoupon) —
+  // built once and reused both to filter by minOrderAmount below and to actually apply a coupon.
+  const pricingLines = useMemo(
+    () => lines.map((line) => ({ unitPrice: line.unitPrice, addOnPrices: line.addOnPrices, quantity: line.quantity, isCombo: line.isCombo })),
+    [lines]
+  );
+  const subtotal = useMemo(() => cartSubtotal(pricingLines), [pricingLines]);
+  // The server already drops a oncePerCustomer coupon this account has redeemed before (see
+  // listActiveCoupons) and scopes everything to this brand — the one thing it can't filter for
+  // is "does *this* cart even qualify yet," since minOrderAmount is compared against whatever
+  // cart the customer brings, not a fixed value. Hidden outright, not shown-and-disabled, per
+  // request — an unreachable coupon isn't useful information here.
+  const eligibleCoupons = useMemo(() => (coupons ?? []).filter((coupon) => subtotal >= coupon.minOrderAmount), [coupons, subtotal]);
+
   async function handleApply(coupon: Coupon) {
     if (!ownedLine?.brandId) return;
     setApplyingCode(coupon.code);
@@ -77,12 +92,7 @@ export function CouponsScreen({ navigation }: Props) {
       const response = await validateCouponRequest({
         code: coupon.code,
         brandId: ownedLine.brandId,
-        lines: lines.map((line) => ({
-          unitPrice: line.unitPrice,
-          addOnPrices: line.addOnPrices,
-          quantity: line.quantity,
-          isCombo: line.isCombo,
-        })),
+        lines: pricingLines,
       });
       setAppliedCoupon(response);
       navigation.goBack();
@@ -96,9 +106,13 @@ export function CouponsScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       {isLoading && <Text style={styles.info}>Loading coupons…</Text>}
-      {!isLoading && (coupons ?? []).length === 0 && <Text style={styles.info}>No coupons available right now.</Text>}
+      {!isLoading && eligibleCoupons.length === 0 && (
+        <Text style={styles.info}>
+          {(coupons ?? []).length === 0 ? "No coupons available right now." : "No coupons apply to this order yet — add more items to unlock one."}
+        </Text>
+      )}
       <FlatList
-        data={coupons ?? []}
+        data={eligibleCoupons}
         keyExtractor={(coupon) => coupon.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (

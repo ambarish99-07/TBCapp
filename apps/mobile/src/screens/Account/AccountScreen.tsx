@@ -213,10 +213,18 @@ export function AccountScreen({ navigation }: Props) {
         {/* Orders & delivery */}
         <Text style={styles.sectionTitle}>Orders &amp; Delivery</Text>
         <View style={styles.groupCard}>
-          <Pressable style={styles.rowInner} onPress={() => navigation.navigate("OrderHistory")}>
-            <Text style={styles.rowIcon}>🧾</Text>
+          <Pressable style={styles.rowInner} onPress={() => navigation.navigate("AllCoupons")}>
+            <Text style={styles.rowIcon}>🎟️</Text>
             <View style={styles.rowTextBlock}>
-              <Text style={styles.rowLabel}>Order History</Text>
+              <Text style={styles.rowLabel}>Coupons</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable style={styles.rowInner} onPress={() => navigation.navigate("Addresses")}>
+            <Text style={styles.rowIcon}>📍</Text>
+            <View style={styles.rowTextBlock}>
+              <Text style={styles.rowLabel}>Delivery Address</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
@@ -229,10 +237,10 @@ export function AccountScreen({ navigation }: Props) {
             <Text style={styles.chevron}>›</Text>
           </Pressable>
           <View style={styles.divider} />
-          <Pressable style={styles.rowInner} onPress={() => navigation.navigate("Addresses")}>
-            <Text style={styles.rowIcon}>📍</Text>
+          <Pressable style={styles.rowInner} onPress={() => navigation.navigate("OrderHistory")}>
+            <Text style={styles.rowIcon}>🧾</Text>
             <View style={styles.rowTextBlock}>
-              <Text style={styles.rowLabel}>Delivery Address</Text>
+              <Text style={styles.rowLabel}>Order History</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </Pressable>

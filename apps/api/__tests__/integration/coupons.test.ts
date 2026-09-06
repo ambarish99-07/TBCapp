@@ -69,9 +69,18 @@ describe("GET /coupons/active", () => {
     expect(codes).toEqual(["TBCONLY", "WELCOME50"]);
   });
 
-  it("requires a brandId query param", async () => {
+  it("returns every brand's active coupons at once when brandId is omitted — powers the Account screen's brand-agnostic browse page", async () => {
+    await CouponModel.create({ code: "WELCOME50", type: "percent", value: 50, minOrderAmount: 0, isActive: true });
+    await CouponModel.create({ code: "TBCONLY", type: "flat", value: 20, minOrderAmount: 0, brandId: "tbc", isActive: true });
+    await CouponModel.create({ code: "OTHERBRAND", type: "flat", value: 20, minOrderAmount: 0, brandId: "alchemy-tails", isActive: true });
+    await CouponModel.create({ code: "INACTIVE", type: "flat", value: 20, minOrderAmount: 0, isActive: false });
+    await CouponModel.create({ code: "EXPIRED", type: "flat", value: 20, minOrderAmount: 0, isActive: true, expiresAt: new Date("2020-01-01") });
+
     const response = await request(app).get("/coupons/active");
-    expect(response.status).toBe(400);
+
+    expect(response.status).toBe(200);
+    const codes = response.body.coupons.map((c: { code: string }) => c.code).sort();
+    expect(codes).toEqual(["OTHERBRAND", "TBCONLY", "WELCOME50"]);
   });
 });
 

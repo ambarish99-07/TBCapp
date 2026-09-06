@@ -7,11 +7,16 @@ import { CouponValidationError } from "./coupons.errors.js";
  * brand, so a customer can see what's on offer before typing (or revealing) a code. Expired ones
  * are excluded outright rather than shown greyed out, since there's nothing actionable about them.
  * `userId` (when logged in) additionally drops any oncePerCustomer coupon this account has already
- * redeemed — a welcome offer they've used has nothing left to show them. */
-export async function listActiveCoupons(brandId: string, userId?: string | null): Promise<Coupon[]> {
+ * redeemed — a welcome offer they've used has nothing left to show them.
+ *
+ * `brandId` omitted entirely (not just falsy — the caller must actually leave it out) skips the
+ * brand filter altogether, returning every brand's coupons at once — powers the Account screen's
+ * brand-agnostic "browse all coupons" page, which has no single cart/brand to scope to the way
+ * the Cart screen's call always does. */
+export async function listActiveCoupons(brandId: string | undefined, userId?: string | null): Promise<Coupon[]> {
   const coupons = await CouponModel.find({
     isActive: true,
-    $or: [{ brandId: { $exists: false } }, { brandId }],
+    ...(brandId ? { $or: [{ brandId: { $exists: false } }, { brandId }] } : {}),
     $and: [{ $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] }],
   }).sort({ createdAt: -1 });
   return coupons

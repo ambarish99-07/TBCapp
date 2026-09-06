@@ -45,6 +45,9 @@ export type RootStackParamList = {
   Cart: undefined;
   // No params — reads the cart's own brand/subtotal directly, same as Cart itself does.
   Coupons: undefined;
+  // Read-only browse page for every active coupon across every brand, no cart/order-amount
+  // filtering — reached from Account, not tied to a checkout flow the way Coupons above is.
+  AllCoupons: undefined;
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.
   Checkout: undefined;

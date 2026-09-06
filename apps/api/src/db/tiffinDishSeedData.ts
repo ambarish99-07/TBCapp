@@ -68,7 +68,9 @@ export const TIFFIN_DISH_SEED_DATA: TiffinDishSeedRow[] = [
   { tier: "regular", dietType: "non-veg", mealType: "dinner", dayOfWeek: "Thursday", dishName: "Dum Aloo", imageSlug: "dum-aloo", hasAddOns: true, riceSubstitute: "rice" },
   { tier: "regular", dietType: "non-veg", mealType: "dinner", dayOfWeek: "Friday", dishName: "Chicken Curry", imageSlug: "chicken-curry", hasAddOns: true, riceSubstitute: "rice", extraAddOnName: "Chicken piece" },
   { tier: "regular", dietType: "non-veg", mealType: "dinner", dayOfWeek: "Saturday", dishName: "Matar Mushroom", imageSlug: "matar-mushroom", hasAddOns: true, riceSubstitute: "rice" },
-  { tier: "regular", dietType: "non-veg", mealType: "dinner", dayOfWeek: "Sunday", dishName: "Dum Aloo", imageSlug: "dum-aloo", hasAddOns: true, riceSubstitute: "rice" },
+  // Chicken Masala reuses Friday's Chicken Curry photo (chicken-curry.png) — no dedicated Chicken
+  // Masala asset exists yet, and the two dishes look close enough to share one, per request.
+  { tier: "regular", dietType: "non-veg", mealType: "dinner", dayOfWeek: "Sunday", dishName: "Chicken Masala", imageSlug: "chicken-curry", hasAddOns: true, riceSubstitute: "rice", extraAddOnName: "Chicken piece" },
   { tier: "mini", dietType: "veg", mealType: "lunch", dayOfWeek: "Monday", dishName: "Aloo Matar", imageSlug: "aloo-matar-mini", hasAddOns: true, riceSubstitute: "rice" },
   { tier: "mini", dietType: "veg", mealType: "lunch", dayOfWeek: "Tuesday", dishName: "Aloo Parwal", imageSlug: "aloo-parwal-mini", hasAddOns: true, riceSubstitute: "rice" },
   { tier: "mini", dietType: "veg", mealType: "lunch", dayOfWeek: "Wednesday", dishName: "Aloo Soyabean", imageSlug: "aloo-soyabean-mini", hasAddOns: true, riceSubstitute: "rice" },
