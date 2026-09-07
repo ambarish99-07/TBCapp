@@ -32,6 +32,11 @@ export const upsertTiffinDishAdmin: RequestHandler = async (req, res) => {
   res.json({ dish: withId(dish.toObject()) });
 };
 
+export const deleteTiffinDishAdmin: RequestHandler = async (req, res) => {
+  await tiffinMenuService.deleteTiffinDish(req.params.id);
+  res.status(204).send();
+};
+
 export const listFestivalSpecialsAdmin: RequestHandler = async (_req, res) => {
   const specials = await tiffinMenuService.listFestivalSpecials();
   res.json({ specials: specials.map((s) => withId(s.toObject())) });

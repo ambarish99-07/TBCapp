@@ -22,6 +22,7 @@ import {
 import { listFeedbackAdmin, respondToFeedbackAdmin, updateFeedbackStatusAdmin } from "../feedback/feedback.controller.js";
 import {
   deleteFestivalSpecialAdmin,
+  deleteTiffinDishAdmin,
   listAddOnPricesAdmin,
   listFestivalSpecialsAdmin,
   listTiffinDishesAdmin,
@@ -110,6 +111,7 @@ export function createAdminRouter(env: Env): Router {
 
   router.get("/tiffin/dishes", listTiffinDishesAdmin);
   router.put("/tiffin/dishes", upsertTiffinDishAdmin);
+  router.delete("/tiffin/dishes/:id", deleteTiffinDishAdmin);
   router.post("/tiffin/dishes/upload-image", uploadTiffinDishImage, handleTiffinDishImageUpload);
   router.get("/tiffin/add-on-prices", listAddOnPricesAdmin);
   router.put("/tiffin/add-on-prices", upsertAddOnPriceAdmin);

@@ -39,6 +39,33 @@ export async function buildDishLookupForTier(tier: TiffinMealTier): Promise<Tier
 }
 
 /**
+ * Which meal types a (tier, dietType) can actually sustain a *recurring* subscription for —
+ * derived live from the `TiffinDish` rows the admin's Menu page manages, not a hardcoded table.
+ * A meal type only counts as available once all 7 days of the week have a dish configured for
+ * it; a single missing day would otherwise leave a subscriber with nothing delivered that day.
+ * This is what makes admin-side dish edits (adding a whole new meal type, or removing one down to
+ * an incomplete week) automatically flow through to what plans/subscriptions can offer — no
+ * separate tier/meal-type table to keep in sync by hand. Single-meal ordering has its own,
+ * looser rule (singleMealMenu.ts#resolveDishSlot) since it only ever needs *one* specific date at
+ * a time, not a full week up front.
+ */
+export async function getAvailableMealTypesForTierDiet(tier: TiffinMealTier, dietType: TiffinDietType): Promise<Set<TiffinMealType>> {
+  const rows = await TiffinDishModel.find({ tier, dietType }).select("mealType dayOfWeek").lean();
+  const daysByMealType = new Map<TiffinMealType, Set<string>>();
+  for (const row of rows) {
+    const mealType = row.mealType as TiffinMealType;
+    const days = daysByMealType.get(mealType) ?? new Set<string>();
+    days.add(row.dayOfWeek);
+    daysByMealType.set(mealType, days);
+  }
+  const available = new Set<TiffinMealType>();
+  for (const [mealType, days] of daysByMealType) {
+    if (days.size === DAY_NAMES.length) available.add(mealType);
+  }
+  return available;
+}
+
+/**
  * What GG Tiffin serves on a given day/meal, per the real curated menu for whichever tier
  * `lookup` was built for. Matches singleMealMenu.ts#resolveDishSlot's behavior for that same tier
  * exactly, since both now read from the same `TiffinDish` collection — a subscription and a

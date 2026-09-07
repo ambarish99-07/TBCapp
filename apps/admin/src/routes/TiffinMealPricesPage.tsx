@@ -81,7 +81,10 @@ export function TiffinMealPricesPage() {
 
   return (
     <div>
-      <PageHeader title="GG Tiffin — Single-Meal Prices" />
+      <PageHeader
+        title="GG Tiffin — Single-Meal Prices"
+        description="Fallback price per (tier, meal) slot — only actually charged when that day's dish has no price of its own. Every dish currently has its own price set on the Menu tab, so editing a number here changes nothing a customer pays; it still controls whether a slot is Active and shows up on the ordering menu at all."
+      />
 
       <Card title="Add a price" className="mb-6">
         <form onSubmit={handleCreate} className="flex flex-wrap items-center gap-2">

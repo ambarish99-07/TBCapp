@@ -121,14 +121,24 @@ export async function declareClosure(request: DeclareTiffinClosureRequest) {
       const tier = subscription.tier as TiffinMealTier;
       const dishLookup = await dishLookupFor(tier);
       const nextDay = addIsoDays(subscription.endDate, 1);
-      const extraMeals = computeMealsForRange(
-        dishLookup,
-        tier,
-        subscription.dietType,
-        subscription.mealTypes as TiffinMealType[],
-        new Date(`${nextDay}T00:00:00Z`),
-        closedDays.size
-      );
+      // A dish this subscription relies on may have been removed from the Menu page since it was
+      // created — skip just this one subscription's extension (its closed days are still marked
+      // "closed" above) rather than letting one bad subscription abort the whole closure, which
+      // would leave every subscription after it in the loop unprocessed.
+      let extraMeals;
+      try {
+        extraMeals = computeMealsForRange(
+          dishLookup,
+          tier,
+          subscription.dietType,
+          subscription.mealTypes as TiffinMealType[],
+          new Date(`${nextDay}T00:00:00Z`),
+          closedDays.size
+        );
+      } catch (err) {
+        console.error(`[tiffin] declareClosure: couldn't extend subscription ${subscriptionId} — a dish it needs is missing:`, err);
+        continue;
+      }
       await TiffinScheduledMealModel.insertMany(extraMeals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
       subscription.endDate = extraMeals[extraMeals.length - 1].date;
       await subscription.save();

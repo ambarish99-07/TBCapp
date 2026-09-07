@@ -7,13 +7,14 @@ import {
   type TiffinPlan,
   type TiffinPlanStyle,
 } from "@tbc/shared-types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
 import { Button } from "../components/ui/Button.js";
 import { Card } from "../components/ui/Card.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { Input, Select } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
+import { Segmented } from "../components/ui/Segmented.js";
 import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const DIET_OPTIONS: TiffinDietType[] = ["veg", "non-veg"];
@@ -29,6 +30,22 @@ const STYLE_LABELS: Record<TiffinPlanStyle, string> = {
   "lunch-only": "Lunch Only",
   "dinner-only": "Dinner Only",
 };
+
+type DurationFilter = "all" | "weekly" | "monthly";
+type TierFilter = "all" | TiffinMealTier;
+const DURATION_FILTER_OPTIONS: { key: DurationFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "weekly", label: "Weekly" },
+  { key: "monthly", label: "Monthly" },
+];
+const TIER_FILTER_OPTIONS: { key: TierFilter; label: string }[] = [
+  { key: "all", label: "All Tiers" },
+  { key: "regular", label: "Regular" },
+  { key: "mini", label: "Mini" },
+  { key: "premium", label: "Premium" },
+];
+const TIER_ORDER: Record<TiffinMealTier, number> = { regular: 0, mini: 1, premium: 2 };
+const STYLE_ORDER: Record<TiffinPlanStyle, number> = { single: 0, "twice-daily": 1, "thrice-daily": 2, "lunch-only": 3, "dinner-only": 4 };
 
 const emptyForm = {
   name: "",
@@ -50,6 +67,27 @@ export function TiffinPlansPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isNewPlanMonthly = Number(form.durationDays) === TIFFIN_PLAN_DURATIONS.monthly;
+  // The catalog now spans 3 tiers x up to 5 styles x 2 durations x 2 diets — filtering and a
+  // stable sort keep the table actually usable instead of a long list in creation order.
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>("all");
+  const [tierFilter, setTierFilter] = useState<TierFilter>("all");
+
+  const visiblePlans = useMemo(() => {
+    return plans
+      .filter((plan) => {
+        if (tierFilter !== "all" && plan.tier !== tierFilter) return false;
+        if (durationFilter === "weekly" && plan.durationDays !== TIFFIN_PLAN_DURATIONS.weekly) return false;
+        if (durationFilter === "monthly" && plan.durationDays !== TIFFIN_PLAN_DURATIONS.monthly) return false;
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          TIER_ORDER[a.tier] - TIER_ORDER[b.tier] ||
+          STYLE_ORDER[a.style] - STYLE_ORDER[b.style] ||
+          a.durationDays - b.durationDays ||
+          a.dietType.localeCompare(b.dietType)
+      );
+  }, [plans, durationFilter, tierFilter]);
 
   async function reload() {
     setIsLoading(true);
@@ -185,6 +223,16 @@ export function TiffinPlansPage() {
         {error && <p className="mt-3 text-sm font-medium text-danger">{error}</p>}
       </Card>
 
+      {plans.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Segmented options={DURATION_FILTER_OPTIONS} value={durationFilter} onChange={setDurationFilter} />
+          <Segmented options={TIER_FILTER_OPTIONS} value={tierFilter} onChange={setTierFilter} />
+          <span className="text-xs font-semibold text-muted">
+            {visiblePlans.length} of {plans.length} plans
+          </span>
+        </div>
+      )}
+
       <Card>
         {loadError ? (
           <p className="text-sm font-medium text-danger">{loadError}</p>
@@ -192,6 +240,8 @@ export function TiffinPlansPage() {
           <p className="text-sm text-muted">Loading…</p>
         ) : plans.length === 0 ? (
           <EmptyState message="No plans yet." />
+        ) : visiblePlans.length === 0 ? (
+          <EmptyState message="No plans match this filter." />
         ) : (
           <Table>
             <Thead>
@@ -207,7 +257,7 @@ export function TiffinPlansPage() {
               </Tr>
             </Thead>
             <tbody>
-              {plans.map((plan) => {
+              {visiblePlans.map((plan) => {
                 const isMonthly = plan.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
                 return (
                   <Tr key={plan.id}>

@@ -10,13 +10,22 @@ export function listTiffinDishes() {
   return TiffinDishModel.find().sort({ tier: 1, dietType: 1, mealType: 1, dayOfWeek: 1 });
 }
 
-/** Every valid (tier, dietType, mealType, dayOfWeek) slot already exists from seeding — there's
- * no "add a new slot" concept, only "change what's assigned to this slot" — so this is always an
- * update keyed on the compound unique index, never a true insert in practice. Still `upsert: true`
- * so a slot missing after a bad migration doesn't hard-fail instead of just being created. */
+/** Most (tier, dietType, mealType, dayOfWeek) slots already exist from seeding, so this is
+ * usually an update keyed on the compound unique index — but `upsert: true` also lets the admin
+ * panel genuinely create a brand-new slot (e.g. Mini's first-ever breakfast dish) directly from
+ * the Menu page, not just fix a slot missing after a bad migration. */
 export function upsertTiffinDish(data: UpsertTiffinDishRequest) {
   const { tier, dietType, mealType, dayOfWeek, ...update } = data;
   return TiffinDishModel.findOneAndUpdate({ tier, dietType, mealType, dayOfWeek }, { tier, dietType, mealType, dayOfWeek, ...update }, { new: true, upsert: true, runValidators: true });
+}
+
+/** Removing a slot's dish entirely (not just changing what it serves) — the same "just isn't on
+ * the menu" state Mini's breakfast slots have always been in, now reachable for any tier/meal/day
+ * from the Menu page instead of being fixed at seed time. Subscription/single-meal resolution
+ * already handles an absent slot gracefully (see singleMealMenu.ts#resolveDishSlot,
+ * tiffin.service.ts#getAvailableMealTypesForTierDiet) — no special-casing needed here. */
+export function deleteTiffinDish(id: string) {
+  return TiffinDishModel.findByIdAndDelete(id);
 }
 
 /** Every festival special, past and future — small table, admin panel gets it all at once, same

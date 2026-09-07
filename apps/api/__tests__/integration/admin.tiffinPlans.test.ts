@@ -1,15 +1,21 @@
 import jwt from "jsonwebtoken";
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { UserModel } from "../../src/db/models/User.model.js";
-import { clearTestDb, startTestDb, stopTestDb, testEnv } from "./testDb.js";
+import { clearTestDb, seedTiffinMenu, startTestDb, stopTestDb, testEnv } from "./testDb.js";
 
 const env = testEnv();
 const app = createApp(env);
 
 beforeAll(async () => {
   await startTestDb();
+});
+
+// Plan creation/editing now checks live TiffinDish coverage for the plan's (tier, dietType, style)
+// — see tiffin.service.ts#assertValidTierStyle — so every test here needs the real menu seeded.
+beforeEach(async () => {
+  await seedTiffinMenu();
 });
 
 afterEach(async () => {

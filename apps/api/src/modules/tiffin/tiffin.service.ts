@@ -6,6 +6,7 @@ import {
   type CreateTiffinPlanRequest,
   type CreateTiffinSubscriptionRequest,
   type PauseTiffinSubscriptionRequest,
+  type TiffinDietType,
   type TiffinMealTier,
   type TiffinMealType,
   type TiffinPlanStyle,
@@ -21,23 +22,45 @@ import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { generateSubscriptionNumber } from "./subscriptionNumber.js";
-import { buildDishLookupForTier, computeMealsForRange, computeMealsForRangeSkippingClosedDates } from "./tiffinSchedule.js";
+import { buildDishLookupForTier, computeMealsForRange, computeMealsForRangeSkippingClosedDates, getAvailableMealTypesForTierDiet } from "./tiffinSchedule.js";
 import { getUpcomingClosedDates } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
 
-/** Mini has no breakfast dish configured anywhere in the system (see TiffinDish/tiffinDishForDay)
- * — Regular and Premium offer all three. Used to reject a Mini plan/subscription that would need
- * a breakfast dish that structurally doesn't exist, with a clear message instead of the internal
- * "No {tier}-tier dish configured" error tiffinSchedule.ts#dishForDay would otherwise throw. */
-const TIER_MEAL_TYPES: Record<TiffinMealTier, TiffinMealType[]> = {
-  regular: ["breakfast", "lunch", "dinner"],
-  mini: ["lunch", "dinner"],
-  premium: ["breakfast", "lunch", "dinner"],
+const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+
+/** Which meal types a style needs scheduled every day of the week — "single" is deliberately
+ * excluded (handled separately below) since the customer's actual choice isn't known until
+ * subscribe time; a "single" plan just needs *some* fully-configured meal type to exist. */
+const STYLE_REQUIRED_MEAL_TYPES: Partial<Record<TiffinPlanStyle, TiffinMealType[]>> = {
+  "twice-daily": ["lunch", "dinner"],
+  "thrice-daily": ["breakfast", "lunch", "dinner"],
+  "lunch-only": ["lunch"],
+  "dinner-only": ["dinner"],
 };
 
-function assertValidTierStyle(tier: TiffinMealTier, style: TiffinPlanStyle) {
-  if (tier === "mini" && style === "thrice-daily") {
-    throw new TiffinValidationError("Mini doesn't offer breakfast, so it can't be a thrice-daily plan — choose Twice Daily or Single instead");
+/**
+ * Whether a (tier, dietType) can actually sustain the given plan style — checked live against
+ * `TiffinDish` (via getAvailableMealTypesForTierDiet), not a hardcoded per-tier table, so an
+ * admin adding or removing dishes on the Menu page automatically changes what plans/subscriptions
+ * that tier can offer, no separate config to keep in sync. Same dynamic check backs both plan
+ * creation/editing (here) and subscribing to an existing plan (createSubscription below).
+ */
+async function assertValidTierStyle(tier: TiffinMealTier, dietType: TiffinDietType, style: TiffinPlanStyle) {
+  const available = await getAvailableMealTypesForTierDiet(tier, dietType);
+  if (style === "single") {
+    if (available.size === 0) {
+      throw new TiffinValidationError(
+        `No meal type has a full week of ${dietType} dishes configured for ${tier} yet — add dishes for every day of at least one meal type first.`
+      );
+    }
+    return;
+  }
+  const required = STYLE_REQUIRED_MEAL_TYPES[style] ?? [];
+  const missing = required.filter((mealType) => !available.has(mealType));
+  if (missing.length > 0) {
+    throw new TiffinValidationError(
+      `${tier} doesn't have a full week of ${dietType} ${missing.map((m) => MEAL_TYPE_LABELS[m]).join(" and ")} dishes configured yet — this style needs every day filled in first.`
+    );
   }
 }
 
@@ -81,9 +104,15 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   }
   const tier = plan.tier as TiffinMealTier;
   const mealTypes = resolveMealTypes(plan.style, request.mealType);
-  const unavailableMealType = mealTypes.find((mealType) => !TIER_MEAL_TYPES[tier].includes(mealType));
+  // Checked live against the actual dish rows, not a hardcoded per-tier table — a dish an admin
+  // removed since this plan was created (or a whole meal type never fully filled in) is caught
+  // here with a clear message, instead of crashing later in computeMealsForRange below.
+  const availableMealTypes = await getAvailableMealTypesForTierDiet(tier, plan.dietType);
+  const unavailableMealType = mealTypes.find((mealType) => !availableMealTypes.has(mealType));
   if (unavailableMealType) {
-    throw new TiffinValidationError(`${tier === "mini" ? "Mini" : tier} doesn't offer ${unavailableMealType} — please choose a different meal type`);
+    throw new TiffinValidationError(
+      `This plan isn't fully available right now — ${tier} doesn't have a complete week of ${MEAL_TYPE_LABELS[unavailableMealType]} dishes configured for ${plan.dietType}. Please try a different plan or check back later.`
+    );
   }
 
   // Same zone check every TBC/TAT order already goes through — imported, not duplicated.
@@ -101,7 +130,15 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   // A brand-new subscription skips any already-declared closure from day one — it's generated
   // correctly the first time instead of needing the same retroactive extension declareClosure
   // applies to subscriptions that already existed when the closure was announced.
-  const meals = computeMealsForRangeSkippingClosedDates(dishLookup, tier, plan.dietType, mealTypes, startDate, plan.durationDays, closedDates);
+  // The availability check above should already rule this out, but a dish can still be removed
+  // in the moment between that check and this call — fail cleanly with a 400 rather than an
+  // unhandled 500 if it somehow still hits a missing day.
+  let meals;
+  try {
+    meals = computeMealsForRangeSkippingClosedDates(dishLookup, tier, plan.dietType, mealTypes, startDate, plan.durationDays, closedDates);
+  } catch {
+    throw new TiffinValidationError("This plan isn't fully available right now — please try again in a moment or choose a different plan.");
+  }
 
   const subscription = await TiffinSubscriptionModel.create({
     subscriptionNumber: generateSubscriptionNumber(),
@@ -271,14 +308,24 @@ export async function pauseSubscription(userId: string, subscriptionId: string, 
     const nextDay = new Date(`${subscription.endDate}T00:00:00Z`);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
     const dishLookup = await buildDishLookupForTier(subscription.tier as TiffinMealTier);
-    const extraMeals = computeMealsForRange(
-      dishLookup,
-      subscription.tier as TiffinMealTier,
-      subscription.dietType,
-      subscription.mealTypes as TiffinMealType[],
-      nextDay,
-      pausedDayCount
-    );
+    // A dish this subscription relies on may have been removed from the Menu page since it was
+    // created — fail cleanly with a 400 rather than an unhandled 500 if extending the schedule
+    // now hits a day that's no longer configured.
+    let extraMeals;
+    try {
+      extraMeals = computeMealsForRange(
+        dishLookup,
+        subscription.tier as TiffinMealTier,
+        subscription.dietType,
+        subscription.mealTypes as TiffinMealType[],
+        nextDay,
+        pausedDayCount
+      );
+    } catch {
+      throw new TiffinValidationError(
+        "Can't pause right now — a dish this subscription needs was removed from the menu. Please contact support."
+      );
+    }
     await TiffinScheduledMealModel.insertMany(extraMeals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
     subscription.endDate = extraMeals[extraMeals.length - 1].date;
   }
@@ -373,11 +420,11 @@ export function listAllPlansAdmin() {
   return TiffinPlanModel.find().sort({ createdAt: -1 });
 }
 
-export function createPlan(data: CreateTiffinPlanRequest) {
+export async function createPlan(data: CreateTiffinPlanRequest) {
   if (data.salePercent != null && data.durationDays !== TIFFIN_PLAN_DURATIONS.monthly) {
     throw new TiffinValidationError("Discounts are only available on monthly plans");
   }
-  assertValidTierStyle(data.tier, data.style);
+  await assertValidTierStyle(data.tier, data.dietType, data.style);
   return TiffinPlanModel.create(data);
 }
 
@@ -391,11 +438,15 @@ export async function updatePlan(id: string, data: UpdateTiffinPlanRequest) {
       throw new TiffinValidationError("Discounts are only available on monthly plans");
     }
   }
-  if (rest.tier || rest.style) {
-    // Neither field is necessarily part of this (partial) update payload — fall back to the
-    // plan's own already-stored values for whichever one wasn't sent.
-    const existing = await TiffinPlanModel.findById(id).select("tier style").lean();
-    assertValidTierStyle(rest.tier ?? (existing?.tier as TiffinMealTier), rest.style ?? (existing?.style as TiffinPlanStyle));
+  if (rest.tier || rest.dietType || rest.style) {
+    // None of the three are necessarily part of this (partial) update payload — fall back to the
+    // plan's own already-stored values for whichever ones weren't sent.
+    const existing = await TiffinPlanModel.findById(id).select("tier dietType style").lean();
+    await assertValidTierStyle(
+      rest.tier ?? (existing?.tier as TiffinMealTier),
+      rest.dietType ?? (existing?.dietType as TiffinDietType),
+      rest.style ?? (existing?.style as TiffinPlanStyle)
+    );
   }
 
   // null ⇒ explicitly clear the discount (back to no discount); undefined ⇒ leave it untouched.
