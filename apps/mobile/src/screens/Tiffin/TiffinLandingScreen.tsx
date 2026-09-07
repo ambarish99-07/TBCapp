@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { TiffinPlan, TiffinPlanStyle } from "@tbc/shared-types";
-import { useEffect, useMemo } from "react";
+import { TIFFIN_PLAN_DURATIONS, type TiffinMealTier, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
 import { useTiffinPlans } from "../../api/tiffin.api";
@@ -14,10 +14,22 @@ import { effectivePlanPrice } from "../../utils/tiffinPlanPrice";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TiffinLanding">;
+type DurationFilter = "weekly" | "monthly";
+
+const DURATION_TABS: { key: DurationFilter; label: string }[] = [
+  { key: "weekly", label: "Weekly" },
+  { key: "monthly", label: "Monthly" },
+];
+
+// Plan name already says "Mini"/"Premium" where relevant, but showing it in the meta line too
+// matches the tier label the plan-select and single-meal ordering screens already show.
+const TIER_LABELS: Record<TiffinMealTier, string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
 
 function styleMetaLabel(style: TiffinPlanStyle): string {
   if (style === "twice-daily") return "Lunch & Dinner";
   if (style === "thrice-daily") return "Breakfast, Lunch & Dinner";
+  if (style === "lunch-only") return "Lunch Only";
+  if (style === "dinner-only") return "Dinner Only";
   return "Breakfast, Lunch, or Dinner";
 }
 
@@ -32,14 +44,22 @@ export function TiffinLandingScreen({ navigation }: Props) {
   const ggTiffinLogoUrl = brands?.find((brand) => brand.id === "gg-tiffin")?.logoUrl;
   const vegOnly = useTiffinPreferencesStore((state) => state.vegOnly);
   const setVegOnly = useTiffinPreferencesStore((state) => state.setVegOnly);
-  const vegPlans = (plans ?? []).filter((plan) => plan.dietType === "veg");
-  const nonVegPlans = (plans ?? []).filter((plan) => plan.dietType === "non-veg");
+  // Regular, Mini, and Premium together add up to a lot of plans now — Weekly/Monthly tabs keep
+  // the list browsable instead of dumping every duration into one long scroll.
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>("monthly");
+  const durationDays = durationFilter === "monthly" ? TIFFIN_PLAN_DURATIONS.monthly : TIFFIN_PLAN_DURATIONS.weekly;
+  const plansForDuration = (plans ?? []).filter((plan) => plan.durationDays === durationDays);
+  const vegPlans = plansForDuration.filter((plan) => plan.dietType === "veg");
+  const nonVegPlans = plansForDuration.filter((plan) => plan.dietType === "non-veg");
+  // Unfiltered by duration — whether GG Tiffin offers non-veg at all shouldn't flicker depending
+  // on which tab happens to be selected.
+  const anyNonVegPlan = (plans ?? []).some((plan) => plan.dietType === "non-veg");
 
   // Same FSSAI-style mark as every catalog brand's own menu screen — GG Tiffin offers both diet
   // types, so this reads red the moment any non-veg plan exists, same rule as everywhere else.
   useEffect(() => {
-    navigation.setOptions({ headerRight: () => <DietMark isNonVeg={nonVegPlans.length > 0} /> });
-  }, [navigation, nonVegPlans.length]);
+    navigation.setOptions({ headerRight: () => <DietMark isNonVeg={anyNonVegPlan} /> });
+  }, [navigation, anyNonVegPlan]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -83,8 +103,24 @@ export function TiffinLandingScreen({ navigation }: Props) {
           <Text style={styles.viewMenuLink}>View Menu →</Text>
         </Pressable>
       </View>
+
+      <View style={styles.durationTabs}>
+        {DURATION_TABS.map((tab) => (
+          <Pressable
+            key={tab.key}
+            onPress={() => setDurationFilter(tab.key)}
+            style={[styles.durationTab, durationFilter === tab.key && styles.durationTabActive]}
+          >
+            <Text style={[styles.durationTabText, durationFilter === tab.key && styles.durationTabTextActive]}>{tab.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: theme.spacing(2) }} />}
       {!isLoading && (!plans || plans.length === 0) && <Text style={styles.info}>No plans available right now — check back shortly!</Text>}
+      {!isLoading && plans && plans.length > 0 && vegPlans.length === 0 && nonVegPlans.length === 0 && (
+        <Text style={styles.info}>No {durationFilter} plans right now — try the other tab.</Text>
+      )}
 
       {(vegPlans.length > 0 || nonVegPlans.length > 0) && (
         <View style={styles.columns}>
@@ -124,7 +160,7 @@ function PlanCard({ plan, styles, onPress }: { plan: TiffinPlan; styles: ReturnT
       )}
       <Text style={styles.planName}>{plan.name}</Text>
       <Text style={styles.planMeta}>
-        {plan.durationDays} days · {styleMetaLabel(plan.style)}
+        {TIER_LABELS[plan.tier]} · {plan.durationDays} days · {styleMetaLabel(plan.style)}
       </Text>
       {plan.salePercent ? (
         <View style={styles.priceRow}>
@@ -172,6 +208,18 @@ const makeStyles = (colors: ColorPalette) =>
     },
     sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
     viewMenuLink: { fontSize: 13, fontWeight: "700", color: colors.primary, textDecorationLine: "underline" },
+    durationTabs: {
+      flexDirection: "row",
+      gap: theme.spacing(1),
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius,
+      padding: 4,
+      marginBottom: theme.spacing(1.5),
+    },
+    durationTab: { flex: 1, paddingVertical: 8, borderRadius: theme.radius - 4, alignItems: "center" },
+    durationTabActive: { backgroundColor: colors.primary },
+    durationTabText: { fontSize: 13, fontWeight: "700", color: colors.muted },
+    durationTabTextActive: { color: "#fff" },
     dietSectionTitle: { fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: theme.spacing(1) },
     info: { fontSize: 13, color: colors.muted },
     columns: { flexDirection: "row", gap: theme.spacing(1.5) },

@@ -50,7 +50,7 @@ describe("Subscription cancellation", () => {
     const subscribeResponse = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "razorpay" });
 
     const response = await request(app)
       .post(`/tiffin/subscriptions/${subscribeResponse.body.subscription.id}/cancel`)

@@ -51,8 +51,8 @@ export type RootStackParamList = {
   // Now an "update my saved address" screen (profile PATCH), not an order-placement form —
   // Cart itself places the order once the account has a complete saved address.
   Checkout: undefined;
-  // hideCod: monthly tiffin plans can't be paid Cash on Delivery — Cart's call (no params) still
-  // shows every option as before.
+  // hideCod: GG Tiffin subscriptions and Premium Membership are razorpay-only — Cart's call (no
+  // params) still shows every option as before.
   PaymentMethod: { hideCod?: boolean } | undefined;
   // accessToken, not orderId — this is a public, unauthenticated lookup so it
   // works right after checkout for guests, not just logged-in owners.

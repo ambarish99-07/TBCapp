@@ -6,7 +6,10 @@ const TiffinPlanSchema = new Schema(
   {
     name: { type: String, required: true },
     dietType: { type: String, enum: ["veg", "non-veg"], required: true },
-    style: { type: String, enum: ["single", "twice-daily", "thrice-daily"], required: true },
+    // Which single-meal tier this plan cooks to — defaults to "regular" so every plan created
+    // before this field existed still reads as the Regular tier they always were.
+    tier: { type: String, enum: ["regular", "mini", "premium"], required: true, default: "regular" },
+    style: { type: String, enum: ["single", "twice-daily", "thrice-daily", "lunch-only", "dinner-only"], required: true },
     durationDays: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true, min: 0 },
     salePercent: { type: Number, min: 1, max: 99 },

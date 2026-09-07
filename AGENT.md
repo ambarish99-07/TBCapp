@@ -195,19 +195,38 @@ above — a customer can have one, both, or neither. Mobile Home screen shows Ac
 on the carousel promo card, plus a proactive "expiring in ≤2 days" reminder popup.
 
 ### 4.4 GG Tiffin — subscriptions
-Weekly (7-day) or monthly (30-day) plans, veg or non-veg, single/twice/thrice-daily meal styles.
-Always **Regular tier** (Mini/Premium tiers are single-meal-order-only, see §4.5). Real curated
-weekly menu (`TIFFIN_REGULAR_VEG_MENU` etc. in `packages/shared-types/src/tiffin.ts`) — a specific
-dish per day per meal type, with specific non-veg-day overrides (a real tiffin service doesn't
-serve meat every day). Subscriptions can be paused/resumed, individual days skipped/unskipped, and
-cancelled with a refund policy (`CANCELLATION_FULL_REFUND_WINDOW_DAYS`/`CANCELLATION_REFUND_PERCENT`
-— full refund within the first 15 days, none after; weekly plans can't be cancelled at all).
+Weekly (7-day) or monthly (30-day) plans, veg or non-veg. Each `TiffinPlan` carries a **tier**
+(Regular/Mini/Premium — same three tiers as single-meal ordering, §4.5; `tier` defaults to
+"regular" for backward compatibility with plans created before the field existed) and a **style**:
+`single` (customer picks breakfast/lunch/dinner at subscribe time), `twice-daily` (lunch+dinner,
+fixed), `thrice-daily` (all three, fixed), or `lunch-only`/`dinner-only` (one fixed meal, sold as
+its own catalog entry, no customer choice needed — distinct from picking that same meal via
+`single`). Mini has no breakfast dish configured anywhere in the system, so it only ever offers
+`twice-daily` or a `single`/`lunch-only`/`dinner-only` plan restricted to lunch/dinner — both
+`createPlan`/`updatePlan` (admin) and `createSubscription` (subscribe time) reject a
+tier/style/mealType combination that would need a breakfast dish Mini doesn't have
+(`tiffin.service.ts#assertValidTierStyle`, `#TIER_MEAL_TYPES`). Dish resolution for a subscription
+now builds a per-tier lookup (`tiffinSchedule.ts#buildDishLookupForTier`, snapshotted onto the
+subscription's own `tier` field at subscribe time) instead of always assuming Regular.
+**Razorpay-only** — Cash on Delivery was removed entirely for subscriptions (weekly and monthly
+alike; a same-day single-meal order still allows COD). Real curated weekly menu, one row per
+(tier, dietType, mealType, dayOfWeek) in the `TiffinDish` collection (`tiffinDishSeedData.ts`) — a
+specific dish per day per meal type, with specific non-veg-day overrides (a real tiffin service
+doesn't serve meat every day) and specific per-dish price overrides (`TiffinDish.price`, falls
+back to the shared `TiffinMealPrice` slot price when unset). Subscriptions can be paused/resumed,
+individual days skipped/unskipped, and cancelled with a refund policy
+(`CANCELLATION_FULL_REFUND_WINDOW_DAYS`/`CANCELLATION_REFUND_PERCENT` — full refund within the
+first 15 days, none after; weekly plans can't be cancelled at all). Mobile's Tiffin landing screen
+filters the plan catalog by Weekly/Monthly tabs (`TiffinLandingScreen.tsx`) since the full catalog
+across three tiers runs to ~30 plans.
 
 ### 4.5 GG Tiffin — single-meal ordering (no subscription)
 "Order a Single Meal" — pick tomorrow's (or today's, if before the meal's ordering cutoff, see
 `mealOrderingWindow.ts`, IST-aware) breakfast/lunch/dinner, any of 3 tiers (Regular/Mini/Premium) ×
-2 diets, pay once. Dish resolution (`apps/api/src/modules/tiffin/singleMealMenu.ts#getSingleMealDish`)
-mirrors the subscription menu exactly for Regular tier, with tier-specific non-veg override days.
+2 diets, pay once (COD still allowed here, unlike subscriptions — a same-day order, not an
+up-front commitment). Dish resolution (`apps/api/src/modules/tiffin/singleMealMenu.ts#resolveDishSlot`)
+reads from the same per-tier `TiffinDish` rows a subscription of that same tier resolves against —
+a subscription and a one-off order for the same tier/day/diet/meal never disagree.
 
 - **Dish names shown as bare names** (e.g. "Aloo Gobhi") in checkout/order-history/tracking, but
   the three menu-*browsing* screens (subscription plan preview, Weekly Menu, Order Single Meal's

@@ -1,4 +1,12 @@
-import { TIFFIN_PLAN_DURATIONS, TIFFIN_PLAN_STYLES, type TiffinDietType, type TiffinPlan, type TiffinPlanStyle } from "@tbc/shared-types";
+import {
+  TIFFIN_MEAL_TIERS,
+  TIFFIN_PLAN_DURATIONS,
+  TIFFIN_PLAN_STYLES,
+  type TiffinDietType,
+  type TiffinMealTier,
+  type TiffinPlan,
+  type TiffinPlanStyle,
+} from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { adminClient } from "../api/adminClient.js";
 import { Button } from "../components/ui/Button.js";
@@ -10,15 +18,22 @@ import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 
 const DIET_OPTIONS: TiffinDietType[] = ["veg", "non-veg"];
 
+// Mini has no breakfast dish configured anywhere in the system, so it can't be a thrice-daily
+// plan — the server rejects that combination (see tiffin.service.ts#assertValidTierStyle).
+const TIER_LABELS: Record<TiffinMealTier, string> = { regular: "Regular", mini: "Mini", premium: "Premium" };
+
 const STYLE_LABELS: Record<TiffinPlanStyle, string> = {
   single: "Single (Breakfast, Lunch, or Dinner)",
   "twice-daily": "Twice Daily (Lunch & Dinner)",
   "thrice-daily": "Thrice Daily (Breakfast, Lunch & Dinner)",
+  "lunch-only": "Lunch Only",
+  "dinner-only": "Dinner Only",
 };
 
 const emptyForm = {
   name: "",
   dietType: "veg" as TiffinDietType,
+  tier: "regular" as TiffinMealTier,
   style: TIFFIN_PLAN_STYLES[0] as TiffinPlanStyle,
   durationDays: "7",
   price: "",
@@ -61,6 +76,7 @@ export function TiffinPlansPage() {
       await adminClient.post("/admin/tiffin/plans", {
         name: form.name,
         dietType: form.dietType,
+        tier: form.tier,
         style: form.style,
         durationDays: Number(form.durationDays),
         price: Number(form.price),
@@ -116,6 +132,13 @@ export function TiffinPlansPage() {
             {DIET_OPTIONS.map((diet) => (
               <option key={diet} value={diet}>
                 {diet}
+              </option>
+            ))}
+          </Select>
+          <Select value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value as TiffinMealTier })}>
+            {TIFFIN_MEAL_TIERS.map((tier) => (
+              <option key={tier} value={tier}>
+                {TIER_LABELS[tier]}
               </option>
             ))}
           </Select>
@@ -175,6 +198,7 @@ export function TiffinPlansPage() {
               <Tr>
                 <Th>Name</Th>
                 <Th>Diet</Th>
+                <Th>Tier</Th>
                 <Th>Style</Th>
                 <Th>Duration</Th>
                 <Th>Price</Th>
@@ -189,6 +213,7 @@ export function TiffinPlansPage() {
                   <Tr key={plan.id}>
                     <Td>{plan.name}</Td>
                     <Td>{plan.dietType}</Td>
+                    <Td>{TIER_LABELS[plan.tier] ?? plan.tier}</Td>
                     <Td>{STYLE_LABELS[plan.style]}</Td>
                     <Td>{plan.durationDays} days</Td>
                     <Td>

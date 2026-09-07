@@ -56,7 +56,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.planName).toBe("Weekly Veg Plan");
@@ -78,7 +78,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "dinner", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "dinner", delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.dietType).toBe("non-veg");
@@ -92,7 +92,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", delivery: { ...validDelivery, city: "Mumbai" }, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: { ...validDelivery, city: "Mumbai" }, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(400);
   });
@@ -111,7 +111,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(400);
   });
@@ -120,7 +120,7 @@ describe("POST /tiffin/subscriptions", () => {
     const plan = await seedWeeklyVegPlan();
     const response = await request(app)
       .post("/tiffin/subscriptions")
-      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "razorpay" });
     expect(response.status).toBe(401);
   });
 
@@ -139,7 +139,7 @@ describe("POST /tiffin/subscriptions", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "lunch", delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     // 1000 listed, 20% off — 800 actually charged and stored, not the raw 1000.

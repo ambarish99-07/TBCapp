@@ -66,7 +66,7 @@ export async function getSingleMealMenu(_env: Env): Promise<SingleMealMenuItem[]
         dietType,
         date,
         dishName: dish.dishName,
-        price: price.price,
+        price: dish.price ?? price.price,
         carbChoiceRequired: tier === "mini",
         imageUrl: dish.image,
         addOns: resolveAddOns(addOnPrices, tier, mealType, dish),
@@ -95,6 +95,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
   if (!dish) {
     throw new TiffinValidationError("This meal isn't available right now");
   }
+  const effectivePrice = dish.price ?? price.price;
 
   // Re-resolve the add-on catalog server-side and keep only what the customer actually picked —
   // names and prices are never trusted from the client.
@@ -121,7 +122,7 @@ export async function createSingleMealOrder(env: Env, userId: string, request: C
     status: "placed",
     statusHistory: [{ status: "placed", at: new Date().toISOString() }],
     delivery: request.delivery,
-    price: price.price,
+    price: effectivePrice,
     quantity: request.quantity,
     // Charged once, upfront — same one-time Razorpay order/verify flow as subscriptions and
     // regular orders, not a separate API. COD is trusted immediately; razorpay only becomes

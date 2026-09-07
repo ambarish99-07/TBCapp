@@ -1,10 +1,10 @@
-import type { DeclareTiffinClosureRequest, TiffinMealType } from "@tbc/shared-types";
+import type { DeclareTiffinClosureRequest, TiffinMealTier, TiffinMealType } from "@tbc/shared-types";
 import { TiffinClosureModel } from "../../db/models/TiffinClosure.model.js";
 import { TiffinScheduledMealModel } from "../../db/models/TiffinScheduledMeal.model.js";
 import { TiffinSingleMealOrderModel } from "../../db/models/TiffinSingleMealOrder.model.js";
 import { TiffinSubscriptionModel } from "../../db/models/TiffinSubscription.model.js";
 import { addIsoDays, todayIsoInIst } from "../../utils/istDate.js";
-import { buildRegularDishLookup, computeMealsForRange } from "./tiffinSchedule.js";
+import { buildDishLookupForTier, computeMealsForRange, type TierDishLookup } from "./tiffinSchedule.js";
 
 /** Every ISO calendar date from `startDate` to `endDate`, inclusive. Bounded — a closure is
  * always a handful of days by nature (the request schema doesn't cap it, but 400 days is well
@@ -102,14 +102,28 @@ export async function declareClosure(request: DeclareTiffinClosureRequest) {
   if (closedDaysBySubscription.size > 0) {
     await TiffinScheduledMealModel.updateMany({ date: { $in: closedDates }, status: "scheduled" }, { status: "closed" });
 
-    const dishLookup = await buildRegularDishLookup();
+    // Affected subscriptions can now be any tier (Regular, Mini, Premium) — build each tier's
+    // dish lookup once, lazily, and reuse it across every subscription of that tier instead of
+    // re-querying the DB per subscription.
+    const dishLookupsByTier = new Map<TiffinMealTier, TierDishLookup>();
+    async function dishLookupFor(tier: TiffinMealTier): Promise<TierDishLookup> {
+      const cached = dishLookupsByTier.get(tier);
+      if (cached) return cached;
+      const lookup = await buildDishLookupForTier(tier);
+      dishLookupsByTier.set(tier, lookup);
+      return lookup;
+    }
+
     for (const [subscriptionId, closedDays] of closedDaysBySubscription) {
       const subscription = await TiffinSubscriptionModel.findById(subscriptionId);
       if (!subscription) continue; // shouldn't happen — the meal row's own subscriptionId ref would be dangling.
 
+      const tier = subscription.tier as TiffinMealTier;
+      const dishLookup = await dishLookupFor(tier);
       const nextDay = addIsoDays(subscription.endDate, 1);
       const extraMeals = computeMealsForRange(
         dishLookup,
+        tier,
         subscription.dietType,
         subscription.mealTypes as TiffinMealType[],
         new Date(`${nextDay}T00:00:00Z`),

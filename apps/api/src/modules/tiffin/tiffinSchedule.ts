@@ -1,4 +1,4 @@
-import type { DayOfWeek, TiffinDietType, TiffinMealType } from "@tbc/shared-types";
+import type { DayOfWeek, TiffinDietType, TiffinMealTier, TiffinMealType } from "@tbc/shared-types";
 import { TiffinDishModel } from "../../db/models/TiffinDish.model.js";
 import { TiffinFestivalSpecialModel } from "../../db/models/TiffinFestivalSpecial.model.js";
 
@@ -15,21 +15,23 @@ function toIsoDate(date: Date): string {
 }
 
 /**
- * Keyed by `${dietType}|${dayOfWeek-or-isoDate}|${mealType}` — subscriptions are always Regular
- * tier, so this only ever needs that one tier's rows. Regular weekly rows key off a day name
- * ("Monday"); active festival-special rows (also Regular-tier only) are layered in keyed off
- * their exact ISO date instead — same "two key shapes, one map, no collisions" trick
- * singleMealMenu.ts#SingleMealDishLookup uses, so `computeMealsForRange` picks up a festival
- * dish automatically for any meal it generates on that date, no separate lookup needed.
+ * Keyed by `${dietType}|${dayOfWeek-or-isoDate}|${mealType}` — a subscription is always pinned to
+ * one fixed tier for its whole lifetime (snapshotted from its plan at subscribe time), so this
+ * only ever needs that one tier's rows at a time; build a fresh lookup per tier rather than one
+ * shared map for all three. Regular weekly rows key off a day name ("Monday"); active
+ * festival-special rows for the same tier are layered in keyed off their exact ISO date instead —
+ * same "two key shapes, one map, no collisions" trick singleMealMenu.ts#SingleMealDishLookup uses,
+ * so `computeMealsForRange` picks up a festival dish automatically for any meal it generates on
+ * that date, no separate lookup needed.
  */
-export type RegularDishLookup = Map<string, string>;
+export type TierDishLookup = Map<string, string>;
 
-export async function buildRegularDishLookup(): Promise<RegularDishLookup> {
+export async function buildDishLookupForTier(tier: TiffinMealTier): Promise<TierDishLookup> {
   const [dishes, specials] = await Promise.all([
-    TiffinDishModel.find({ tier: "regular" }).select("dietType dayOfWeek mealType dishName").lean(),
-    TiffinFestivalSpecialModel.find({ tier: "regular", active: true }).select("dietType date mealType dishName").lean(),
+    TiffinDishModel.find({ tier }).select("dietType dayOfWeek mealType dishName").lean(),
+    TiffinFestivalSpecialModel.find({ tier, active: true }).select("dietType date mealType dishName").lean(),
   ]);
-  const lookup: RegularDishLookup = new Map(dishes.map((d) => [`${d.dietType}|${d.dayOfWeek}|${d.mealType}`, d.dishName]));
+  const lookup: TierDishLookup = new Map(dishes.map((d) => [`${d.dietType}|${d.dayOfWeek}|${d.mealType}`, d.dishName]));
   for (const special of specials) {
     lookup.set(`${special.dietType}|${special.date}|${special.mealType}`, special.dishName);
   }
@@ -37,14 +39,17 @@ export async function buildRegularDishLookup(): Promise<RegularDishLookup> {
 }
 
 /**
- * What GG Tiffin serves on a given day/meal, per the real curated Regular Tiffin menu
- * (subscriptions are always Regular tier). Matches singleMealMenu.ts#resolveDishSlot's
- * Regular-tier behavior exactly, since both now read from the same `TiffinDish` collection — a
- * subscription and a one-off single-meal order for the same day/diet/meal never disagree.
+ * What GG Tiffin serves on a given day/meal, per the real curated menu for whichever tier
+ * `lookup` was built for. Matches singleMealMenu.ts#resolveDishSlot's behavior for that same tier
+ * exactly, since both now read from the same `TiffinDish` collection — a subscription and a
+ * one-off single-meal order for the same tier/day/diet/meal never disagree. Throws only for a
+ * combination that structurally doesn't exist (e.g. Mini + breakfast) — callers that accept a
+ * plan's tier from the catalog validate that up front (see tiffin.service.ts) so this should never
+ * actually be reached with an invalid combination in practice.
  */
-export function dishForDay(lookup: RegularDishLookup, dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
+export function dishForDay(lookup: TierDishLookup, tier: TiffinMealTier, dietType: TiffinDietType, dayName: string, mealType: TiffinMealType): string {
   const dish = lookup.get(`${dietType}|${dayName}|${mealType}`);
-  if (!dish) throw new Error(`No Regular-tier dish configured for ${dietType}/${dayName}/${mealType}`);
+  if (!dish) throw new Error(`No ${tier}-tier dish configured for ${dietType}/${dayName}/${mealType}`);
   return dish;
 }
 
@@ -61,7 +66,8 @@ export function dishForDay(lookup: RegularDishLookup, dietType: TiffinDietType, 
  * a subscription's schedule was baked in.
  */
 export function computeMealsForRange(
-  lookup: RegularDishLookup,
+  lookup: TierDishLookup,
+  tier: TiffinMealTier,
   dietType: TiffinDietType,
   mealTypes: TiffinMealType[],
   startDate: Date,
@@ -74,7 +80,7 @@ export function computeMealsForRange(
     const isoDate = toIsoDate(date);
     const dayName = DAY_NAMES[date.getUTCDay()] as DayOfWeek;
     for (const mealType of mealTypes) {
-      const dishName = lookup.get(`${dietType}|${isoDate}|${mealType}`) ?? dishForDay(lookup, dietType, dayName, mealType);
+      const dishName = lookup.get(`${dietType}|${isoDate}|${mealType}`) ?? dishForDay(lookup, tier, dietType, dayName, mealType);
       meals.push({ date: isoDate, mealType, dishName });
     }
   }
@@ -90,14 +96,15 @@ export function computeMealsForRange(
  * skip-and-extend that declareClosure applies to subscriptions that existed before the closure.
  */
 export function computeMealsForRangeSkippingClosedDates(
-  lookup: RegularDishLookup,
+  lookup: TierDishLookup,
+  tier: TiffinMealTier,
   dietType: TiffinDietType,
   mealTypes: TiffinMealType[],
   startDate: Date,
   durationDays: number,
   closedDates: ReadonlySet<string>
 ): ScheduledMealDraft[] {
-  if (closedDates.size === 0) return computeMealsForRange(lookup, dietType, mealTypes, startDate, durationDays);
+  if (closedDates.size === 0) return computeMealsForRange(lookup, tier, dietType, mealTypes, startDate, durationDays);
 
   const meals: ScheduledMealDraft[] = [];
   let deliverableDaysGenerated = 0;
@@ -114,7 +121,7 @@ export function computeMealsForRangeSkippingClosedDates(
 
     const dayName = DAY_NAMES[date.getUTCDay()] as DayOfWeek;
     for (const mealType of mealTypes) {
-      const dishName = lookup.get(`${dietType}|${isoDate}|${mealType}`) ?? dishForDay(lookup, dietType, dayName, mealType);
+      const dishName = lookup.get(`${dietType}|${isoDate}|${mealType}`) ?? dishForDay(lookup, tier, dietType, dayName, mealType);
       meals.push({ date: isoDate, mealType, dishName });
     }
     deliverableDaysGenerated += 1;

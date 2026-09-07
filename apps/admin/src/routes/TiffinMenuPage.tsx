@@ -94,6 +94,7 @@ export function TiffinMenuPage() {
       dayOfWeek: merged.dayOfWeek,
       dishName: merged.dishName,
       image: merged.image,
+      price: merged.price,
       hasAddOns: merged.hasAddOns,
       riceSubstitute: merged.riceSubstitute,
       extraAddOnName: merged.extraAddOnName,
@@ -205,6 +206,21 @@ export function TiffinMenuPage() {
                 onBlur={(e) => e.target.value.trim() && e.target.value !== selected.dishName && saveSelected({ dishName: e.target.value.trim() })}
                 placeholder="Dish name"
               />
+              <div>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Price Override (₹)</p>
+                <Input
+                  key={selected.id}
+                  type="number"
+                  min={0}
+                  defaultValue={selected.price ?? ""}
+                  placeholder={`Falls back to the ${selected.tier}/${selected.mealType} slot price`}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    const parsed = raw === "" ? undefined : Number(raw);
+                    if (parsed !== selected.price) saveSelected({ price: parsed });
+                  }}
+                />
+              </div>
               <div className="flex items-center gap-3">
                 {selected.image && <img src={selected.image} alt={selected.dishName} className="h-16 w-16 rounded-lg object-cover" />}
                 <input

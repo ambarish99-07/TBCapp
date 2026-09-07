@@ -58,7 +58,7 @@ describe("plan style", () => {
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
       // mealType is irrelevant for a twice-daily plan — omitted deliberately.
-      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.mealTypes).toEqual(["lunch", "dinner"]);
@@ -88,7 +88,7 @@ describe("plan style", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.mealTypes).toEqual(["breakfast", "lunch", "dinner"]);
@@ -116,7 +116,7 @@ describe("plan style", () => {
     const response = await request(app)
       .post("/tiffin/subscriptions")
       .set("Authorization", `Bearer ${token}`)
-      .send({ planId: plan.id, mealType: "breakfast", delivery: validDelivery, paymentMethod: "cod" });
+      .send({ planId: plan.id, mealType: "breakfast", delivery: validDelivery, paymentMethod: "razorpay" });
 
     expect(response.status).toBe(201);
     expect(response.body.subscription.mealTypes).toEqual(["breakfast"]);

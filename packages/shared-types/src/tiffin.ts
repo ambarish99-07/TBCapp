@@ -7,13 +7,23 @@ export type TiffinMealType = z.infer<typeof TiffinMealTypeSchema>;
 
 /** "single" = one meal a day, the customer's choice of breakfast, lunch, or dinner (see
  * `CreateTiffinSubscriptionRequestSchema.mealType`). "twice-daily" = lunch and dinner every day,
- * no choice needed. "thrice-daily" = breakfast, lunch, and dinner every day. */
-export const TIFFIN_PLAN_STYLES = ["single", "twice-daily", "thrice-daily"] as const;
+ * no choice needed. "thrice-daily" = breakfast, lunch, and dinner every day. "lunch-only" and
+ * "dinner-only" are each a fixed single meal, like "twice-daily"/"thrice-daily" — no customer
+ * choice needed, sold as their own distinct catalog entries rather than a "single" plan the
+ * customer happens to always pick the same meal on. */
+export const TIFFIN_PLAN_STYLES = ["single", "twice-daily", "thrice-daily", "lunch-only", "dinner-only"] as const;
 export const TiffinPlanStyleSchema = z.enum(TIFFIN_PLAN_STYLES);
 export type TiffinPlanStyle = z.infer<typeof TiffinPlanStyleSchema>;
 
 export const TiffinDietTypeSchema = z.enum(["veg", "non-veg"]);
 export type TiffinDietType = z.infer<typeof TiffinDietTypeSchema>;
+
+/** Three tiers, shared by both the one-off single-meal purchase catalog and (as of the Mini
+ * subscription addition) the plan catalog below — Regular/Mini/Premium. Moved up here (ahead of
+ * `TiffinPlanSchema`) so both can reference it; declared once for the whole file. */
+export const TIFFIN_MEAL_TIERS = ["regular", "mini", "premium"] as const;
+export const TiffinMealTierSchema = z.enum(TIFFIN_MEAL_TIERS);
+export type TiffinMealTier = z.infer<typeof TiffinMealTierSchema>;
 
 export const TIFFIN_PLAN_DURATIONS = { weekly: 7, monthly: 30 } as const;
 
@@ -34,6 +44,12 @@ export const TiffinPlanSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   dietType: TiffinDietTypeSchema,
+  /** Which of the single-meal purchase catalog's three tiers this subscription cooks to —
+   * defaults to "regular" so every plan created before this field existed still reads as the
+   * Regular tier they always were. Mini has no breakfast dish configured anywhere in the system,
+   * so a Mini-tier plan can only be "twice-daily" or a "single" plan restricted to lunch/dinner —
+   * enforced in tiffin.service.ts#createPlan/updatePlan and #createSubscription, not here. */
+  tier: TiffinMealTierSchema.default("regular"),
   style: TiffinPlanStyleSchema,
   durationDays: z.number().int().positive(),
   /** Flat price for the whole plan duration — never hardcoded in application code, always admin-editable. */
@@ -53,6 +69,7 @@ export type TiffinPlan = z.infer<typeof TiffinPlanSchema>;
 export const CreateTiffinPlanRequestSchema = z.object({
   name: z.string().min(1),
   dietType: TiffinDietTypeSchema,
+  tier: TiffinMealTierSchema.default("regular"),
   style: TiffinPlanStyleSchema,
   durationDays: z.number().int().positive(),
   price: z.number().positive(),
@@ -126,6 +143,9 @@ export const TiffinSubscriptionSchema = z.object({
   /** Snapshotted at subscribe time — a later plan-name edit shouldn't retroactively rewrite a past subscription's display. */
   planName: z.string(),
   dietType: TiffinDietTypeSchema,
+  /** Snapshotted from the plan at subscribe time — defaults to "regular" so a subscription
+   * created before this field existed still reads as the Regular tier it always was. */
+  tier: TiffinMealTierSchema.default("regular"),
   style: TiffinPlanStyleSchema,
   /** What was actually subscribed — one element for a "single" plan, all three for "thrice-daily". */
   mealTypes: z.array(TiffinMealTypeSchema).min(1),
@@ -147,12 +167,6 @@ export const TiffinSubscriptionSchema = z.object({
 export type TiffinSubscription = z.infer<typeof TiffinSubscriptionSchema>;
 
 // --- Single-meal purchase (a one-off tiffin, no subscription) ---
-
-/** Three tiers of the one-off single-meal purchase — entirely separate from the subscription
- * catalog above, which stays Regular-only and untiered. */
-export const TIFFIN_MEAL_TIERS = ["regular", "mini", "premium"] as const;
-export const TiffinMealTierSchema = z.enum(TIFFIN_MEAL_TIERS);
-export type TiffinMealTier = z.infer<typeof TiffinMealTierSchema>;
 
 /** Same values as `TiffinMealTypeSchema` but kept as its own named schema — single-meal
  * purchases and subscriptions are unrelated features with independent lifecycles, so a change to
@@ -178,10 +192,10 @@ export type DayOfWeek = z.infer<typeof DayOfWeekSchema>;
 /**
  * One admin-editable slot in GG Tiffin's single-meal weekly rotation — "on {dayOfWeek}, a
  * {dietType} {tier} customer's {mealType} is {dishName}." This is the one source of truth for
- * both the single-meal purchase menu and (via its `tier: "regular"` rows) subscription meal
- * scheduling — replaces what used to be hardcoded weekly-menu tables plus several cascading
- * "override" tables duplicated across the API and mobile app. Not every (tier, mealType)
- * combination has a row — Mini has no breakfast at all.
+ * both the single-meal purchase menu and — via whichever tier's rows a given `TiffinPlan.tier`
+ * points at — subscription meal scheduling, replacing what used to be hardcoded weekly-menu
+ * tables plus several cascading "override" tables duplicated across the API and mobile app. Not
+ * every (tier, mealType) combination has a row — Mini has no breakfast at all.
  */
 export const TiffinDishSchema = z.object({
   id: z.string(),
@@ -192,6 +206,10 @@ export const TiffinDishSchema = z.object({
   dishName: z.string().min(1),
   /** Real dish photography — every slot gets one, uploaded from the admin panel. */
   image: z.string().optional(),
+  /** Per-dish price override — when set, this replaces the shared (tier, mealType)
+   * `TiffinMealPrice` slot price for this specific dish. Left unset for most dishes, which still
+   * fall back to the shared slot price; set only where the admin has priced an individual dish. */
+  price: z.number().positive().optional(),
   /** False only for a dish that's already a complete two-part meal on its own (e.g. "Puri with
    * Chole") — every other dish offers the usual staples + a top-up as add-ons. */
   hasAddOns: z.boolean().default(true),

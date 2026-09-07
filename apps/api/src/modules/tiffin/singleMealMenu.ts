@@ -15,6 +15,9 @@ export function dayNameForDate(date: string): DayOfWeek {
 export interface DishSlot {
   dishName: string;
   image?: string;
+  /** Per-dish price override — when set, takes precedence over the shared (tier, mealType)
+   * TiffinMealPrice slot price. Unset for most dishes/specials, which fall back to that price. */
+  price?: number;
   hasAddOns: boolean;
   riceSubstitute: "rice" | "pulao";
   extraAddOnName?: string;
@@ -42,6 +45,7 @@ export async function buildSingleMealDishLookup(): Promise<SingleMealDishLookup>
     lookup.set(dishSlotKey(dish.tier as TiffinMealTier, dish.dietType as TiffinDietType, dish.mealType as SingleMealType, dish.dayOfWeek as DayOfWeek), {
       dishName: dish.dishName,
       image: dish.image ?? undefined,
+      price: dish.price ?? undefined,
       hasAddOns: dish.hasAddOns,
       riceSubstitute: dish.riceSubstitute as "rice" | "pulao",
       extraAddOnName: dish.extraAddOnName ?? undefined,

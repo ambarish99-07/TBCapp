@@ -14,6 +14,9 @@ const TiffinDishSchema = new Schema(
     },
     dishName: { type: String, required: true },
     image: { type: String },
+    /** Per-dish price override — when set, takes precedence over the shared (tier, mealType)
+     * TiffinMealPrice slot price for this specific dish. Unset for most dishes. */
+    price: { type: Number, min: 0 },
     hasAddOns: { type: Boolean, required: true, default: true },
     riceSubstitute: { type: String, enum: ["rice", "pulao"], required: true, default: "rice" },
     extraAddOnName: { type: String },

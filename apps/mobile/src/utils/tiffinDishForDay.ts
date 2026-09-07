@@ -23,12 +23,13 @@ export function singleMealDishForDay(
   return lookup.get(`${tier}|${dietType}|${mealType}|${day}`) ?? null;
 }
 
-/** Subscriptions are always Regular tier — a thin wrapper so the plan preview schedule doesn't
- * need to know tiers exist. Regular always resolves to a real dish (only Mini can be null, and
- * only for breakfast), so this is safe to type as non-nullable. */
-export function dishForDay(lookup: WeeklyMenuLookup, dietType: TiffinDietType, day: DayOfWeek, mealType: TiffinMealType): TiffinDish {
-  const dish = singleMealDishForDay(lookup, "regular", dietType, day, mealType);
-  if (dish === null) throw new Error("unreachable: Regular tier always has a dish for every meal type");
+/** A subscription plan is pinned to one fixed tier (`TiffinPlan.tier`) — this is a thin wrapper
+ * around `singleMealDishForDay` for the plan preview schedule. Only Mini + breakfast can be null,
+ * and the plan-select screen already hides breakfast as a choice for Mini plans, so this is safe
+ * to type as non-nullable for any tier/mealType combination a real plan can actually offer. */
+export function dishForDay(lookup: WeeklyMenuLookup, tier: TiffinMealTier, dietType: TiffinDietType, day: DayOfWeek, mealType: TiffinMealType): TiffinDish {
+  const dish = singleMealDishForDay(lookup, tier, dietType, day, mealType);
+  if (dish === null) throw new Error(`unreachable: ${tier} tier has no dish configured for ${dietType}/${day}/${mealType}`);
   return dish;
 }
 

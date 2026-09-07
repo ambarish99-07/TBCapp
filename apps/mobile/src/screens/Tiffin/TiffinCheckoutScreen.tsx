@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { TIFFIN_PLAN_DURATIONS, type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
+import type { TiffinMealType, TiffinPlanStyle } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
@@ -28,6 +28,8 @@ const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast
 function styleMetaLabel(style: TiffinPlanStyle, mealType: TiffinMealType | undefined): string {
   if (style === "twice-daily") return "Lunch & Dinner";
   if (style === "thrice-daily") return "Breakfast, Lunch & Dinner";
+  if (style === "lunch-only") return "Lunch Only";
+  if (style === "dinner-only") return "Dinner Only";
   return MEAL_TYPE_LABELS[mealType ?? "lunch"];
 }
 
@@ -54,8 +56,9 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
   const bellRotate = useRef(new Animated.Value(0)).current;
   const viewTiffinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileComplete = hasCompleteAddress(user);
-  const isMonthly = plan?.durationDays === TIFFIN_PLAN_DURATIONS.monthly;
-  const codBlocked = isMonthly && selectedPaymentOption?.apiMethod === "cod";
+  // GG Tiffin subscriptions are razorpay-only, weekly or monthly alike — unlike a same-day
+  // single-meal order, a subscription is a real up-front commitment, so COD is never offered here.
+  const codBlocked = selectedPaymentOption?.apiMethod === "cod";
   const canProceed = profileComplete && !!selectedPaymentOption && !codBlocked;
 
   useEffect(() => () => {
@@ -173,11 +176,11 @@ export function TiffinCheckoutScreen({ route, navigation }: Props) {
       )}
 
       {codBlocked && (
-        <Text style={styles.codBlockedNotice}>Cash on Delivery isn't available for monthly plans — please choose another payment method.</Text>
+        <Text style={styles.codBlockedNotice}>Cash on Delivery isn't available for subscriptions — please choose another payment method.</Text>
       )}
 
       <View style={styles.actionRow}>
-        <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod", { hideCod: isMonthly })}>
+        <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod", { hideCod: true })}>
           <Text style={styles.payUsingLabel}>Pay via</Text>
           <View style={styles.payUsingValueRow}>
             <Text style={styles.payUsingValue} numberOfLines={1}>

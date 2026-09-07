@@ -48,7 +48,7 @@ async function subscribeToWeeklyVeg(token: string) {
   const response = await request(app)
     .post("/tiffin/subscriptions")
     .set("Authorization", `Bearer ${token}`)
-    .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "cod" });
+    .send({ planId: plan.id, mealType: "lunch", sundayVegChoice: "paneer", delivery: validDelivery, paymentMethod: "razorpay" });
   const meals = await request(app)
     .get(`/tiffin/subscriptions/${response.body.subscription.id}/meals`)
     .set("Authorization", `Bearer ${token}`);

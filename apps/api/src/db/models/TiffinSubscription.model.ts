@@ -41,7 +41,10 @@ const TiffinSubscriptionSchema = new Schema(
     // rewrite what a past subscriber actually signed up for and paid.
     planName: { type: String, required: true },
     dietType: { type: String, enum: ["veg", "non-veg"], required: true },
-    style: { type: String, enum: ["single", "twice-daily", "thrice-daily"], required: true },
+    // Snapshotted from the plan at subscribe time — defaults to "regular" so a subscription
+    // created before this field existed still reads as the Regular tier it always was.
+    tier: { type: String, enum: ["regular", "mini", "premium"], required: true, default: "regular" },
+    style: { type: String, enum: ["single", "twice-daily", "thrice-daily", "lunch-only", "dinner-only"], required: true },
     // What was actually subscribed — one element for "single", all three for "thrice-daily".
     mealTypes: { type: [String], enum: ["breakfast", "lunch", "dinner"], required: true },
     status: { type: String, enum: ["active", "paused", "completed", "cancelled"], required: true, default: "active" },

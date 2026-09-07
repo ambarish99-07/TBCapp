@@ -93,15 +93,18 @@ describe("GET /tiffin/single-meal/menu", () => {
 
     expect(find("mini", "breakfast", "veg")).toBeUndefined();
     expect(find("mini", "breakfast", "non-veg")).toBeUndefined();
-    // Breakfast is diet-agnostic except Wednesday, where non-veg keeps the old Bread Omelette
-    // instead of veg's Upma — "tomorrow" could be any day when this test runs, so branch on it
-    // rather than assuming every day matches. Breakfast never offers add-ons either way.
+    // Breakfast is diet-agnostic except Wednesday (non-veg keeps Bread Omelette instead of veg's
+    // Upma) and Tuesday (non-veg gets Chicken Sandwich, veg's own alternative of Sandwich) —
+    // "tomorrow" could be any day when this test runs, so branch on it rather than assuming every
+    // day matches. Breakfast never offers add-ons either way.
     const vegBreakfast: MenuItem = find("regular", "breakfast", "veg");
     const nonVegBreakfast: MenuItem = find("regular", "breakfast", "non-veg");
     expect(vegBreakfast.addOns).toEqual([]);
     expect(nonVegBreakfast.addOns).toEqual([]);
     if (vegBreakfast.dishName === "Upma") {
       expect(nonVegBreakfast.dishName).toBe("Bread Omelette");
+    } else if (vegBreakfast.dishName === "Sandwich") {
+      expect(nonVegBreakfast.dishName).toBe("Chicken Sandwich");
     } else {
       expect(nonVegBreakfast.dishName).toBe(vegBreakfast.dishName);
     }
@@ -113,6 +116,14 @@ describe("POST /tiffin/single-meal/orders", () => {
     await seedPrices();
     const token = await signup("regular-order@example.com", "9812400050");
 
+    // Several dishes now carry their own price override that differs from the shared (tier,
+    // mealType) slot price of 129 — whichever dish "tomorrow" resolves to, the order's price must
+    // match what the menu itself quotes for that exact slot, not a single hardcoded number.
+    const menu = await request(app).get("/tiffin/single-meal/menu");
+    const expectedPrice = menu.body.menu.find(
+      (item: { tier: string; mealType: string; dietType: string }) => item.tier === "regular" && item.mealType === "lunch" && item.dietType === "veg"
+    ).price;
+
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
@@ -120,7 +131,7 @@ describe("POST /tiffin/single-meal/orders", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.order.orderNumber).toMatch(/^GTM-/);
-    expect(response.body.order.price).toBe(129);
+    expect(response.body.order.price).toBe(expectedPrice);
     expect(response.body.order.quantity).toBe(1);
     // No selectedAddOns sent — nothing gets added on by default.
     expect(response.body.order.addOns).toEqual([]);
@@ -162,13 +173,20 @@ describe("POST /tiffin/single-meal/orders", () => {
     await seedPrices();
     const token = await signup("quantity-order@example.com", "9812400054");
 
+    // Same reasoning as the COD test above — read the actual quoted price off the menu rather
+    // than assuming every day's veg lunch dish shares the generic slot price.
+    const menu = await request(app).get("/tiffin/single-meal/menu");
+    const expectedPrice = menu.body.menu.find(
+      (item: { tier: string; mealType: string; dietType: string }) => item.tier === "regular" && item.mealType === "lunch" && item.dietType === "veg"
+    ).price;
+
     const response = await request(app)
       .post("/tiffin/single-meal/orders")
       .set("Authorization", `Bearer ${token}`)
       .send({ tier: "regular", mealType: "lunch", dietType: "veg", quantity: 3, delivery: validDelivery, paymentMethod: "cod" });
 
     expect(response.status).toBe(201);
-    expect(response.body.order.price).toBe(129);
+    expect(response.body.order.price).toBe(expectedPrice);
     expect(response.body.order.quantity).toBe(3);
 
     const tooMany = await request(app)

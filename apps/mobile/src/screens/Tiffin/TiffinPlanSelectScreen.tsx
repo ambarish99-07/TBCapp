@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
+import { type TiffinMealTier, type TiffinMealType, type TiffinPlanStyle } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTiffinPlans, useTiffinWeeklyMenu } from "../../api/tiffin.api";
@@ -13,10 +13,15 @@ type Props = NativeStackScreenProps<RootStackParamList, "TiffinPlanSelect">;
 
 const MEAL_TYPE_CHOICES: TiffinMealType[] = ["breakfast", "lunch", "dinner"];
 const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+// The plan's name already says "Mini"/nothing for the other two, but showing it in the meta line
+// too matches how the single-meal ordering screen always labels its tier tabs.
+const TIER_LABELS: Record<TiffinMealTier, string> = { regular: "Regular", mini: "Mini Meal", premium: "Premium" };
 
 function styleMetaLabel(style: TiffinPlanStyle): string {
   if (style === "twice-daily") return "Lunch & Dinner";
   if (style === "thrice-daily") return "Breakfast, Lunch & Dinner";
+  if (style === "lunch-only") return "Lunch Only";
+  if (style === "dinner-only") return "Dinner Only";
   return "Breakfast, Lunch, or Dinner";
 }
 
@@ -25,6 +30,8 @@ function styleMetaLabel(style: TiffinPlanStyle): string {
 function resolveMealTypesForPreview(style: TiffinPlanStyle, mealType: TiffinMealType): TiffinMealType[] {
   if (style === "twice-daily") return ["lunch", "dinner"];
   if (style === "thrice-daily") return ["breakfast", "lunch", "dinner"];
+  if (style === "lunch-only") return ["lunch"];
+  if (style === "dinner-only") return ["dinner"];
   return [mealType];
 }
 
@@ -55,6 +62,9 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
   }
 
   const scheduledMealTypes = resolveMealTypesForPreview(plan.style, mealType);
+  // Mini has no breakfast dish configured anywhere in the system — hide it as a choice for a
+  // Mini-tier "single" plan, matching what the server would reject anyway.
+  const mealTypeChoices = plan.tier === "mini" ? MEAL_TYPE_CHOICES.filter((choice) => choice !== "breakfast") : MEAL_TYPE_CHOICES;
 
   function handleContinue() {
     navigation.navigate("TiffinCheckout", {
@@ -67,7 +77,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{plan.name}</Text>
       <Text style={styles.meta}>
-        {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style)}
+        {TIER_LABELS[plan.tier]} · {plan.dietType === "veg" ? "Veg" : "Non-Veg"} · {plan.durationDays} days · {styleMetaLabel(plan.style)}
       </Text>
       {plan.salePercent ? (
         <View style={styles.priceRow}>
@@ -83,9 +93,9 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
 
       {plan.style === "single" && (
         <>
-          <Text style={styles.sectionTitle}>Choose Breakfast, Lunch, or Dinner</Text>
+          <Text style={styles.sectionTitle}>{plan.tier === "mini" ? "Choose Lunch or Dinner" : "Choose Breakfast, Lunch, or Dinner"}</Text>
           <View style={styles.choiceRow}>
-            {MEAL_TYPE_CHOICES.map((choice) => (
+            {mealTypeChoices.map((choice) => (
               <Pressable
                 key={choice}
                 onPress={() => setMealType(choice)}
@@ -107,7 +117,7 @@ export function TiffinPlanSelectScreen({ route, navigation }: Props) {
           {scheduledMealTypes.map((type) => (
             <View key={type} style={styles.scheduleRow}>
               <Text style={styles.scheduleMealType}>{scheduledMealTypes.length > 1 ? MEAL_TYPE_LABELS[type] : ""}</Text>
-              <Text style={styles.scheduleDish}>{composeFullDishName("regular", type, dishForDay(lookup, plan.dietType, day, type))}</Text>
+              <Text style={styles.scheduleDish}>{composeFullDishName(plan.tier, type, dishForDay(lookup, plan.tier, plan.dietType, day, type))}</Text>
             </View>
           ))}
         </View>

@@ -6,7 +6,9 @@ import {
   type CreateTiffinPlanRequest,
   type CreateTiffinSubscriptionRequest,
   type PauseTiffinSubscriptionRequest,
+  type TiffinMealTier,
   type TiffinMealType,
+  type TiffinPlanStyle,
   type UpdateTiffinPlanRequest,
 } from "@tbc/shared-types";
 import type { Env } from "../../config/env.js";
@@ -19,9 +21,25 @@ import { assertWithinDeliveryZone } from "../orders/deliveryZone.js";
 import { createRazorpayOrder } from "../payments/razorpay.client.js";
 import { verifyRazorpaySignature } from "../payments/verifySignature.js";
 import { generateSubscriptionNumber } from "./subscriptionNumber.js";
-import { buildRegularDishLookup, computeMealsForRange, computeMealsForRangeSkippingClosedDates } from "./tiffinSchedule.js";
+import { buildDishLookupForTier, computeMealsForRange, computeMealsForRangeSkippingClosedDates } from "./tiffinSchedule.js";
 import { getUpcomingClosedDates } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
+
+/** Mini has no breakfast dish configured anywhere in the system (see TiffinDish/tiffinDishForDay)
+ * — Regular and Premium offer all three. Used to reject a Mini plan/subscription that would need
+ * a breakfast dish that structurally doesn't exist, with a clear message instead of the internal
+ * "No {tier}-tier dish configured" error tiffinSchedule.ts#dishForDay would otherwise throw. */
+const TIER_MEAL_TYPES: Record<TiffinMealTier, TiffinMealType[]> = {
+  regular: ["breakfast", "lunch", "dinner"],
+  mini: ["lunch", "dinner"],
+  premium: ["breakfast", "lunch", "dinner"],
+};
+
+function assertValidTierStyle(tier: TiffinMealTier, style: TiffinPlanStyle) {
+  if (tier === "mini" && style === "thrice-daily") {
+    throw new TiffinValidationError("Mini doesn't offer breakfast, so it can't be a thrice-daily plan — choose Twice Daily or Single instead");
+  }
+}
 
 /** How far in advance a scheduled meal must still be for a customer to skip it — configurable
  * in this one place, not hardcoded inline wherever the check happens. */
@@ -38,11 +56,13 @@ function resolvePlanPrice(plan: { price: number; salePercent?: number | null }):
   return round(plan.price * (1 - plan.salePercent / 100));
 }
 
-/** "single" needs the customer's breakfast/lunch/dinner choice; "twice-daily"/"thrice-daily"
- * always schedule their fixed set, regardless of what (if anything) was sent. */
-function resolveMealTypes(style: "single" | "twice-daily" | "thrice-daily", requestedMealType: TiffinMealType | undefined): TiffinMealType[] {
+/** "single" needs the customer's breakfast/lunch/dinner choice; every other style always
+ * schedules its own fixed set, regardless of what (if anything) was sent. */
+function resolveMealTypes(style: TiffinPlanStyle, requestedMealType: TiffinMealType | undefined): TiffinMealType[] {
   if (style === "twice-daily") return ["lunch", "dinner"];
   if (style === "thrice-daily") return ["breakfast", "lunch", "dinner"];
+  if (style === "lunch-only") return ["lunch"];
+  if (style === "dinner-only") return ["dinner"];
   if (!requestedMealType) {
     throw new TiffinValidationError("Please choose Breakfast, Lunch, or Dinner for this plan");
   }
@@ -54,10 +74,17 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   if (!plan || !plan.active) {
     throw new TiffinValidationError("This plan is not currently available");
   }
-  if (plan.durationDays === TIFFIN_PLAN_DURATIONS.monthly && request.paymentMethod === "cod") {
-    throw new TiffinValidationError("Cash on Delivery isn't available for monthly plans — please pay online");
+  // GG Tiffin subscriptions (weekly and monthly alike) are razorpay-only — a subscription is a
+  // real up-front commitment, unlike a same-day single-meal order, which still allows COD.
+  if (request.paymentMethod === "cod") {
+    throw new TiffinValidationError("GG Tiffin subscriptions can only be paid online — Cash on Delivery isn't available");
   }
+  const tier = plan.tier as TiffinMealTier;
   const mealTypes = resolveMealTypes(plan.style, request.mealType);
+  const unavailableMealType = mealTypes.find((mealType) => !TIER_MEAL_TYPES[tier].includes(mealType));
+  if (unavailableMealType) {
+    throw new TiffinValidationError(`${tier === "mini" ? "Mini" : tier} doesn't offer ${unavailableMealType} — please choose a different meal type`);
+  }
 
   // Same zone check every TBC/TAT order already goes through — imported, not duplicated.
   assertWithinDeliveryZone(request.delivery);
@@ -70,11 +97,11 @@ export async function createSubscription(env: Env, userId: string, request: Crea
   const startDate = new Date();
   startDate.setUTCHours(0, 0, 0, 0);
   startDate.setUTCDate(startDate.getUTCDate() + 1);
-  const [dishLookup, closedDates] = await Promise.all([buildRegularDishLookup(), getUpcomingClosedDates()]);
+  const [dishLookup, closedDates] = await Promise.all([buildDishLookupForTier(tier), getUpcomingClosedDates()]);
   // A brand-new subscription skips any already-declared closure from day one — it's generated
   // correctly the first time instead of needing the same retroactive extension declareClosure
   // applies to subscriptions that already existed when the closure was announced.
-  const meals = computeMealsForRangeSkippingClosedDates(dishLookup, plan.dietType, mealTypes, startDate, plan.durationDays, closedDates);
+  const meals = computeMealsForRangeSkippingClosedDates(dishLookup, tier, plan.dietType, mealTypes, startDate, plan.durationDays, closedDates);
 
   const subscription = await TiffinSubscriptionModel.create({
     subscriptionNumber: generateSubscriptionNumber(),
@@ -82,6 +109,7 @@ export async function createSubscription(env: Env, userId: string, request: Crea
     planId: plan._id,
     planName: plan.name,
     dietType: plan.dietType,
+    tier,
     style: plan.style,
     mealTypes,
     status: "active",
@@ -93,22 +121,13 @@ export async function createSubscription(env: Env, userId: string, request: Crea
     price: resolvePlanPrice(plan),
     // A subscription is charged once, upfront, for the full price — the same one-time Razorpay
     // order/verify flow orders already use (see postTiffinRazorpayOrder/postTiffinRazorpayVerify
-    // below), not a separate recurring-billing API. COD is trusted immediately, same as orders;
-    // razorpay only becomes "paid" after signature verification succeeds.
+    // below), not a separate recurring-billing API. Subscriptions are razorpay-only (COD was
+    // rejected above), so payment always starts "pending" and only becomes "paid" once
+    // verifyTiffinRazorpayPayment confirms the signature — the WhatsApp alert fires there, not here.
     payment: { method: request.paymentMethod, status: "pending" },
   });
 
   await TiffinScheduledMealModel.insertMany(meals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
-
-  if (request.paymentMethod === "cod") {
-    sendNewTiffinSubscriptionAlert(env, {
-      subscriptionNumber: subscription.subscriptionNumber,
-      customerName: user.fullName,
-      planName: plan.name,
-    }).catch((err) => console.error("[tiffin] new-subscription alert threw unexpectedly:", err));
-  }
-  // razorpay subscriptions: the WhatsApp alert fires only in verifyTiffinRazorpayPayment,
-  // after signature verification succeeds — same pattern as modules/payments/verifySignature.ts.
 
   return subscription;
 }
@@ -251,8 +270,15 @@ export async function pauseSubscription(userId: string, subscriptionId: string, 
     const pausedDayCount = new Set(pausedMeals.map((meal) => meal.date)).size;
     const nextDay = new Date(`${subscription.endDate}T00:00:00Z`);
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    const dishLookup = await buildRegularDishLookup();
-    const extraMeals = computeMealsForRange(dishLookup, subscription.dietType, subscription.mealTypes as TiffinMealType[], nextDay, pausedDayCount);
+    const dishLookup = await buildDishLookupForTier(subscription.tier as TiffinMealTier);
+    const extraMeals = computeMealsForRange(
+      dishLookup,
+      subscription.tier as TiffinMealTier,
+      subscription.dietType,
+      subscription.mealTypes as TiffinMealType[],
+      nextDay,
+      pausedDayCount
+    );
     await TiffinScheduledMealModel.insertMany(extraMeals.map((meal) => ({ subscriptionId: subscription._id, ...meal })));
     subscription.endDate = extraMeals[extraMeals.length - 1].date;
   }
@@ -351,6 +377,7 @@ export function createPlan(data: CreateTiffinPlanRequest) {
   if (data.salePercent != null && data.durationDays !== TIFFIN_PLAN_DURATIONS.monthly) {
     throw new TiffinValidationError("Discounts are only available on monthly plans");
   }
+  assertValidTierStyle(data.tier, data.style);
   return TiffinPlanModel.create(data);
 }
 
@@ -363,6 +390,12 @@ export async function updatePlan(id: string, data: UpdateTiffinPlanRequest) {
     if (durationDays !== TIFFIN_PLAN_DURATIONS.monthly) {
       throw new TiffinValidationError("Discounts are only available on monthly plans");
     }
+  }
+  if (rest.tier || rest.style) {
+    // Neither field is necessarily part of this (partial) update payload — fall back to the
+    // plan's own already-stored values for whichever one wasn't sent.
+    const existing = await TiffinPlanModel.findById(id).select("tier style").lean();
+    assertValidTierStyle(rest.tier ?? (existing?.tier as TiffinMealTier), rest.style ?? (existing?.style as TiffinPlanStyle));
   }
 
   // null ⇒ explicitly clear the discount (back to no discount); undefined ⇒ leave it untouched.
