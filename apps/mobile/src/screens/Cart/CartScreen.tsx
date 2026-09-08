@@ -306,6 +306,16 @@ export function CartScreen({ navigation }: Props) {
 
       <StoreClosedBanner status={storeStatus} colors={colors} style={styles.storeClosedBanner} />
 
+      {/* The Pay button below goes disabled for a few different reasons (no address, no payment
+          method chosen, store closed) — StoreClosedBanner above already explains that last one,
+          so this only needs to cover the two it doesn't, rather than leaving the button silently
+          greyed out with no explanation at all. */}
+      {storeOpen && !canProceed && !submitting && (
+        <Text style={styles.disabledReason}>
+          {!profileComplete ? "Add your delivery address to continue" : "Choose a payment method to continue"}
+        </Text>
+      )}
+
       <View style={styles.actionRow}>
         <Pressable style={styles.payUsingBox} onPress={() => navigation.navigate("PaymentMethod")}>
           <Text style={styles.payUsingLabel}>Pay using</Text>
@@ -350,6 +360,7 @@ const makeStyles = (colors: ColorPalette) =>
     scroll: { flex: 1 },
     scrollContent: { padding: theme.spacing(2), paddingBottom: theme.spacing(2) },
     storeClosedBanner: { marginHorizontal: theme.spacing(2), marginBottom: 0 },
+    disabledReason: { textAlign: "center", fontSize: 12, fontWeight: "600", color: colors.danger, paddingHorizontal: theme.spacing(2), paddingTop: theme.spacing(1) },
     suggestionsWrap: { marginBottom: theme.spacing(2) },
     suggestionsTitle: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: theme.spacing(1) },
     suggestionsRow: { position: "relative" },

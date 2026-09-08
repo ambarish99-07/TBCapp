@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
 import type { Combo, MenuItem } from "@tbc/shared-types";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, Switch, Text, View } from "react-native";
 import { useCombos, useMenuItems } from "../../api/menu.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
@@ -83,10 +83,18 @@ export function RestaurantMenuScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const selectedBrand = useBrandStore((state) => state.selectedBrand);
-  const { data: items, isLoading, error } = useMenuItems();
+  const { data: items, isLoading, isFetching, error, refetch } = useMenuItems();
   // Brand-scoped already (unlike Home's cross-brand useAllCombos) — exactly this restaurant's
   // own curated combos and "Build Your Combo" choose-n combos, nothing else mixed in.
-  const { data: combos } = useCombos();
+  const { data: combos, refetch: refetchCombos } = useCombos();
+  // Only true for a genuine pull-to-refresh, not the very first load — the "Loading menu…" text
+  // above already covers that, so RefreshControl's own spinner staying hidden then avoids a
+  // confusing double-loading-indicator moment.
+  const isRefreshing = isFetching && !isLoading;
+  function handleRefresh() {
+    refetch();
+    refetchCombos();
+  }
   const [category, setCategory] = useState<string>("all");
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
   // Local to this screen, not the shared GG Tiffin preference — a customer's diet choice for a
@@ -199,6 +207,7 @@ export function RestaurantMenuScreen({ navigation }: Props) {
           data={combos ?? []}
           keyExtractor={(combo) => combo.id}
           contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
           renderItem={({ item: combo }) => {
             if (combo.type === "choose-n") {
               return (
@@ -222,6 +231,7 @@ export function RestaurantMenuScreen({ navigation }: Props) {
           data={filtered}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: theme.spacing(2) }}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListHeaderComponent={
             <View>
               {isLoading && <Text style={styles.info}>Loading menu…</Text>}
