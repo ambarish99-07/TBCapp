@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from "react-native";
 import { usePremiumMembershipStatus } from "../../api/premiumMembership.api";
+import { HelpHeaderButton } from "../../components/HelpHeaderButton";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { useTheme, type ThemeMode } from "../../state/themeStore";
@@ -79,6 +80,10 @@ export function AccountScreen({ navigation }: Props) {
     }, CONFIRMATION_DURATION_MS);
     return () => clearTimeout(timer);
   }, [confirmingMode, navigation, flashAnim, boltScale, boltRotate, shakeAnim]);
+
+  useEffect(() => {
+    navigation.setOptions({ headerRight: () => <HelpHeaderButton /> });
+  }, [navigation]);
 
   // An account is required to reach this screen at all (see RootNavigator), so
   // `user` is always set here in practice — this is just for TypeScript.

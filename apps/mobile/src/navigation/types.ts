@@ -60,6 +60,7 @@ export type RootStackParamList = {
   GuestLookup: undefined;
   Login: undefined;
   Account: undefined;
+  Help: undefined;
   OrderHistory: undefined;
   // A delivered order's own combined review/complaint form — reached from Order History.
   OrderFeedback: { orderId: string; brandName: string };
