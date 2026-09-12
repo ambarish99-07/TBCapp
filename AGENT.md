@@ -11,6 +11,28 @@ current fact. When in doubt, grep for it.
 
 ---
 
+## 0. Working process expectation: full research before answering, every time
+
+When answering anything not already verified in this codebase — pricing, third-party service setup
+steps, how an external platform's UI/API actually behaves, anything time-sensitive — **do full
+research first** (fetch the real page/docs, don't answer from memory) and give the complete,
+accurate picture in one pass rather than a partial answer that turns out wrong or incomplete on a
+follow-up question.
+
+Confirmed mistakes this caused before this instruction existed: claiming Zoho Mail has a usable
+free tier for a custom domain (it doesn't support custom domains on free, and even the "forever
+free" tier excludes IMAP/POP, making it effectively unusable in a normal mail app); saying MSG91's
+DLT registration happens inside MSG91's own dashboard when it actually happens on a separate
+telecom-operator portal (SmartPing/VILPower) and only gets *mapped* back into MSG91 afterward.
+
+**Why this matters:** the user follows these answers as literal, sequential, real-world
+instructions (registering a business domain, setting up a payment gateway, going through DLT
+compliance) — an incomplete or wrong answer isn't just "corrected next message," it means real
+wasted time, money, or steps taken in the wrong order, and breaks the ability to work through a
+checklist step by step without hitting dead ends.
+
+---
+
 ## 1. What this project is
 
 **Lickyeat** is a food-delivery mobile app + backend + admin dashboard, built from scratch as a
