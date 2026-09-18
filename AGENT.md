@@ -639,10 +639,12 @@ image-upload migration below was necessary regardless of which of the two got pi
   account granted `Storage Object Admin`/`Creator` on that bucket (so it can write uploads).
 - Cloud Run env vars (set in the console/`gcloud`, never committed): `MONGODB_URI` (rotated —
   the one in `apps/api/.env` has been sitting in plaintext and should be rotated in Atlas once
-  moved), `JWT_SECRET` (real random value — currently a placeholder), `NODE_ENV=production`,
-  `CORS_ORIGINS` (real mobile/admin origins, not localhost), `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`
-  (Test Mode keys to start — need zero KYC), `GCS_BUCKET_NAME`, `WHATSAPP_*` (fine to leave empty,
-  already fails silently by design).
+  moved), `JWT_SECRET` (a **fresh** `openssl rand -hex 32` value — don't reuse the local dev one;
+  `apps/api/.env`'s dev placeholder was replaced with a real random value on 2026-09-18, but dev
+  and prod secrets should never be the same value), `NODE_ENV=production`, `CORS_ORIGINS` (real
+  mobile/admin origins, not localhost), `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` (Test Mode keys to
+  start — need zero KYC), `GCS_BUCKET_NAME`, `WHATSAPP_*` (fine to leave empty, already fails
+  silently by design).
 - An actual `docker build`/`docker run` smoke test of `apps/api/Dockerfile` (not yet run — see
   above).
 - A production MongoDB Atlas cluster **separate** from the one this dev machine uses (§7.1), so
