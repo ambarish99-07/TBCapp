@@ -448,7 +448,7 @@ tabs page) is keyed by `brandId` and works identically for a brand created five 
   (see §7.3).
 - Hosting/deployment: still nothing actually deployed anywhere publicly. MongoDB Atlas is now
   provisioned and in use (see §7.1) but only as this machine's dev database, not a production
-  environment — Render for the API and EAS Build for the mobile app stores remain unprovisioned.
+  environment. See §8 for what's been prepared toward deployment and what's still needed.
 - Run `git status` before assuming HEAD reflects everything described here — this doc is kept
   up to date deliberately, but working-tree state can still drift ahead of it mid-session.
 
@@ -545,7 +545,125 @@ Turborepo task graph) before expecting the running `tsx watch` API dev server to
 
 ---
 
-## 8. Keeping this file useful
+## 8. Deployment prep (Cloud Run) — what's done, what's still needed
+
+Nothing is deployed publicly yet — this section tracks the deployment work that's already landed
+in code, so it doesn't get redone or second-guessed later. Full plan history lives at
+`C:\Users\ASUS\.claude\plans\fancy-leaping-quilt.md`.
+
+**Hosting decision**: API on **Google Cloud Run** (not Render, not a VM). Serverless containers,
+scale-to-zero, 2M requests/month + 180K vCPU-seconds free tier — realistically ~$0/month at this
+app's current scale, vs. Render's $7/mo Starter minimum for an always-on service. Trade-off is a
+cold start after scale-to-zero, accepted for now. Both Cloud Run and Render have an **ephemeral
+filesystem by default** — a raw VM is the only one of the three that doesn't — which is why the
+image-upload migration below was necessary regardless of which of the two got picked.
+
+### 8.1 Done
+
+- **`GET /health` reflects real DB connectivity**, not just "the process is alive"
+  (`apps/api/src/app.ts`): checks `mongoose.connection.readyState === 1`, returns
+  `{"ok":true,"db":"connected"}`/200 or `{"ok":false,"db":"disconnected"}`/503. A hosting
+  platform's own health check should notice a dropped Mongo connection. Covered by
+  `apps/api/__tests__/integration/health.test.ts`.
+- **Image uploads no longer depend on local disk.** `apps/api/src/modules/{menu,brands,tiffin}/upload.ts`
+  are now thin factories (`createMenuImageUploadHandlers(env)` etc.) over a shared
+  `apps/api/src/utils/imageUpload.ts#createImageUploadHandlers(env, folderName)`:
+  - `env.GCS_BUCKET_NAME` **unset** (local dev, unchanged): `multer.diskStorage` into
+    `apps/api/public/<folder>`, served by the existing `express.static` mounts in `app.ts` — zero
+    new setup needed for local dev.
+  - `env.GCS_BUCKET_NAME` **set**: `multer.memoryStorage()` + upload the buffer to that Cloud
+    Storage bucket, returns a `https://storage.googleapis.com/<bucket>/<folder>/<uuid>.<ext>` URL.
+    Uses Application Default Credentials — on Cloud Run this is the service account attached to
+    the service, no key file needed. Deliberately never sets an object-level ACL — the target
+    bucket is expected to use **uniform bucket-level access** with `allUsers` granted
+    `Storage Object Viewer` at the bucket level instead (object ACLs are rejected on a bucket in
+    that mode).
+  - Added `GCS_BUCKET_NAME: z.string().optional()` to `apps/api/src/config/env.ts` (and
+    `.env.example`), following this codebase's existing convention of threading all config through
+    the validated `Env` type rather than reading `process.env` ad hoc.
+  - Covered by `apps/api/__tests__/unit/imageUpload.test.ts` (GCS path, `@google-cloud/storage`
+    mocked) plus the pre-existing `admin.menuItems.test.ts`/`brands.test.ts`/`admin.tiffinMenu.test.ts`
+    upload tests (disk-fallback path, behavior unchanged).
+- **`apps/api/Dockerfile`** (build context must be the **repo root**, not `apps/api` — see the
+  file's own header comment for the exact `docker build`/`gcloud run deploy` invocations). Two
+  stages: `node:20-slim` + `python3`/`make`/`g++` (bcrypt needs to compile its native addon) to
+  `pnpm install` and `pnpm exec turbo run build --filter=@tbc/api...` (builds `@tbc/pricing` +
+  `@tbc/shared-types` first, via turbo's `^build` dependency graph), then a runtime stage that
+  copies the whole built `/repo` (workspace symlinks between `@tbc/api` and its two workspace
+  dependencies mean copying just `apps/api` would leave those dangling) and runs
+  `node dist/index.js` from `apps/api`. Listens on `env.PORT` — `index.ts` already read this from
+  the validated `Env` before Cloud Run was even a consideration, so Cloud Run's injected `PORT`
+  (defaults to 8080) needed no code change. **The `pnpm install` + `turbo build` step inside this
+  Dockerfile was verified locally (run outside Docker, same commands) and produces `dist/index.js`
+  correctly — the Dockerfile itself has NOT been run through an actual `docker build`**, since
+  Docker isn't available in this dev environment. Run a real `docker build` (and ideally
+  `docker run` against a Test-Mode Razorpay + real Atlas config) before trusting it fully in Cloud
+  Run.
+- **`apps/mobile/eas.json`** created (`development`/`preview`/`production` build profiles) — EAS
+  builds are unblocked now, this file didn't exist before.
+- Confirmed (not assumed — corrects an earlier planning mistake) that `apps/mobile/app.json`
+  already has real `ios.bundleIdentifier`/`android.package` (`com.lickyeat.app`) — nothing to set
+  there.
+- **Admin dashboard is now deployable standalone** (Phase 2). It was built assuming a relative
+  `/api` path, reverse-proxied under the same origin as the API — fine for local dev (`vite.config.ts`'s
+  dev-server proxy rewrites `/api` → `http://localhost:4000`) but broken if deployed on its own
+  origin with no proxy in front of it.
+  - `apps/admin/src/api/adminClient.ts` now reads `import.meta.env.VITE_API_BASE_URL`, falling
+    back to `/api` (local dev unchanged) — mirrors the pattern already used in mobile's
+    `apiClient.ts` (`Constants.expoConfig?.extra?.apiBaseUrl`). New `apps/admin/src/vite-env.d.ts`
+    declares the env var for TypeScript (Vite's default `ImportMetaEnv` has no index signature).
+  - **Found and fixed a real bug this change would otherwise have caused**:
+    `apps/admin/server/securityHeaders.ts`'s production CSP had `connect-src 'self'` only — once
+    `VITE_API_BASE_URL` points at a different origin, the browser's CSP (not CORS) would have
+    silently blocked every API call, a confusing failure mode with no CORS error to point at.
+    `securityHeaders(nodeEnv, apiOrigin?)` now takes the API's origin and adds it to
+    `connect-src` in production. `apps/admin/server/server.ts` derives `apiOrigin` from the same
+    `VITE_API_BASE_URL` env var (parses it with `new URL(...).origin` when it looks absolute) —
+    deliberately the same variable name Vite reads at build time, so only one env var needs to be
+    set correctly, not two kept in sync by hand.
+  - New `apps/admin/.env.example` documents `VITE_API_BASE_URL` needing to be set at **both**
+    build time (Vite inlines it) and runtime (the Express server in `server/server.ts` reads it
+    for the CSP) — in practice, set once in whichever environment does both the build and the
+    serve.
+  - Verified with a real `vite build` both ways: unset → bundle contains literal `/api` (unchanged
+    default); `VITE_API_BASE_URL=https://api.lickyeat.com` → bundle contains that literal URL
+    inlined. Typecheck and the full admin test suite (5 tests) both pass unchanged.
+  - **Still not done**: actually deploying it anywhere, and once the real API domain is chosen,
+    the API's own `CORS_ORIGINS` needs the admin's real deployed origin added (currently only
+    localhost values).
+
+### 8.2 Still needed before Cloud Run deployment is actually live
+
+- A GCP project + a Cloud Storage bucket: **uniform bucket-level access** on, `allUsers` granted
+  `Storage Object Viewer` (public read for images), and the Cloud Run service's attached service
+  account granted `Storage Object Admin`/`Creator` on that bucket (so it can write uploads).
+- Cloud Run env vars (set in the console/`gcloud`, never committed): `MONGODB_URI` (rotated —
+  the one in `apps/api/.env` has been sitting in plaintext and should be rotated in Atlas once
+  moved), `JWT_SECRET` (real random value — currently a placeholder), `NODE_ENV=production`,
+  `CORS_ORIGINS` (real mobile/admin origins, not localhost), `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`
+  (Test Mode keys to start — need zero KYC), `GCS_BUCKET_NAME`, `WHATSAPP_*` (fine to leave empty,
+  already fails silently by design).
+- An actual `docker build`/`docker run` smoke test of `apps/api/Dockerfile` (not yet run — see
+  above).
+- A production MongoDB Atlas cluster **separate** from the one this dev machine uses (§7.1), so
+  real test data doesn't mix with throwaway dev data. Atlas Network Access: allow `0.0.0.0/0`
+  (Cloud Run has no static outbound IP) and rely on the rotated password as the real safeguard.
+- Custom domain (e.g. `api.lickyeat.com`) mapped to the Cloud Run service, once a domain is chosen.
+- `apps/mobile/app.json`'s `expo.extra.apiBaseUrl` still points at `localhost:4000` — update once
+  a real Cloud Run URL/domain exists.
+- Admin dashboard: the code-side blocker (relative `/api` path assuming a reverse proxy) is fixed
+  — see §8.1 above. Still needed: actually pick a host and deploy it (a static-file host or the
+  same `apps/admin/server/server.ts` Express server behind any Node host both work — no Dockerfile
+  exists for admin yet, unlike the API), set `VITE_API_BASE_URL` to the real deployed API URL for
+  that build, a custom subdomain (e.g. `admin.lickyeat.com`), and add that origin to the API's
+  `CORS_ORIGINS`.
+- Apple Developer Program ($99/yr) / Google Play Console ($25 one-time) enrollment — external,
+  user's own action, needed before EAS `preview` builds can be installed via TestFlight (Android
+  sideloading doesn't need either).
+
+---
+
+## 9. Keeping this file useful
 When you finish a meaningful chunk of work: add or update the relevant section above rather than
 letting this file drift. Prefer editing an existing section over appending a new "recent changes"
 list at the bottom — this file describes *current state*, not a changelog (git history is the

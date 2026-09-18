@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Env } from "../../config/env.js";
 import { listBulkOrderInquiries, updateBulkOrderInquiryStatus } from "../bulkOrders/bulkOrders.controller.js";
 import { createBrand, deleteBrand, listAllBrandsAdmin, updateBrand } from "../brands/brands.controller.js";
-import { handleBrandImageUpload, uploadBrandImage } from "../brands/upload.js";
+import { createBrandImageUploadHandlers } from "../brands/upload.js";
 import { requireAdmin, requireAuth } from "../auth/auth.middleware.js";
 import {
   createPlanAdmin,
@@ -30,7 +30,7 @@ import {
   upsertFestivalSpecialAdmin,
   upsertTiffinDishAdmin,
 } from "../tiffin/tiffinMenu.controller.js";
-import { handleTiffinDishImageUpload, uploadTiffinDishImage } from "../tiffin/upload.js";
+import { createTiffinImageUploadHandlers } from "../tiffin/upload.js";
 import { declareClosureAdmin, listClosuresAdmin } from "../tiffin/tiffinClosure.controller.js";
 import { createCouponAdmin, deleteCouponAdmin, listCouponsAdmin, updateCouponAdmin } from "../coupons/coupons.controller.js";
 import {
@@ -60,6 +60,9 @@ import {
 export function createAdminRouter(env: Env): Router {
   const router = Router();
   router.use(requireAuth(env.JWT_SECRET), requireAdmin);
+  const { uploadMiddleware: uploadBrandImage, handleUpload: handleBrandImageUpload } = createBrandImageUploadHandlers(env);
+  const { uploadMiddleware: uploadTiffinDishImage, handleUpload: handleTiffinDishImageUpload } =
+    createTiffinImageUploadHandlers(env);
 
   router.get("/analytics", getAnalytics);
 

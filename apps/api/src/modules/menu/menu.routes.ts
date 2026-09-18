@@ -15,10 +15,12 @@ import {
   upsertCombo,
   upsertMenuItem,
 } from "./menu.controller.js";
-import { handleMenuItemImageUpload, uploadMenuItemImage } from "./upload.js";
+import { createMenuImageUploadHandlers } from "./upload.js";
 
 export function createMenuRouter(env: Env): Router {
   const router = Router();
+  const { uploadMiddleware: uploadMenuItemImage, handleUpload: handleMenuItemImageUpload } =
+    createMenuImageUploadHandlers(env);
 
   router.get("/", getMenu);
   router.get("/combos/all", getAllCombos);

@@ -1,5 +1,6 @@
 import cors from "cors";
 import express, { type Express } from "express";
+import mongoose from "mongoose";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // Patches Express's router so a rejected promise inside an async handler is
@@ -47,7 +48,15 @@ export function createApp(env: Env): Express {
   app.use(express.json({ limit: "256kb" }));
   app.use(requestLogger);
 
-  app.get("/health", (_req, res) => res.json({ ok: true }));
+  // Reflects real DB connectivity, not just "the Express process is up" — a hosting
+  // platform's own health check should notice a dropped Mongo connection, not report healthy
+  // while every request downstream is actually failing. mongoose.connection.readyState is a
+  // cheap in-memory flag (1 = connected), not a live round-trip ping — sufficient to catch a
+  // dropped/never-established connection without adding latency to every health check.
+  app.get("/health", (_req, res) => {
+    const dbConnected = mongoose.connection.readyState === 1;
+    res.status(dbConnected ? 200 : 503).json({ ok: dbConnected, db: dbConnected ? "connected" : "disconnected" });
+  });
   app.use("/auth", createAuthRouter(env));
   app.use("/brands", createBrandsRouter(env));
   app.use("/menu", createMenuRouter(env));

@@ -17,10 +17,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.lickyeat.app"
+      "bundleIdentifier": "com.lickyeat.app",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.lickyeat.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "backgroundColor": "#FFFFFF"

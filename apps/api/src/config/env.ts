@@ -15,6 +15,11 @@ const EnvSchema = z.object({
   WHATSAPP_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_BUSINESS_OWNER_NUMBER: z.string().optional(),
+
+  // Unset in local dev — image uploads fall back to local disk (see utils/imageUpload.ts).
+  // Set on Cloud Run (and any host with an ephemeral filesystem) so uploaded images survive
+  // container restarts/recycling instead of vanishing.
+  GCS_BUCKET_NAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
