@@ -1,10 +1,17 @@
-# Build context MUST be the repo root (this is a pnpm workspace — @tbc/api depends on
-# @tbc/pricing and @tbc/shared-types via "workspace:*", so the whole monorepo is needed to
-# install and build it). Build from the repo root:
-#   docker build -f apps/api/Dockerfile -t lickyeat-api .
-# Cloud Run's `gcloud run deploy --source .` looks for a root-level Dockerfile by default, so
-# when deploying via that command, point it at the repo root and pass this file explicitly:
-#   gcloud run deploy lickyeat-api --source . --dockerfile apps/api/Dockerfile --region <region>
+# Lives at the repo root, not apps/api/ — deliberately. This is a pnpm workspace (@tbc/api
+# depends on @tbc/pricing and @tbc/shared-types via "workspace:*"), so the build needs the whole
+# monorepo as its context, not just apps/api. Cloud Run's `gcloud run deploy --source .` only
+# ever looks for a Dockerfile at the root of whatever directory you point --source at — there is
+# no flag to point it at a subdirectory's Dockerfile (verified against gcloud's own reference
+# docs; an earlier version of this file claimed a --dockerfile flag existed, which was wrong).
+# Putting the Dockerfile here, at the context root, is what makes the zero-flag deploy commands
+# below actually work:
+#   docker build -t lickyeat-api .
+#   gcloud run deploy lickyeat-api --source . --region <region>
+#
+# If a second service in this monorepo ever needs its own Dockerfile (e.g. apps/admin), this
+# single-root-Dockerfile setup stops being unambiguous — revisit then (e.g. Cloud Build with an
+# explicit `docker build -f <path> .` step instead of plain --source deploy).
 
 FROM node:20-slim AS build
 # python3/make/g++ are needed to compile bcrypt's native addon during `pnpm install` — there's

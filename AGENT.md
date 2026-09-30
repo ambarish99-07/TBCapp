@@ -558,6 +558,10 @@ cold start after scale-to-zero, accepted for now. Both Cloud Run and Render have
 filesystem by default** — a raw VM is the only one of the three that doesn't — which is why the
 image-upload migration below was necessary regardless of which of the two got picked.
 
+**The separate Lickyeat website project** (`D:\Lickyeat website`) is being deployed alongside this
+one (decided 2026-09-30) — same GCP project, its own two Cloud Run services (API + Next.js web
+app). See that project's own `AGENT.md` §8 for its deployment prep; not duplicated here.
+
 ### 8.1 Done
 
 - **`GET /health` reflects real DB connectivity**, not just "the process is alive"
@@ -584,10 +588,15 @@ image-upload migration below was necessary regardless of which of the two got pi
   - Covered by `apps/api/__tests__/unit/imageUpload.test.ts` (GCS path, `@google-cloud/storage`
     mocked) plus the pre-existing `admin.menuItems.test.ts`/`brands.test.ts`/`admin.tiffinMenu.test.ts`
     upload tests (disk-fallback path, behavior unchanged).
-- **`apps/api/Dockerfile`** (build context must be the **repo root**, not `apps/api` — see the
-  file's own header comment for the exact `docker build`/`gcloud run deploy` invocations). Two
-  stages: `node:20-slim` + `python3`/`make`/`g++` (bcrypt needs to compile its native addon) to
-  `pnpm install` and `pnpm exec turbo run build --filter=@tbc/api...` (builds `@tbc/pricing` +
+- **`Dockerfile`** at the **repo root** (not `apps/api/` — deliberately: `gcloud run deploy
+  --source .` only ever looks for a Dockerfile at the root of whatever directory `--source`
+  points at, with no flag to point it at a subdirectory's file instead — confirmed against
+  gcloud's own reference docs after an earlier version of this file wrongly claimed a
+  `--dockerfile` flag existed. Since this is a pnpm workspace and the build needs the whole
+  monorepo as context anyway, putting the file at the context root is what makes the zero-flag
+  deploy command actually work: `gcloud run deploy lickyeat-api --source . --region <region>`).
+  Two stages: `node:20-slim` + `python3`/`make`/`g++` (bcrypt needs to compile its native addon)
+  to `pnpm install` and `pnpm exec turbo run build --filter=@tbc/api...` (builds `@tbc/pricing` +
   `@tbc/shared-types` first, via turbo's `^build` dependency graph), then a runtime stage that
   copies the whole built `/repo` (workspace symlinks between `@tbc/api` and its two workspace
   dependencies mean copying just `apps/api` would leave those dangling) and runs
@@ -598,7 +607,8 @@ image-upload migration below was necessary regardless of which of the two got pi
   correctly — the Dockerfile itself has NOT been run through an actual `docker build`**, since
   Docker isn't available in this dev environment. Run a real `docker build` (and ideally
   `docker run` against a Test-Mode Razorpay + real Atlas config) before trusting it fully in Cloud
-  Run.
+  Run. If a second service in this monorepo ever needs its own Dockerfile, this single-root-file
+  setup stops being unambiguous — revisit then.
 - **`apps/mobile/eas.json`** created (`development`/`preview`/`production` build profiles) — EAS
   builds are unblocked now, this file didn't exist before.
 - Confirmed (not assumed — corrects an earlier planning mistake) that `apps/mobile/app.json`
@@ -645,7 +655,7 @@ image-upload migration below was necessary regardless of which of the two got pi
   mobile/admin origins, not localhost), `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` (Test Mode keys to
   start — need zero KYC), `GCS_BUCKET_NAME`, `WHATSAPP_*` (fine to leave empty, already fails
   silently by design).
-- An actual `docker build`/`docker run` smoke test of `apps/api/Dockerfile` (not yet run — see
+- An actual `docker build`/`docker run` smoke test of the root `Dockerfile` (not yet run — see
   above).
 - A production MongoDB Atlas cluster **separate** from the one this dev machine uses (§7.1), so
   real test data doesn't mix with throwaway dev data. Atlas Network Access: allow `0.0.0.0/0`
