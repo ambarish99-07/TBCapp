@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Globe,
   LayoutDashboard,
   MessageSquareWarning,
   Package,
@@ -11,6 +12,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useAdminAuth } from "../auth/AdminAuthContext.js";
+
+// Dev default matches the website's apps/web dev port (3100) and its dedicated bridge route.
+const WEBSITE_ADMIN_URL = import.meta.env.VITE_WEBSITE_ADMIN_URL ?? "http://localhost:3100/admin-bridge";
 
 /** Everything company-wide — spans every brand rather than belonging to one. Reaching a specific
  * brand's own tabbed page (Menu Items/Combos/Store Status, or GG Tiffin's own tab set — see
@@ -45,6 +50,39 @@ function NavLink({ to, label, icon: Icon, exact }: { to: string; label: string; 
   );
 }
 
+/** Not a react-router route — the Lickyeat website is a separate origin (D:\Lickyeat website),
+ * so this is a real browser navigation carrying the silently-acquired website session token, not
+ * an in-app Link. Same shared admin login flow as every other item here, it just hands off to a
+ * different, already-authenticated app instead of an internal page. */
+function WebsiteNavLink() {
+  const { websiteAuthStatus, websiteToken } = useAdminAuth();
+  const ok = websiteAuthStatus === "ok" && websiteToken;
+
+  function openWebsiteAdmin() {
+    if (!ok) return;
+    // Fragment, never a query string — never sent in the HTTP request line, so it never lands in
+    // server access logs or Referer headers.
+    window.location.href = `${WEBSITE_ADMIN_URL}#token=${encodeURIComponent(websiteToken)}`;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={openWebsiteAdmin}
+      disabled={!ok}
+      title={
+        websiteAuthStatus === "failed"
+          ? "Couldn't sign in to the website's admin with this account — the two admin passwords may have drifted out of sync, or the website's API isn't reachable right now."
+          : undefined
+      }
+      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+    >
+      <Globe size={17} />
+      Website
+    </button>
+  );
+}
+
 /** Fixed left sidebar shown on every authenticated page — just the Lickyeat-wide, company-wide
  * pages. Every brand's own management page (Menu Items, Combos, Store Status, or GG Tiffin's own
  * tab set) is reached from the Brands page's "Manage ›" button instead of a sidebar entry per
@@ -58,6 +96,7 @@ export function AdminNav() {
           {LICKYEAT_LINKS.map((link) => (
             <NavLink key={link.to} {...link} />
           ))}
+          <WebsiteNavLink />
         </div>
       </div>
     </aside>

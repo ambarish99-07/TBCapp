@@ -4,6 +4,7 @@ import { BrandTabsLayout } from "./components/BrandTabsLayout.js";
 import { Layout } from "./components/Layout.js";
 import { NewOrderAlertBanner } from "./components/NewOrderAlertBanner.js";
 import { useNewOrderAlerts } from "./notifications/useNewOrderAlerts.js";
+import { AdminBridgePage } from "./routes/AdminBridgePage.js";
 import { AnalyticsPage } from "./routes/AnalyticsPage.js";
 import { BrandStoreStatusPage } from "./routes/BrandStoreStatusPage.js";
 import { BrandsPage } from "./routes/BrandsPage.js";
@@ -55,6 +56,7 @@ function AppRoutes() {
       <NewOrderAlerts />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/bridge" element={<AdminBridgePage />} />
         <Route
           path="/dashboard"
           element={
