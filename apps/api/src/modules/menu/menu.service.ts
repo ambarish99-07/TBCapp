@@ -1,4 +1,4 @@
-import { BROWSE_CATEGORIES, CROSS_BRAND_ID, type MenuAddOn, type UpsertMenuAddOnPriceRequest } from "@tbc/shared-types";
+import { BROWSE_CATEGORIES, FEAST_COMBO_BRAND_ID, type MenuAddOn, type UpsertMenuAddOnPriceRequest } from "@tbc/shared-types";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
 import { MenuAddOnPriceModel } from "../../db/models/MenuAddOnPrice.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
@@ -53,10 +53,10 @@ export function listCombos(brandId: string) {
   return ComboModel.find({ brandId }).lean();
 }
 
-/** Cross-brand — every live brand's combos plus the cross-brand build-your-own combo, for the "Combos" page's brand tabs. */
+/** Every live brand's own combos (for the "Combos" page's brand tabs) plus the Feast combos (for the Feast page). */
 export async function listAllCombos() {
   const brandIds = await liveBrandIds();
-  return ComboModel.find({ $or: [{ brandId: { $in: brandIds } }, { brandId: CROSS_BRAND_ID }] }).lean();
+  return ComboModel.find({ $or: [{ brandId: { $in: brandIds } }, { brandId: FEAST_COMBO_BRAND_ID }] }).lean();
 }
 
 export function findComboById(id: string) {

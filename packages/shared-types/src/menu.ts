@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FEAST_COMBO_BRAND_ID, FeastSizeSchema } from "./brand.js";
 
 /**
  * Free text, not a fixed enum — deliberately so a genuinely new kind of brand (biryani, momos,
@@ -175,6 +176,8 @@ export const CuratedComboSchema = z.object({
   image: z.string().optional(),
   /** Admin-set override, e.g. 20 for 20% off. Unset ⇒ the global 15% default. */
   discountPercent: z.number().min(1).max(99).optional(),
+  /** Feast combos only: who it's sized for — groups it into a tab on the Feast page. */
+  feastSize: FeastSizeSchema.optional(),
 });
 export type CuratedCombo = z.infer<typeof CuratedComboSchema>;
 
@@ -191,10 +194,14 @@ export const ChooseNComboSchema = z.object({
   name: z.string(),
   description: z.string(),
   chooseCount: z.number().int().positive(),
-  eligibleItemIds: z.array(z.string()).min(2),
+  /** Empty only for a Feast build-your-own (brandId FEAST_COMBO_BRAND_ID), where it means "any
+   * item from any open kitchen" — so a newly-launched brand joins without editing the combo. */
+  eligibleItemIds: z.array(z.string()),
   image: z.string().optional(),
   /** Admin-set override, e.g. 20 for 20% off. Unset ⇒ the global 15% default. */
   discountPercent: z.number().min(1).max(99).optional(),
+  /** Feast combos only: who it's sized for — groups it into a tab on the Feast page. */
+  feastSize: FeastSizeSchema.optional(),
 });
 export type ChooseNCombo = z.infer<typeof ChooseNComboSchema>;
 
@@ -221,6 +228,8 @@ export const UpsertComboRequestSchema = z
     itemIds: z.array(z.string()).optional(),
     chooseCount: z.number().int().positive().optional(),
     eligibleItemIds: z.array(z.string()).optional(),
+    // null ⇒ clear it (same reasoning as discountPercent above).
+    feastSize: FeastSizeSchema.nullable().optional(),
   })
   .refine((data) => data.type !== "curated" || (data.itemIds?.length ?? 0) >= 2, {
     message: "A curated combo needs at least 2 itemIds",
@@ -230,10 +239,17 @@ export const UpsertComboRequestSchema = z
     message: "A choose-n combo needs a chooseCount",
     path: ["chooseCount"],
   })
-  .refine((data) => data.type !== "choose-n" || (data.eligibleItemIds?.length ?? 0) >= (data.chooseCount ?? 0), {
-    message: "A choose-n combo needs at least chooseCount eligibleItemIds",
-    path: ["eligibleItemIds"],
-  });
+  .refine(
+    (data) =>
+      data.type !== "choose-n" ||
+      // A Feast build-your-own may leave the list empty = every item from every open kitchen.
+      (data.brandId === FEAST_COMBO_BRAND_ID && (data.eligibleItemIds?.length ?? 0) === 0) ||
+      (data.eligibleItemIds?.length ?? 0) >= (data.chooseCount ?? 0),
+    {
+      message: "A choose-n combo needs at least chooseCount eligibleItemIds",
+      path: ["eligibleItemIds"],
+    }
+  );
 export type UpsertComboRequest = z.infer<typeof UpsertComboRequestSchema>;
 
 /**

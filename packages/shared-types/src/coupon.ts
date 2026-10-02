@@ -24,7 +24,8 @@ export const CouponSchema = z.object({
   minOrderAmount: z.number().nonnegative(),
   /** Caps the discount for a `percent` coupon — ignored for `flat` and `bogo`. */
   maxDiscountAmount: z.number().positive().optional(),
-  /** Restricts the coupon to one brand — absent means it's valid across every brand. */
+  /** Restricts the coupon to one brand — absent means it's valid across every brand. A
+   * brand-restricted coupon applies to a mixed-kitchen cart as long as that kitchen is in it. */
   brandId: z.string().optional(),
   expiresAt: z.string().optional(),
   isActive: z.boolean(),
@@ -75,7 +76,8 @@ export type CouponPricingLine = z.infer<typeof CouponPricingLineSchema>;
 
 export const ValidateCouponRequestSchema = z.object({
   code: z.string().min(1),
-  brandId: z.string().min(1),
+  /** Every kitchen in the cart — a cart can mix kitchens (see FEAST_COMBO_BRAND_ID). */
+  brandIds: z.array(z.string().min(1)).min(1),
   /** The cart's current lines — drives `minOrderAmount`/the subtotal-based discount types, and
    * (for a "bogo" coupon) which unit is the free one. */
   lines: z.array(CouponPricingLineSchema).min(1),

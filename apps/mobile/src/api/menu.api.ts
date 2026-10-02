@@ -28,7 +28,7 @@ export function useCombos() {
   });
 }
 
-/** Every live brand's menu items in one list — used to resolve names/prices for cross-brand combo listings. */
+/** Every live brand's menu items in one list — used to resolve names/prices for combo listings (incl. multi-kitchen Feasts). */
 export function useAllMenuItems() {
   return useQuery({
     queryKey: ["menu-search-all"],

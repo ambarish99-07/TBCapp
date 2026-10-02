@@ -11,12 +11,14 @@ function handleCouponError(err: unknown, res: Response): boolean {
   return false;
 }
 
-// brandId is optional here on purpose — omitted entirely (not sent as an empty string), it
-// returns every brand's active coupons at once, for the Account screen's brand-agnostic browse
-// page. The Cart screen's own "Apply Coupon" call always sends a real brandId, unaffected.
+// brandIds (comma-separated — every kitchen in the cart) is optional here on purpose — omitted
+// entirely, it returns every brand's active coupons at once, for the Account screen's
+// brand-agnostic browse page. A single legacy `brandId` is still accepted.
 export const getActiveCoupons: RequestHandler = async (req, res) => {
-  const brandId = typeof req.query.brandId === "string" ? req.query.brandId : undefined;
-  const coupons = await couponsService.listActiveCoupons(brandId, req.user?.userId ?? null);
+  const raw =
+    typeof req.query.brandIds === "string" ? req.query.brandIds : typeof req.query.brandId === "string" ? req.query.brandId : "";
+  const brandIds = raw.split(",").map((id) => id.trim()).filter(Boolean);
+  const coupons = await couponsService.listActiveCoupons(brandIds.length ? brandIds : undefined, req.user?.userId ?? null);
   res.json({ coupons });
 };
 
@@ -28,7 +30,7 @@ export const postValidateCoupon: RequestHandler = async (req, res) => {
   }
 
   try {
-    const result = await couponsService.resolveCoupon(parsed.data.code, parsed.data.brandId, parsed.data.lines, req.user?.userId ?? null);
+    const result = await couponsService.resolveCoupon(parsed.data.code, parsed.data.brandIds, parsed.data.lines, req.user?.userId ?? null);
     res.json(result);
   } catch (err) {
     if (handleCouponError(err, res)) return;

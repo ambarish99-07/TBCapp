@@ -64,6 +64,11 @@ export const CreateOrderCartSchema = z.array(CartLineRequestSchema).min(1).max(M
 export const ResolvedCartLineSchema = z.object({
   lineId: z.string(),
   menuItemId: z.string(),
+  /** Which kitchen makes this line — always server-resolved from the DB, never client-sent. An
+   * order can mix kitchens, so this (not Order.brandId) is the per-line source of truth. A Feast
+   * combo line spanning several kitchens carries FEAST_COMBO_BRAND_ID. Optional only so orders
+   * placed before this field existed still parse. */
+  brandId: z.string().optional(),
   signatureName: z.string(),
   commonName: z.string(),
   /** Absent for combos without a representative photo (e.g. "choose your own"). */

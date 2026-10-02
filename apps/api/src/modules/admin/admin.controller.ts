@@ -17,9 +17,10 @@ export const getAnalytics: RequestHandler = async (req, res) => {
 
 export const listOrders: RequestHandler = async (req, res) => {
   const { status, brandId, userId } = req.query as { status?: string; brandId?: string; userId?: string };
-  const filter: Record<string, string> = {};
+  const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
-  if (brandId) filter.brandId = brandId;
+  // An order can mix kitchens — a kitchen's filter shows every order it cooked any part of.
+  if (brandId) filter.$or = [{ brandId }, { brandIds: brandId }];
   if (userId) filter.userId = userId;
   const orders = await OrderModel.find(filter).sort({ createdAt: -1 });
   res.json({ orders });

@@ -1,5 +1,6 @@
 import type { BrandStoreStatus } from "@tbc/shared-types";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useBrands } from "./brands.api";
 import { apiClient } from "./client";
 
 const POLL_INTERVAL_MS = 30000;
@@ -26,4 +27,28 @@ export function useStoreStatus(brandId: string | undefined) {
     enabled: !!brandId,
     refetchInterval: POLL_INTERVAL_MS,
   });
+}
+
+/** useStoreStatus for several kitchens at once — the cart can mix kitchens, and every one of them
+ * must be open to check out. Shares each kitchen's cache entry with useStoreStatus. */
+export function useStoreStatuses(brandIds: string[]): { brandId: string; status: BrandStoreStatus | undefined }[] {
+  const results = useQueries({
+    queries: brandIds.map((brandId) => ({
+      queryKey: ["brand-store-status", brandId],
+      queryFn: () => fetchBrandStoreStatus(brandId),
+      refetchInterval: POLL_INTERVAL_MS,
+    })),
+  });
+  return brandIds.map((brandId, index) => ({ brandId, status: results[index]?.data }));
+}
+
+/** Every catalog kitchen (GG Tiffin excluded — it has its own cutoffs) with whether it's open
+ * right now — drives the Feast page, where a closed kitchen's items/combos are shown unavailable
+ * while every open kitchen stays orderable. Unknown (still loading) counts as open; checkout
+ * re-checks server-side anyway. */
+export function useKitchensOpen() {
+  const { data: brands } = useBrands();
+  const kitchens = (brands ?? []).filter((brand) => brand.id !== "gg-tiffin");
+  const statuses = useStoreStatuses(kitchens.map((brand) => brand.id));
+  return kitchens.map((brand, index) => ({ brand, isOpen: statuses[index]?.status?.isOpen ?? true }));
 }

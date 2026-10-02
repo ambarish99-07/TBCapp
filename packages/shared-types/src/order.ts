@@ -113,7 +113,10 @@ export type CancelOrderRequest = z.infer<typeof CancelOrderRequestSchema>;
 /** What the client POSTs to create an order — no prices, no totals, server derives everything. */
 export const CreateOrderRequestSchema = z.object({
   items: CreateOrderCartSchema,
-  brandId: z.string(),
+  /** Ignored — legacy field from when an order belonged to one kitchen. The server derives every
+   * line's kitchen itself (see ResolvedCartLine.brandId); kept optional so an older client build
+   * still validates. */
+  brandId: z.string().optional(),
   delivery: DeliveryDetailsSchema,
   /** Client's explicit intent — "self" prefills from the account but is still just delivery info; never inferred server-side. */
   deliveryFor: DeliveryForSchema,
@@ -126,7 +129,12 @@ export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
 /** Full persisted/returned order shape. */
 export const OrderSchema = z.object({
   id: z.string(),
+  /** The order's first (primary) kitchen — kept for existing filters/analytics; `brandIds` is the
+   * full list for an order that mixes kitchens. */
   brandId: z.string(),
+  /** Every kitchen cooking part of this order (server-derived). Absent on orders placed before
+   * mixed-kitchen ordering existed — treat as `[brandId]`. */
+  brandIds: z.array(z.string()).optional(),
   /** Separate unguessable token for guest order lookup — never the DB primary key. */
   accessToken: z.string(),
   orderNumber: z.string(),

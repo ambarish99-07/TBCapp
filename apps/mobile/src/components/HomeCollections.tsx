@@ -5,7 +5,7 @@ import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native
 import { theme, type ColorPalette } from "../constants/theme";
 import { useCartStore, type CartLine } from "../state/cartStore";
 import { useTheme } from "../state/themeStore";
-import { addLineWithBrandGuard } from "../utils/addToCartWithBrandGuard";
+import { addLineToCart } from "../utils/addToCart";
 import { makeComboCartLine } from "../utils/comboCartLine";
 
 export function Row<T>({ title, data, keyExtractor, renderItem }: { title: string; data: T[]; keyExtractor: (item: T) => string; renderItem: (item: T) => ReactElement }) {
@@ -62,7 +62,7 @@ export function ItemMiniCard({ item, onPress, isReorder }: { item: MenuItem; onP
       return;
     }
     const hasSugarIce = item.hasSugarIceCustomization ?? true;
-    addLineWithBrandGuard({
+    addLineToCart({
       lineId: `${item.id}-${Date.now()}`,
       brandId: item.brandId,
       menuItemId: item.id,
@@ -145,7 +145,7 @@ function ComboMiniCard({ combo, itemPrice, onChoosePress }: { combo: Combo; item
     const comboPrice = computeComboPrice(itemIds.map(itemPrice), combo.discountPercent);
 
     function handleAdd() {
-      addLineWithBrandGuard(
+      addLineToCart(
         makeComboCartLine({
           comboId: combo.id,
           brandId: combo.brandId,
@@ -218,7 +218,7 @@ function RestaurantRow({ brand, representativeItem, onPress }: { brand: Brand; r
 
 interface Props {
   items: MenuItem[];
-  /** Already scoped to the brand being browsed — the one cross-brand combo has its own home on the dedicated Combos screen. */
+  /** Already scoped to the brand being browsed — multi-kitchen Feast combos have their own home on the Feast screen. */
   combos: Combo[];
   onItemPress: (item: MenuItem) => void;
   onChooseCombo: (combo: Combo) => void;

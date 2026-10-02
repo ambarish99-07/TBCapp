@@ -1,4 +1,4 @@
-import type { Order, OrderStatus } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, type Brand, type Order, type OrderStatus } from "@tbc/shared-types";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
@@ -7,9 +7,23 @@ import { StatusBadge } from "../components/StatusBadge.js";
 import { Card } from "../components/ui/Card.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
 
+/** Order lines grouped by the kitchen that makes them, in cart order. Orders placed before lines
+ * carried their own kitchen fall back to the order's brandId. */
+function groupByKitchen(order: Order) {
+  const groups: { kitchenId: string; lines: Order["items"] }[] = [];
+  for (const line of order.items) {
+    const kitchenId = line.brandId ?? order.brandId;
+    const group = groups.find((candidate) => candidate.kitchenId === kitchenId);
+    if (group) group.lines.push(line);
+    else groups.push({ kitchenId, lines: [line] });
+  }
+  return groups;
+}
+
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
   // Without this, a failed request left the page stuck on "Loading…" forever with no way to
   // tell why — `order` only ever got set on the success path.
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -22,6 +36,13 @@ export function OrderDetailPage() {
       setLoadError(err instanceof Error ? err.message : "Failed to load this order");
     }
   }
+
+  useEffect(() => {
+    adminClient
+      .get<{ brands: Brand[] }>("/admin/brands")
+      .then((res) => setBrands(res.data.brands))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     reload();
@@ -92,14 +113,31 @@ export function OrderDetailPage() {
           )}
         </Card>
 
+        {/* Grouped by kitchen — one order can mix kitchens (they share one location), so each
+            kitchen sees exactly what it has to cook. A Feast combo spanning kitchens gets its own
+            group, with its contents listed so every kitchen involved can see its part. */}
         <Card title="Items">
-          <ul className="flex flex-col gap-1.5">
-            {order.items.map((line) => (
-              <li key={line.lineId} className="text-sm">
-                {line.quantity}× {line.signatureName} — ₹{line.unitPrice}
-              </li>
+          <div className="flex flex-col gap-3">
+            {groupByKitchen(order).map(({ kitchenId, lines }) => (
+              <div key={kitchenId}>
+                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted">
+                  {kitchenId === FEAST_COMBO_BRAND_ID
+                    ? "Feast (several kitchens)"
+                    : (brands.find((brand) => brand.id === kitchenId)?.name ?? kitchenId)}
+                </p>
+                <ul className="flex flex-col gap-1.5">
+                  {lines.map((line) => (
+                    <li key={line.lineId} className="text-sm">
+                      {line.quantity}× {line.signatureName} — ₹{line.unitPrice}
+                      {line.menuItemId.startsWith("combo:") && line.commonName !== line.signatureName && (
+                        <span className="block text-xs text-muted">{line.commonName}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </Card>
 
         <Card title="Totals">

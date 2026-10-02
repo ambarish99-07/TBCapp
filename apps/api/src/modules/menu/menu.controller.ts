@@ -125,7 +125,7 @@ export const upsertCombo: RequestHandler = async (req, res) => {
     res.status(400).json({ error: "Invalid combo payload", details: parsed.error.flatten() });
     return;
   }
-  const { id, type, itemIds, chooseCount, eligibleItemIds, discountPercent, ...rest } = parsed.data;
+  const { id, type, itemIds, chooseCount, eligibleItemIds, discountPercent, feastSize, ...rest } = parsed.data;
   const set: Record<string, unknown> = { type, ...rest };
   const unset: Record<string, unknown> = {};
   // null ⇒ explicitly clear the override (back to the global default); undefined ⇒ leave untouched.
@@ -133,6 +133,11 @@ export const upsertCombo: RequestHandler = async (req, res) => {
     unset.discountPercent = "";
   } else if (discountPercent !== undefined) {
     set.discountPercent = discountPercent;
+  }
+  if (feastSize === null) {
+    unset.feastSize = "";
+  } else if (feastSize !== undefined) {
+    set.feastSize = feastSize;
   }
   if (type === "curated") {
     set.itemIds = itemIds;

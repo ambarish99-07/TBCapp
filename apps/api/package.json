@@ -8,6 +8,7 @@
     "seed": "tsx src/db/seed.ts",
     "dev:mongo": "tsx scripts/dev-mongo.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",
+    "sync-feast-combos": "tsx scripts/sync-feast-combos.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",

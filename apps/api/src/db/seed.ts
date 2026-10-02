@@ -1,11 +1,12 @@
 import "dotenv/config";
-import { CROSS_BRAND_ID, TIFFIN_PLAN_DURATIONS } from "@tbc/shared-types";
+import { TIFFIN_PLAN_DURATIONS } from "@tbc/shared-types";
 import { loadEnv } from "../config/env.js";
 import { connectToDatabase, disconnectFromDatabase } from "./connection.js";
 import { BrandModel } from "./models/Brand.model.js";
 import { MenuItemModel } from "./models/MenuItem.model.js";
 import { ComboModel } from "./models/Combo.model.js";
 import { CouponModel } from "./models/Coupon.model.js";
+import { syncFeastCombos } from "./feastCombos.js";
 import { TiffinAddOnPriceModel } from "./models/TiffinAddOnPrice.model.js";
 import { TiffinDishModel } from "./models/TiffinDish.model.js";
 import { TiffinMealPriceModel } from "./models/TiffinMealPrice.model.js";
@@ -530,20 +531,6 @@ function buildAlchemyTailsCombos(env: ReturnType<typeof loadEnv>, allItemIds: st
   ];
 }
 
-/** The one combo not owned by any single brand — eligible items span every live brand's menu. */
-function buildCrossBrandCombos(allItemIds: string[]) {
-  return [
-    {
-      _id: "mix-and-match-duo",
-      type: "choose-n",
-      name: "Mix & Match Duo",
-      description: "Pick any 2 items from across every Lickyeat brand — a shake with a mocktail, whatever you like — at 15% off their combined price.",
-      chooseCount: 2,
-      eligibleItemIds: allItemIds,
-    },
-  ];
-}
-
 /** GG Tiffin's starter plan catalog. Regular and Premium both mirror the same five styles (single
  * meal a day, the customer's choice of breakfast/lunch/dinner; twice-daily, lunch and dinner;
  * thrice-daily, all three; lunch-only and dinner-only, each a fixed single meal sold as its own
@@ -701,19 +688,15 @@ async function seed() {
   // shake-style menu screen, which is correct: it never shows GG Tiffin's real experience.
   const menuItems = [...tbcMenuItems, ...alchemyMenuItems];
 
-  const crossBrandCombos = buildCrossBrandCombos(menuItems.map((item) => item._id)).map((combo) => ({
-    ...combo,
-    brandId: CROSS_BRAND_ID,
-  }));
-
-  const combos = [...tbcCombos, ...alchemyCombos, ...crossBrandCombos];
-
   for (const item of menuItems) {
     await MenuItemModel.findByIdAndUpdate(item._id, item, { upsert: true });
   }
-  for (const combo of combos) {
+
+  const brandCombos = [...tbcCombos, ...alchemyCombos];
+  for (const combo of brandCombos) {
     await ComboModel.findByIdAndUpdate(combo._id, combo, { upsert: true });
   }
+  const feastComboCount = await syncFeastCombos();
 
   const tiffinPlans = await TiffinPlanModel.insertMany(buildTiffinPlans(env));
   const tiffinMealPrices = await TiffinMealPriceModel.insertMany(buildTiffinMealPrices());
@@ -722,7 +705,7 @@ async function seed() {
   const coupons = await CouponModel.insertMany(buildCoupons());
 
   console.log(
-    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${combos.length} combos, ${tiffinPlans.length} tiffin plans, ${tiffinMealPrices.length} single-meal prices, ${tiffinDishes.length} tiffin dishes, ${tiffinAddOnPrices.length} tiffin add-on prices, and ${coupons.length} coupons.`
+    `Seeded ${brands.length} brands, ${menuItems.length} menu items, ${brandCombos.length + feastComboCount} combos, ${tiffinPlans.length} tiffin plans, ${tiffinMealPrices.length} single-meal prices, ${tiffinDishes.length} tiffin dishes, ${tiffinAddOnPrices.length} tiffin add-on prices, and ${coupons.length} coupons.`
   );
   await disconnectFromDatabase();
 }

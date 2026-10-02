@@ -172,8 +172,23 @@ item — see §4.10 for size variants and stock toggles) → cart preview (live 
 (no account required); logged-in checkout snapshots the account's identity. Whether a brand is
 even orderable right now is a separate, earlier gate — see §4.8.
 Combos: curated (fixed pair of items) and "choose your own N" — always priced live as 15% off the
-constituent items' current base prices, never a stored bundle price (`computeComboPrice`). One
-special cross-brand combo (`CROSS_BRAND_ID = "cross-brand"`) can mix items from any live brand.
+constituent items' current base prices, never a stored bundle price (`computeComboPrice`).
+
+**Multi-kitchen orders + Feast combos (2026-10-02).** All kitchens share one location, so ONE cart/order
+can mix kitchens (one delivery, one payment). The server derives each line's kitchen from the DB
+(`ResolvedCartLine.brandId`; client never sends a brandId), stores `Order.brandIds` (all kitchens;
+`brandId` = first), requires EVERY kitchen in the order to be open (error names the closed one), and a
+kitchen-specific coupon applies if that kitchen is in the cart (discount math unchanged — owner still to
+decide coupon/discount rules for mixed orders). The old single cross-brand combo is gone; "Feast" combos
+use `FEAST_COMBO_BRAND_ID = "feast"`. Each Feast has a `feastSize` (`FEAST_SIZES`: For One / For Two /
+For Four / Party — the Feast page's tabs); each size has ready-made Feasts plus its own choose-n
+build-your-own (3 / 5 / 8 / 12 picks) whose empty `eligibleItemIds` = any item from any open kitchen,
+so new brands join automatically. Feast picks MAY repeat an item (a brand's own pick-N still may not);
+combo lines snapshot their contents as e.g. "3× Chicken Biryani + Coffee Chill" for the kitchen. Definitions:
+`apps/api/src/db/feastCombos.ts`; write them to a live DB with `pnpm --filter @tbc/api sync-feast-combos`
+(combos only). Mobile: home bottom-bar "Feast" button → `FeastScreen`; admin: sidebar "Feast Combos".
+The website mirrors all of this (`/feast` page, `GET /menu/feast`, its own `sync-feast-combos` script;
+the website admin has no combo editor).
 
 ### 4.2 Pricing / discounts / rewards (`packages/pricing`)
 Current formula, in precedence order (see `computePricing.ts`):
@@ -561,6 +576,42 @@ image-upload migration below was necessary regardless of which of the two got pi
 **The separate Lickyeat website project** (`D:\Lickyeat website`) is being deployed alongside this
 one (decided 2026-09-30) — same GCP project, its own two Cloud Run services (API + Next.js web
 app). See that project's own `AGENT.md` §8 for its deployment prep; not duplicated here.
+
+### 8.0 LIVE since 2026-10-02 (Cloud Run, `asia-south1`, project `project-95f89cd8-dde5-4bea-a3a`)
+Full runbook with every command: `D:\Plan for app and website\deployment-plan.html`.
+
+| Service | URL |
+|---|---|
+| API (`lickyeat-api`) | https://lickyeat-api-1082151978826.asia-south1.run.app |
+| Admin (`lickyeat-admin`) | https://lickyeat-admin-1082151978826.asia-south1.run.app |
+
+- **gcloud** is installed on this machine and logged in as the *testing* account
+  (`ambarish.sonbhadra@gmail.com`); at go-live, add the user's main email as project Owner instead
+  of recreating anything. Use Bash, not PowerShell, when piping secret values into gcloud —
+  PowerShell 5.1 appends line-ending bytes to piped input.
+- **Only production account**: `support@lickyeat.com` (admin) — on both the app and website DBs,
+  same password (the admin-login bridge relies on that). No demo admin, no test users/orders.
+- **Database**: `lickyeat_app_prod` on the same Atlas cluster as dev, via user `lickyeat_prod`
+  (`readWrite` on the two prod DBs only — verified it is denied on the dev `tbc` DB). Catalog was
+  copied from dev with image URLs rewritten to the bucket
+  (`D:\Plan for app and website\scripts\copy-app-catalog.cjs`).
+- **Images**: bucket `lickyeat-uploads-95f89cd8` (public read). The 109 pre-existing photos were
+  uploaded there; new admin uploads go there via `GCS_BUCKET_NAME`.
+- **Secrets** (Secret Manager): `app-jwt-secret`, `app-mongodb-uri` — readable only by
+  `lickyeat-api-sa`. Builds run as `lickyeat-build-sa` (Cloud Build builder role) because new
+  projects no longer give the default compute account build permissions.
+- **API** deploys with `gcloud run deploy lickyeat-api --source .` (root `Dockerfile`) plus
+  `--build-service-account`, `--service-account`, `--update-secrets`, `--env-vars-file`. Env vars go
+  in a YAML file — gcloud runs through cmd.exe here, which eats `^`-escaped values.
+- **Admin** builds via `cloudbuild.admin.yaml` with `--ignore-file=.gcloudignore.admin` (skips the
+  218 MB of API photos — upload went 264 MB → 47 MB). Its three `VITE_*` URLs are baked in at
+  build time; its CSP `connect-src` allows exactly the app API and the website API.
+- Production fixes made while deploying: `app.set("trust proxy", 1)` (without it all customers
+  shared one rate-limit bucket behind Cloud Run's proxy); non-root `USER node` containers; filtered
+  `pnpm install` so the API/admin images don't pull the Expo tree.
+- **Not yet done**: rotate the old dev DB user's password (`ambarishsonbhadra_db_user`, sat in
+  plaintext in `apps/api/.env`) and update that file; domain + subdomains (then rebuild admin and
+  the website web image, update CORS); Razorpay Test keys; mobile `apiBaseUrl` → the API URL above.
 
 ### 8.1 Done
 

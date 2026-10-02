@@ -1,0 +1,30 @@
+# Upload list for the ADMIN dashboard build only (gcloud builds submit --ignore-file=.gcloudignore.admin).
+# Same as .gcloudignore, plus the API's 218 MB of menu photos, which the admin image never uses.
+# All workspace package.json files stay included so pnpm's frozen-lockfile install still validates.
+.git
+.gitignore
+.gcloudignore
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.turbo/
+**/.turbo/
+*.tsbuildinfo
+coverage/
+**/coverage/
+.env
+**/.env
+.env.*
+**/.env.*
+!**/.env.example
+.expo/
+**/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.log
+.DS_Store
+.vscode/
+apps/api/public/

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { theme, type ColorPalette } from "../constants/theme";
 import { useTheme } from "../state/themeStore";
-import { addLineWithBrandGuard } from "../utils/addToCartWithBrandGuard";
+import { addLineToCart } from "../utils/addToCart";
 import { CustomizationFields } from "./CustomizationFields";
 import { DraggableSheet } from "./DraggableSheet";
 
@@ -64,7 +64,7 @@ export function AddItemModal({ item, onClose }: Props) {
   function handleAdd() {
     if (!item) return;
     const hasSugarIce = item.hasSugarIceCustomization ?? true;
-    addLineWithBrandGuard({
+    addLineToCart({
       lineId: `${item.id}-${Date.now()}`,
       brandId: item.brandId,
       menuItemId: item.id,

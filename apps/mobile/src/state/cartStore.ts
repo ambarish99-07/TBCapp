@@ -7,10 +7,12 @@ const CART_STORAGE_KEY = "tbc_cart_lines";
 
 export interface CartLine {
   lineId: string;
-  /** Which brand this item was added under — checkout sends this to the server, never whichever
-   * brand happens to be ambiently "selected" at the moment of checkout (that can drift, e.g. the
-   * Home carousel auto-rotating in the background, well after the item was actually added). */
+  /** Which kitchen makes this line (FEAST_COMBO_BRAND_ID for a Feast combo) — a cart can mix
+   * kitchens. Display/grouping only: the server re-derives every line's kitchen itself. */
   brandId: string;
+  /** Feast combo lines only: every kitchen its items come from, so the cart can check each one is
+   * open. Absent ⇒ just `brandId`. */
+  kitchenBrandIds?: string[];
   menuItemId: string;
   signatureName: string;
   commonName: string;

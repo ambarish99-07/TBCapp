@@ -22,6 +22,9 @@ interface Props {
   status: BrandStoreStatus | undefined;
   colors: ColorPalette;
   style?: ViewStyle;
+  /** Set in a mixed-kitchen cart, so the banner says WHICH kitchen is closed (and that its items
+   * are what's blocking checkout) rather than a generic "we're closed". */
+  kitchenName?: string;
 }
 
 /**
@@ -33,16 +36,17 @@ interface Props {
  * its own separate ordering cutoffs and closures, so callers should skip mounting this while a
  * GG Tiffin context is active.
  */
-export function StoreClosedBanner({ status, colors, style }: Props) {
+export function StoreClosedBanner({ status, colors, style, kitchenName }: Props) {
   if (!status) return null;
 
   if (!status.isOpen) {
-    const message =
+    const generic =
       status.reason === "manually-closed"
         ? "We're not accepting orders right now — please check back shortly."
         : status.reason === "planned-closure" && status.activeClosure
           ? `We're closed ${formatRange(status.activeClosure)}.`
           : `We're closed right now — open ${formatHour(status.settings.openHour)} to ${formatHour(status.settings.closeHour)} daily.`;
+    const message = kitchenName ? `${kitchenName} is closed right now — remove its items to order the rest.` : generic;
 
     return (
       <View style={[styles.banner, { backgroundColor: colors.danger + "1A", borderColor: colors.danger }, style]}>
@@ -55,7 +59,7 @@ export function StoreClosedBanner({ status, colors, style }: Props) {
     const next = status.upcomingClosures[0];
     return (
       <View style={[styles.banner, { backgroundColor: colors.accent + "1A", borderColor: colors.accent }, style]}>
-        <Text style={[styles.text, { color: colors.text }]}>📅 Heads up — we'll be closed {formatRange(next)}.</Text>
+        <Text style={[styles.text, { color: colors.text }]}>📅 Heads up — {kitchenName ? `${kitchenName} will` : "we'll"} be closed {formatRange(next)}.</Text>
       </View>
     );
   }

@@ -1,12 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { cartSubtotal } from "@tbc/pricing";
-import { CROSS_BRAND_ID, type Coupon } from "@tbc/shared-types";
+import type { Coupon } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useActiveCoupons, validateCouponRequest } from "../../api/coupons.api";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useCartStore } from "../../state/cartStore";
 import { useTheme } from "../../state/themeStore";
+import { cartKitchenIds } from "../../utils/addToCart";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Coupons">;
@@ -63,9 +64,9 @@ export function CouponsScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const lines = useCartStore((state) => state.lines);
   const setAppliedCoupon = useCartStore((state) => state.setAppliedCoupon);
-  // Same "which brand does this cart actually belong to" resolution the Cart screen itself uses.
-  const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
-  const { data: coupons, isLoading } = useActiveCoupons(ownedLine?.brandId);
+  // Every kitchen in the cart — same resolution the Cart screen itself uses.
+  const kitchenIds = useMemo(() => cartKitchenIds(lines), [lines]);
+  const { data: coupons, isLoading } = useActiveCoupons(kitchenIds);
   const [applyingCode, setApplyingCode] = useState<string | null>(null);
 
   // Same shape the server's own coupon math expects (see coupons.service.ts's resolveCoupon) —
@@ -76,14 +77,14 @@ export function CouponsScreen({ navigation }: Props) {
   );
   const subtotal = useMemo(() => cartSubtotal(pricingLines), [pricingLines]);
   // The server already drops a oncePerCustomer coupon this account has redeemed before (see
-  // listActiveCoupons) and scopes everything to this brand — the one thing it can't filter for
+  // listActiveCoupons) and scopes everything to this cart's kitchens — the one thing it can't filter for
   // is "does *this* cart even qualify yet," since minOrderAmount is compared against whatever
   // cart the customer brings, not a fixed value. Hidden outright, not shown-and-disabled, per
   // request — an unreachable coupon isn't useful information here.
   const eligibleCoupons = useMemo(() => (coupons ?? []).filter((coupon) => subtotal >= coupon.minOrderAmount), [coupons, subtotal]);
 
   async function handleApply(coupon: Coupon) {
-    if (!ownedLine?.brandId) return;
+    if (kitchenIds.length === 0) return;
     setApplyingCode(coupon.code);
     try {
       // The server re-derives its own subtotal from these lines (and, for a "bogo" coupon,
@@ -91,7 +92,7 @@ export function CouponsScreen({ navigation }: Props) {
       // client-sent discount amount, same principle as order creation.
       const response = await validateCouponRequest({
         code: coupon.code,
-        brandId: ownedLine.brandId,
+        brandIds: kitchenIds,
         lines: pricingLines,
       });
       setAppliedCoupon(response);

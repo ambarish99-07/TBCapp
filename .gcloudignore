@@ -1,0 +1,28 @@
+# What NOT to upload to Cloud Build. Most importantly: .env files (real local secrets) must never
+# leave this machine — production secrets live in Secret Manager instead.
+.git
+.gitignore
+.gcloudignore
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.turbo/
+**/.turbo/
+*.tsbuildinfo
+coverage/
+**/coverage/
+.env
+**/.env
+.env.*
+**/.env.*
+!**/.env.example
+.expo/
+**/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+*.log
+.DS_Store
+.vscode/

@@ -2,23 +2,24 @@ import type { Coupon, ValidateCouponRequest, ValidateCouponResponse } from "@tbc
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "./client";
 
-/** Every currently-usable coupon for this brand — powers the Cart screen's "Apply Coupon" browse
- * page. Disabled with no brandId rather than erroring, since a brand isn't always resolved yet
- * (e.g. an empty cart). */
-export function useActiveCoupons(brandId: string | undefined) {
+/** Every currently-usable coupon for these kitchens (a cart can mix kitchens) — powers the Cart
+ * screen's "Apply Coupon" browse page. Disabled with no kitchens rather than erroring, since there
+ * isn't always one resolved yet (e.g. an empty cart). */
+export function useActiveCoupons(brandIds: string[]) {
+  const key = brandIds.join(",");
   return useQuery({
-    queryKey: ["active-coupons", brandId],
+    queryKey: ["active-coupons", key],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ coupons: Coupon[] }>("/coupons/active", { params: { brandId } });
+      const { data } = await apiClient.get<{ coupons: Coupon[] }>("/coupons/active", { params: { brandIds: key } });
       return data.coupons;
     },
-    enabled: !!brandId,
+    enabled: brandIds.length > 0,
   });
 }
 
 /** Every currently-usable coupon across every brand at once, regardless of cart/order amount —
  * powers the Account screen's "Coupons" browse page, which has no single cart to scope to the
- * way the Cart screen's useActiveCoupons(brandId) does. Same endpoint, just called with no
+ * way the Cart screen's useActiveCoupons(brandIds) does. Same endpoint, just called with no
  * brandId param (the server returns everything instead of one brand's coupons — see
  * coupons.service.ts's listActiveCoupons). */
 export function useAllActiveCoupons() {

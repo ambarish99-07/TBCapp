@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { CROSS_BRAND_ID, type MenuItem } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, type MenuItem } from "@tbc/shared-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { fetchMe } from "../../api/auth.api";
@@ -7,7 +7,7 @@ import { useBrands } from "../../api/brands.api";
 import { useAllMenuItems, useMenuItems } from "../../api/menu.api";
 import { createOrderRequest } from "../../api/orders.api";
 import { createRazorpayOrderRequest, verifyRazorpayPaymentRequest } from "../../api/payments.api";
-import { useStoreStatus } from "../../api/storeStatus.api";
+import { useStoreStatuses } from "../../api/storeStatus.api";
 import { AddItemModal } from "../../components/AddItemModal";
 import { EditCartItemModal } from "../../components/EditCartItemModal";
 import { CARD_WIDTH, ItemMiniCard } from "../../components/HomeCollections";
@@ -20,6 +20,7 @@ import { useCartStore, type CartLine } from "../../state/cartStore";
 import { usePaymentMethodStore } from "../../state/paymentMethodStore";
 import { useTheme } from "../../state/themeStore";
 import { useAuthContext } from "../../state/useAuthContext";
+import { cartKitchenIds } from "../../utils/addToCart";
 import { hasCompleteAddress } from "../../utils/profile";
 import { launchRazorpayCheckout } from "../../utils/razorpayCheckout";
 import type { RootStackParamList } from "../../navigation/types";
@@ -43,14 +44,15 @@ export function CartScreen({ navigation }: Props) {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
   const { data: menuItems } = useMenuItems();
-  // Cross-brand, not scoped to whichever brand happens to be ambiently selected right now (the
-  // Home carousel auto-rotates that independently of the cart — see orders.api.ts's
-  // resolveCartBrandId for the same drift concern) — filtered down to the cart's own brand below.
+  // Every kitchen's items, not just whichever brand is ambiently selected — the cart can mix
+  // kitchens, so editing a line or suggesting more must look across all of them.
   const { data: allMenuItems } = useAllMenuItems();
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
   const [suggestionPage, setSuggestionPage] = useState(0);
-  const editingMenuItem = editingLine ? (menuItems?.find((item) => item.id === editingLine.menuItemId) ?? null) : null;
+  const editingMenuItem = editingLine
+    ? ((allMenuItems ?? menuItems)?.find((item) => item.id === editingLine.menuItemId) ?? null)
+    : null;
   const selectedPaymentOption = usePaymentMethodStore((state) => state.selected);
   const { data: brands } = useBrands();
   const restoreBrand = useBrandStore((state) => state.restoreBrand);
@@ -72,20 +74,26 @@ export function CartScreen({ navigation }: Props) {
     return () => clearTimeout(timer);
   }, [placedAccessToken, thumbScale, clearCart, navigation]);
 
-  // Every line in this cart belongs to one catalog brand (TBC, TAT, ...) — GG Tiffin bypasses
-  // cartStore entirely — so gating checkout on this cart's own brand is always correct here.
-  const ownedLine = lines.find((line) => line.brandId && line.brandId !== CROSS_BRAND_ID);
-  const cartBrand = brands?.find((brand) => brand.id === ownedLine?.brandId);
-  const { data: storeStatus } = useStoreStatus(ownedLine?.brandId);
-  const storeOpen = storeStatus?.isOpen ?? true;
+  // A cart can mix kitchens (GG Tiffin bypasses cartStore entirely), and every kitchen in it must
+  // be open to check out — each closed one gets its own named banner below.
+  const kitchenIds = cartKitchenIds(lines);
+  const kitchenStatuses = useStoreStatuses(kitchenIds);
+  const storeOpen = kitchenStatuses.every(({ status }) => status?.isOpen ?? true);
+  const isMixedCart = kitchenIds.length > 1;
+  // "Add more" targets the kitchen most recently added from — where the customer just was.
+  const lastKitchenId = [...lines].reverse().find((line) => line.brandId && line.brandId !== FEAST_COMBO_BRAND_ID)?.brandId;
+  const cartBrand = brands?.find((brand) => brand.id === lastKitchenId);
 
   const profileComplete = hasCompleteAddress(user);
   const canProceed = profileComplete && !!selectedPaymentOption && storeOpen;
 
-  // restoreBrand, not selectBrand — selectBrand clears the cart on every switch (it assumes a
-  // deliberate brand change), which would wipe the items this nudge exists to add to.
+  // Back to the kitchen the customer last added from; an all-Feast cart has none, so Home instead.
   function handleBrowseCartBrandMenu() {
-    if (cartBrand) restoreBrand(cartBrand);
+    if (!cartBrand) {
+      navigation.navigate("Menu");
+      return;
+    }
+    restoreBrand(cartBrand);
     navigation.navigate("RestaurantMenu");
   }
 
@@ -115,7 +123,7 @@ export function CartScreen({ navigation }: Props) {
   // paged 3 at a time (see suggestionPage below) rather than a hard cap, so the whole menu stays
   // reachable from here.
   const allSuggestedItems = (allMenuItems ?? []).filter(
-    (item) => item.brandId === ownedLine?.brandId && !lines.some((line) => line.menuItemId === item.id)
+    (item) => item.brandId === lastKitchenId && !lines.some((line) => line.menuItemId === item.id)
   );
   const suggestionPageCount = Math.ceil(allSuggestedItems.length / SUGGESTIONS_PER_PAGE);
   // Clamped rather than reset via an effect — cheaper, and self-corrects the instant an item
@@ -244,9 +252,9 @@ export function CartScreen({ navigation }: Props) {
           </View>
         ))}
 
-        {/* Straight to the brand already in this cart (restoreBrand, not selectBrand — see
-            handleBrowseCartBrandMenu), not the generic Home screen — landing on Home would've
-            meant re-picking the same restaurant just to add one more thing. */}
+        {/* Straight to the kitchen last added from (see handleBrowseCartBrandMenu), not the
+            generic Home screen — landing on Home would've meant re-picking the same restaurant
+            just to add one more thing. */}
         <Pressable style={styles.addMoreButton} onPress={handleBrowseCartBrandMenu}>
           <Text style={styles.addMoreButtonText}>+ Add More Items</Text>
         </Pressable>
@@ -304,7 +312,15 @@ export function CartScreen({ navigation }: Props) {
         <PriceBreakdown result={result} couponCode={appliedCoupon?.code} />
       </ScrollView>
 
-      <StoreClosedBanner status={storeStatus} colors={colors} style={styles.storeClosedBanner} />
+      {kitchenStatuses.map(({ brandId, status }) => (
+        <StoreClosedBanner
+          key={brandId}
+          status={status}
+          colors={colors}
+          style={styles.storeClosedBanner}
+          kitchenName={isMixedCart ? (brands?.find((brand) => brand.id === brandId)?.name ?? brandId) : undefined}
+        />
+      ))}
 
       {/* The Pay button below goes disabled for a few different reasons (no address, no payment
           method chosen, store closed) — StoreClosedBanner above already explains that last one,

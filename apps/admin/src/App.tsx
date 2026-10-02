@@ -156,6 +156,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/feast-combos"
+          element={
+            <RequireAdmin>
+              <CombosPage feast />
+            </RequireAdmin>
+          }
+        />
+        <Route
           path="/brands/:brandId/combos"
           element={
             <RequireAdmin>

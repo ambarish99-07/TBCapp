@@ -90,7 +90,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "welcome50", brandId: "tbc", lines: [pricingLine(400)] });
+      .send({ code: "welcome50", brandIds: ["tbc"], lines: [pricingLine(400)] });
 
     expect(response.status).toBe(200);
     // 50% of 400 = 200, capped at 100
@@ -103,7 +103,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "FLAT50", brandId: "tbc", lines: [pricingLine(300)] });
+      .send({ code: "FLAT50", brandIds: ["tbc"], lines: [pricingLine(300)] });
 
     expect(response.status).toBe(200);
     expect(response.body.discountAmount).toBe(50);
@@ -112,7 +112,7 @@ describe("POST /coupons/validate", () => {
   it("rejects an unknown code", async () => {
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "NOPE", brandId: "tbc", lines: [pricingLine(300)] });
+      .send({ code: "NOPE", brandIds: ["tbc"], lines: [pricingLine(300)] });
     expect(response.status).toBe(400);
   });
 
@@ -121,7 +121,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "FLAT50", brandId: "tbc", lines: [pricingLine(100)] });
+      .send({ code: "FLAT50", brandIds: ["tbc"], lines: [pricingLine(100)] });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toContain("more");
@@ -132,7 +132,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "TBCONLY", brandId: "alchemy-tails", lines: [pricingLine(300)] });
+      .send({ code: "TBCONLY", brandIds: ["alchemy-tails"], lines: [pricingLine(300)] });
 
     expect(response.status).toBe(400);
   });
@@ -142,7 +142,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "OLDCODE", brandId: "tbc", lines: [pricingLine(300)] });
+      .send({ code: "OLDCODE", brandIds: ["tbc"], lines: [pricingLine(300)] });
 
     expect(response.status).toBe(400);
   });
@@ -152,7 +152,7 @@ describe("POST /coupons/validate", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "WELCOME50", brandId: "tbc", lines: [pricingLine(300)] });
+      .send({ code: "WELCOME50", brandIds: ["tbc"], lines: [pricingLine(300)] });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/log in/i);
@@ -165,7 +165,7 @@ describe("POST /coupons/validate", () => {
     const response = await request(app)
       .post("/coupons/validate")
       .set("Authorization", `Bearer ${token}`)
-      .send({ code: "WELCOME50", brandId: "tbc", lines: [pricingLine(400)] });
+      .send({ code: "WELCOME50", brandIds: ["tbc"], lines: [pricingLine(400)] });
 
     expect(response.status).toBe(200);
     expect(response.body.discountAmount).toBe(100);
@@ -190,7 +190,7 @@ describe("POST /coupons/validate", () => {
     const response = await request(app)
       .post("/coupons/validate")
       .set("Authorization", `Bearer ${token}`)
-      .send({ code: "WELCOME50", brandId: "tbc", lines: [pricingLine(400)] });
+      .send({ code: "WELCOME50", brandIds: ["tbc"], lines: [pricingLine(400)] });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/already used/i);
@@ -203,7 +203,7 @@ describe("POST /coupons/validate — bogo", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "BOGO", brandId: "tbc", lines: [pricingLine(220), pricingLine(180)] });
+      .send({ code: "BOGO", brandIds: ["tbc"], lines: [pricingLine(220), pricingLine(180)] });
 
     expect(response.status).toBe(200);
     expect(response.body.discountAmount).toBe(180);
@@ -214,7 +214,7 @@ describe("POST /coupons/validate — bogo", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "BOGO", brandId: "tbc", lines: [pricingLine(220, 2)] });
+      .send({ code: "BOGO", brandIds: ["tbc"], lines: [pricingLine(220, 2)] });
 
     expect(response.status).toBe(200);
     expect(response.body.discountAmount).toBe(220);
@@ -225,7 +225,7 @@ describe("POST /coupons/validate — bogo", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "BOGO", brandId: "tbc", lines: [pricingLine(220)] });
+      .send({ code: "BOGO", brandIds: ["tbc"], lines: [pricingLine(220)] });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/one more/i);
@@ -236,7 +236,7 @@ describe("POST /coupons/validate — bogo", () => {
 
     const response = await request(app)
       .post("/coupons/validate")
-      .send({ code: "BOGO", brandId: "tbc", lines: [pricingLine(391, 1, true), pricingLine(350, 1, true)] });
+      .send({ code: "BOGO", brandIds: ["tbc"], lines: [pricingLine(391, 1, true), pricingLine(350, 1, true)] });
 
     expect(response.status).toBe(400);
   });

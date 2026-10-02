@@ -1,4 +1,4 @@
-import { isComboLineId, type AnalyticsSummary } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, isComboLineId, type AnalyticsSummary } from "@tbc/shared-types";
 import { BrandModel } from "../../db/models/Brand.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
@@ -9,6 +9,9 @@ interface AnalyticsOrderLine {
   menuItemId: string;
   signatureName: string;
   quantity: number;
+  /** The line's own kitchen — falls back to the order's brandId for orders placed before lines carried one. */
+  brandId: string;
+  lineTotal: number;
 }
 
 interface AnalyticsOrder {
@@ -39,8 +42,11 @@ function periodStats(orders: AnalyticsOrder[], since: Date | null, until: Date |
  * since "how many live brands" isn't a meaningful figure to ask of a single brand. */
 export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSummary> {
   const [orderDocs, brandDocs, menuItemDocs, totalCombos] = await Promise.all([
-    OrderModel.find(brandId ? { brandId } : {})
-      .select("createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity")
+    // An order can mix kitchens — scoping to one brand matches any order that kitchen cooked for.
+    OrderModel.find(brandId ? { $or: [{ brandId }, { brandIds: brandId }] } : {})
+      .select(
+        "createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity items.brandId items.unitPrice items.addOnPrices"
+      )
       .lean(),
     BrandModel.find().select("name status").lean(),
     MenuItemModel.find(brandId ? { brandId } : {})
@@ -49,6 +55,7 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
     ComboModel.countDocuments(brandId ? { brandId } : {}),
   ]);
   const brandNameById = new Map(brandDocs.map((b) => [String(b._id), b.name]));
+  brandNameById.set(FEAST_COMBO_BRAND_ID, "Feast combos (multi-kitchen)");
 
   const orders: AnalyticsOrder[] = orderDocs.map((o) => ({
     createdAt: o.createdAt as unknown as Date,
@@ -57,7 +64,13 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
     userId: o.userId ? String(o.userId) : null,
     total: o.totals.total,
     area: o.delivery?.area?.trim() || UNKNOWN_AREA,
-    items: o.items.map((line) => ({ menuItemId: line.menuItemId, signatureName: line.signatureName, quantity: line.quantity })),
+    items: o.items.map((line) => ({
+      menuItemId: line.menuItemId,
+      signatureName: line.signatureName,
+      quantity: line.quantity,
+      brandId: line.brandId ?? o.brandId,
+      lineTotal: (line.unitPrice + (line.addOnPrices ?? []).reduce((sum, p) => sum + p, 0)) * line.quantity,
+    })),
   }));
 
   // All boundaries anchored to IST "today", not server-local time or the request's own instant —
@@ -74,13 +87,22 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
   const ordersLast30Days = periodStats(orders, last30Start, null);
   const allTime = periodStats(orders, null, null);
 
-  // Which restaurant (brand) got how many orders / how much revenue.
+  // Which restaurant (brand) got how many orders / how much revenue. A mixed-kitchen order counts
+  // once for every kitchen in it, and its total is split by each kitchen's share of the item
+  // subtotal (a Feast combo spanning kitchens gets its own bucket) — so revenue still sums to the
+  // real all-brands figure rather than being double-counted.
   const byBrandMap = new Map<string, { orders: number; revenue: number }>();
   for (const o of orders) {
-    const entry = byBrandMap.get(o.brandId) ?? { orders: 0, revenue: 0 };
-    entry.orders += 1;
-    if (o.status !== "cancelled") entry.revenue += o.total;
-    byBrandMap.set(o.brandId, entry);
+    const lineSum = o.items.reduce((sum, line) => sum + line.lineTotal, 0);
+    const shareByBrand = new Map<string, number>();
+    for (const line of o.items) shareByBrand.set(line.brandId, (shareByBrand.get(line.brandId) ?? 0) + line.lineTotal);
+    if (shareByBrand.size === 0) shareByBrand.set(o.brandId, 1);
+    for (const [lineBrandId, share] of shareByBrand) {
+      const entry = byBrandMap.get(lineBrandId) ?? { orders: 0, revenue: 0 };
+      entry.orders += 1;
+      if (o.status !== "cancelled") entry.revenue += lineSum > 0 ? Math.round((o.total * share) / lineSum) : o.total / shareByBrand.size;
+      byBrandMap.set(lineBrandId, entry);
+    }
   }
   const byBrand = Array.from(byBrandMap.entries())
     .map(([brandId, stats]) => ({ brandId, brandName: brandNameById.get(brandId) ?? brandId, ...stats }))
@@ -148,7 +170,7 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
   orders.forEach((o, orderIndex) => {
     for (const line of o.items) {
       if (isComboLineId(line.menuItemId)) continue;
-      const entry = itemStatsById.get(line.menuItemId) ?? { name: line.signatureName, brandId: o.brandId, totalQuantity: 0, orderIds: new Set() };
+      const entry = itemStatsById.get(line.menuItemId) ?? { name: line.signatureName, brandId: line.brandId, totalQuantity: 0, orderIds: new Set() };
       entry.totalQuantity += line.quantity;
       entry.orderIds.add(orderIndex);
       itemStatsById.set(line.menuItemId, entry);

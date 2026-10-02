@@ -34,5 +34,22 @@ export type CreateBrandRequest = z.infer<typeof CreateBrandRequestSchema>;
 export const UpdateBrandRequestSchema = CreateBrandRequestSchema.omit({ id: true }).partial();
 export type UpdateBrandRequest = z.infer<typeof UpdateBrandRequestSchema>;
 
-/** Sentinel combo brandId for the one combo not owned by any single brand — its eligible items span every live brand. Never a real Brand doc. */
-export const CROSS_BRAND_ID = "cross-brand";
+/**
+ * Sentinel combo brandId for "Feast" combos — combos not owned by any one kitchen, whose items can
+ * come from any live kitchen that's currently open (all kitchens share one location, so a mixed
+ * order is still one order, one delivery, one payment). Never a real Brand doc. A choose-n Feast
+ * combo with an empty `eligibleItemIds` means "any item from any open kitchen", so new brands are
+ * picked up automatically.
+ */
+export const FEAST_COMBO_BRAND_ID = "feast";
+
+/** Who a Feast combo is sized for — the Feast page groups combos into one tab per size, each with
+ * its own ready-made Feasts and its own build-your-own (different pick counts). */
+export const FEAST_SIZES = [
+  { id: "one", label: "For One" },
+  { id: "two", label: "For Two" },
+  { id: "four", label: "For Four" },
+  { id: "party", label: "Party" },
+] as const;
+export const FeastSizeSchema = z.enum(["one", "two", "four", "party"]);
+export type FeastSize = z.infer<typeof FeastSizeSchema>;

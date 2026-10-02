@@ -11,7 +11,7 @@ import { MenuItemCard } from "../../components/MenuItemCard";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useBrandStore } from "../../state/brandStore";
 import { useTheme } from "../../state/themeStore";
-import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
+import { addLineToCart } from "../../utils/addToCart";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -39,7 +39,7 @@ function CuratedComboRow({ combo, itemPrice, styles }: { combo: Extract<Combo, {
   const savings = Math.max(0, fullPriceSum - comboPrice);
 
   function handleAdd() {
-    addLineWithBrandGuard(
+    addLineToCart(
       makeComboCartLine({
         comboId: combo.id,
         brandId: combo.brandId,

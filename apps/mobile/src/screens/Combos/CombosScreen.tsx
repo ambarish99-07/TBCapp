@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { computeComboPrice } from "@tbc/pricing";
-import { CROSS_BRAND_ID, type Combo } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, type Combo } from "@tbc/shared-types";
 import { useMemo, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBrands } from "../../api/brands.api";
@@ -8,7 +8,7 @@ import { useAllCombos, useAllMenuItems } from "../../api/menu.api";
 import { CartSummaryBar } from "../../components/CartSummaryBar";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
-import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
+import { addLineToCart } from "../../utils/addToCart";
 import { makeComboCartLine } from "../../utils/comboCartLine";
 import type { RootStackParamList } from "../../navigation/types";
 
@@ -38,7 +38,7 @@ function CuratedComboCard({
   function handleAdd() {
     // Stays on this list rather than jumping to Cart — lets the customer add another
     // combo (or several) in one go; the floating summary bar confirms it landed.
-    addLineWithBrandGuard(
+    addLineToCart(
       makeComboCartLine({
         comboId: combo.id,
         brandId: combo.brandId,
@@ -79,19 +79,22 @@ export function CombosScreen({ navigation }: Props) {
   const { data: allCombos, isLoading } = useAllCombos();
   const { data: menuItems } = useAllMenuItems();
   const { data: brands } = useBrands();
-  // One tab per live catalog brand (GG Tiffin has no MenuItem/Combo catalog, so it never appears
-  // here on its own), plus a fixed "Cross Build" tab last for the cross-brand combo — derived
-  // from whichever brands actually exist rather than a hardcoded two-brand list, so a newly added
-  // brand's own combos get a tab automatically with no code change.
-  const brandTabs = useMemo(
-    () => (brands ?? []).filter((brand) => brand.id !== "gg-tiffin").map((brand) => ({ key: brand.id, label: `${brand.name} Combos` })),
-    [brands]
+  // One tab per live catalog brand that has combos of its own (GG Tiffin has no MenuItem/Combo
+  // catalog, so it never appears) — derived from whichever brands actually exist rather than a
+  // hardcoded list, so a newly added brand's combos get a tab automatically with no code change.
+  // Multi-kitchen combos live on their own Feast page instead (linked at the bottom).
+  const tabs = useMemo(
+    () =>
+      (brands ?? [])
+        .filter((brand) => brand.id !== "gg-tiffin" && (allCombos ?? []).some((combo) => combo.brandId === brand.id))
+        .map((brand) => ({ key: brand.id, label: `${brand.name} Combos` })),
+    [brands, allCombos]
   );
-  const tabs = useMemo(() => [...brandTabs, { key: CROSS_BRAND_ID, label: "Cross Build" }], [brandTabs]);
+  const hasFeast = (allCombos ?? []).some((combo) => combo.brandId === FEAST_COMBO_BRAND_ID);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  // Defaults to the first real brand tab once brands have loaded — can't pick that at
-  // useState-init time since brands arrive asynchronously.
-  const effectiveActiveTab = activeTab ?? brandTabs[0]?.key ?? CROSS_BRAND_ID;
+  // Defaults to the first brand tab once brands have loaded — can't pick that at useState-init
+  // time since brands arrive asynchronously.
+  const effectiveActiveTab = activeTab ?? tabs[0]?.key ?? null;
 
   function itemName(id: string): string {
     return menuItems?.find((item) => item.id === id)?.signatureName ?? id;
@@ -106,7 +109,6 @@ export function CombosScreen({ navigation }: Props) {
   }
 
   const combos = useMemo(() => allCombos?.filter((combo) => combo.brandId === effectiveActiveTab) ?? [], [allCombos, effectiveActiveTab]);
-  const crossBrandCombo = combos.find((combo) => combo.brandId === CROSS_BRAND_ID);
 
   return (
     <View style={styles.screen}>
@@ -136,50 +138,43 @@ export function CombosScreen({ navigation }: Props) {
           the summary bar below down to the true bottom of the screen instead of trailing
           right after a short card. */}
       <View style={styles.content}>
-        {effectiveActiveTab === CROSS_BRAND_ID ? (
-          crossBrandCombo && (
-            <View style={styles.mixMatchCard}>
-              <Text style={styles.mixMatchEmoji}>🔀</Text>
-              <Text style={styles.name}>{crossBrandCombo.name}</Text>
-              <Text style={styles.description}>Pick any 2 items from every item in the menu — both brands, mixed however you like.</Text>
-              <Pressable style={styles.footerButton} onPress={() => navigation.navigate("ChooseCombo", { comboId: crossBrandCombo.id })}>
-                <Text style={styles.footerButtonText}>Build Your Combo</Text>
-              </Pressable>
-            </View>
-          )
-        ) : (
-          <FlatList
-            data={combos}
-            keyExtractor={(combo) => combo.id}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            renderItem={({ item: combo }) => {
-              if (combo.type === "choose-n") {
-                const image = combo.image ?? itemImage(combo.eligibleItemIds[0]);
-                return (
-                  <Pressable style={styles.card} onPress={() => navigation.navigate("ChooseCombo", { comboId: combo.id })}>
-                    {image ? (
-                      <Image source={{ uri: image }} style={styles.image} />
-                    ) : (
-                      <View style={styles.imagePlaceholder}>
-                        <Text style={styles.imagePlaceholderText}>🧩</Text>
-                      </View>
-                    )}
-                    <View style={styles.body}>
-                      <Text style={styles.name}>{combo.name}</Text>
-                      <Text style={styles.description}>Pick any {combo.chooseCount} eligible items · 15% off their combined price</Text>
-                      <View style={styles.buildButton}>
-                        <Text style={styles.buildButtonText}>Build Your Combo</Text>
-                      </View>
+        <FlatList
+          data={combos}
+          keyExtractor={(combo) => combo.id}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          renderItem={({ item: combo }) => {
+            if (combo.type === "choose-n") {
+              const image = combo.image ?? itemImage(combo.eligibleItemIds[0]);
+              return (
+                <Pressable style={styles.card} onPress={() => navigation.navigate("ChooseCombo", { comboId: combo.id })}>
+                  {image ? (
+                    <Image source={{ uri: image }} style={styles.image} />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <Text style={styles.imagePlaceholderText}>🧩</Text>
                     </View>
-                  </Pressable>
-                );
-              }
+                  )}
+                  <View style={styles.body}>
+                    <Text style={styles.name}>{combo.name}</Text>
+                    <Text style={styles.description}>Pick any {combo.chooseCount} eligible items · 15% off their combined price</Text>
+                    <View style={styles.buildButton}>
+                      <Text style={styles.buildButtonText}>Build Your Combo</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            }
 
-              return <CuratedComboCard combo={combo} itemName={itemName} itemPrice={itemPrice} itemImage={itemImage} styles={styles} />;
-            }}
-          />
-        )}
+            return <CuratedComboCard combo={combo} itemName={itemName} itemPrice={itemPrice} itemImage={itemImage} styles={styles} />;
+          }}
+        />
       </View>
+
+      {hasFeast && (
+        <Pressable style={styles.feastLink} onPress={() => navigation.navigate("Feast")}>
+          <Text style={styles.feastLinkText}>🍽️ Biryani + shake + mocktail in one order? Try a Feast ›</Text>
+        </Pressable>
+      )}
 
       <CartSummaryBar navigation={navigation} />
     </View>
@@ -232,8 +227,13 @@ const makeStyles = (colors: ColorPalette) =>
     addRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 8 },
     addButton: { backgroundColor: colors.primary, borderRadius: theme.radius, paddingVertical: 6, paddingHorizontal: 18 },
     addButtonText: { color: "#fff", fontWeight: "700", fontSize: 12 },
-    mixMatchCard: { backgroundColor: colors.surface, borderRadius: theme.radius, padding: theme.spacing(2) },
-    mixMatchEmoji: { fontSize: 28, marginBottom: 4 },
-    footerButton: { backgroundColor: colors.primary, borderRadius: theme.radius, padding: theme.spacing(1.75), alignItems: "center", marginTop: theme.spacing(1) },
-    footerButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    feastLink: {
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.25),
+      alignItems: "center",
+      marginBottom: theme.spacing(1),
+    },
+    feastLinkText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
   });

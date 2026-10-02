@@ -5,6 +5,7 @@ import {
   type CreateOrderRequest,
 } from "@tbc/shared-types";
 import type { Env } from "../../config/env.js";
+import { BrandModel } from "../../db/models/Brand.model.js";
 import { OrderModel } from "../../db/models/Order.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import { sendNewOrderAlert } from "../../integrations/whatsapp/sendOrderAlert.js";
@@ -28,16 +29,16 @@ export { OrderValidationError };
  * closures, so a single check here covers both levels. Only gates catalog-brand ordering (this
  * function); GG Tiffin has its own separate cutoff system and isn't affected by either level.
  */
-async function assertStoreOpenForOrdering(brandId: string): Promise<void> {
+async function closedReason(brandId: string): Promise<string | null> {
   const status = await getBrandStoreStatus(brandId);
-  if (status.isOpen) return;
+  if (status.isOpen) return null;
   if (status.reason === "manually-closed") {
-    throw new OrderValidationError("We're not accepting orders right now — please check back shortly.");
+    return "We're not accepting orders right now — please check back shortly.";
   }
   if (status.reason === "planned-closure" && status.activeClosure) {
     const { startDate, endDate, reason } = status.activeClosure;
     const range = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
-    throw new OrderValidationError(`We're closed ${range}${reason ? ` (${reason})` : ""} — please check back after.`);
+    return `We're closed ${range}${reason ? ` (${reason})` : ""} — please check back after.`;
   }
   const { openHour, closeHour } = status.settings;
   const formatHour = (h: number) => {
@@ -46,14 +47,25 @@ async function assertStoreOpenForOrdering(brandId: string): Promise<void> {
     const suffix = hourOfDay < 12 ? "AM" : "PM";
     return `${hour12} ${suffix}`;
   };
-  throw new OrderValidationError(
-    `We're closed right now — we're open ${formatHour(openHour)} to ${formatHour(closeHour)} daily.`
-  );
+  return `We're closed right now — we're open ${formatHour(openHour)} to ${formatHour(closeHour)} daily.`;
+}
+
+/** An order can mix kitchens, so every kitchen cooking part of it must be open — and when more
+ * than one is involved, the message names which kitchen is closed so the customer knows exactly
+ * which items to remove (the others can still be ordered). */
+async function assertKitchensOpenForOrdering(kitchenBrandIds: string[]): Promise<void> {
+  for (const brandId of kitchenBrandIds) {
+    const reason = await closedReason(brandId);
+    if (!reason) continue;
+    if (kitchenBrandIds.length === 1) throw new OrderValidationError(reason);
+    const brand = await BrandModel.findById(brandId, "name").lean();
+    throw new OrderValidationError(`${brand?.name ?? brandId} is closed right now — remove its items to place this order.`);
+  }
 }
 
 export async function createOrder(env: Env, request: CreateOrderRequest, userId: string | null) {
-  await assertStoreOpenForOrdering(request.brandId);
-  const { resolvedLines, pricingLines } = await resolveCartLines(request.items, request.brandId);
+  const { resolvedLines, pricingLines, kitchenBrandIds } = await resolveCartLines(request.items);
+  await assertKitchensOpenForOrdering(kitchenBrandIds);
   assertWithinDeliveryZone(request.delivery);
 
   const loyalty = { completedOrderCount: 0, isPremiumMemberOverride: false };
@@ -81,7 +93,7 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   let couponResult: { code: string; discountAmount: number } | undefined;
   if (request.couponCode) {
     try {
-      couponResult = await resolveCoupon(request.couponCode, request.brandId, pricingLines, userId);
+      couponResult = await resolveCoupon(request.couponCode, kitchenBrandIds, pricingLines, userId);
     } catch (err) {
       throw new OrderValidationError(err instanceof Error ? err.message : "Invalid coupon code");
     }
@@ -99,7 +111,8 @@ export async function createOrder(env: Env, request: CreateOrderRequest, userId:
   const order = await OrderModel.create({
     accessToken: generateAccessToken(),
     orderNumber: generateOrderNumber(),
-    brandId: request.brandId,
+    brandId: kitchenBrandIds[0],
+    brandIds: kitchenBrandIds,
     userId,
     customer,
     deliveryFor: request.deliveryFor,

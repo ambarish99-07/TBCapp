@@ -1,4 +1,4 @@
-import type { Brand, Combo, MenuItem } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, FEAST_SIZES, type Brand, type Combo, type FeastSize, type MenuItem } from "@tbc/shared-types";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminClient } from "../api/adminClient.js";
@@ -28,8 +28,33 @@ async function uploadImage(file: File): Promise<string> {
   return data.url;
 }
 
-/** Checkbox grid for picking which of this brand's menu items belong to a combo. */
-function ItemPicker({ items, selectedIds, onToggle }: { items: MenuItem[]; selectedIds: string[]; onToggle: (id: string) => void }) {
+/** Checkbox grid for picking which menu items belong to a combo — grouped by kitchen when
+ * `brands` is passed (Feast combos, which span every kitchen). */
+function ItemPicker({
+  items,
+  selectedIds,
+  onToggle,
+  brands,
+}: {
+  items: MenuItem[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  brands?: Brand[];
+}) {
+  if (brands) {
+    return (
+      <div className="flex flex-col gap-3">
+        {brands
+          .filter((brand) => items.some((item) => item.brandId === brand.id))
+          .map((brand) => (
+            <div key={brand.id}>
+              <p className="mb-1 text-xs font-semibold text-muted">{brand.name}</p>
+              <ItemPicker items={items.filter((item) => item.brandId === brand.id)} selectedIds={selectedIds} onToggle={onToggle} />
+            </div>
+          ))}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
@@ -51,11 +76,13 @@ function ItemPicker({ items, selectedIds, onToggle }: { items: MenuItem[]; selec
 function ComboCard({
   combo,
   items,
+  brands,
   onSaved,
   onDelete,
 }: {
   combo: Combo;
   items: MenuItem[];
+  brands?: Brand[];
   onSaved: (combo: Combo) => void;
   onDelete: (id: string) => void;
 }) {
@@ -75,6 +102,7 @@ function ComboCard({
       description: combo.description,
       image: combo.image,
       discountPercent: combo.discountPercent,
+      feastSize: combo.feastSize,
       ...base,
       ...patch,
     });
@@ -126,9 +154,25 @@ function ComboCard({
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handlePhotoChange} />
       </div>
 
-      <span className="w-fit rounded-full bg-surface px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-muted">
-        {combo.type === "curated" ? "Curated" : "Choose Your Own"}
-      </span>
+      <div className="flex items-center gap-2">
+        <span className="w-fit rounded-full bg-surface px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-muted">
+          {combo.type === "curated" ? "Curated" : "Choose Your Own"}
+        </span>
+        {brands && (
+          <Select
+            value={combo.feastSize ?? ""}
+            onChange={(e) => save({ feastSize: (e.target.value || null) as FeastSize | null })}
+            className="w-36"
+          >
+            <option value="">No size (More tab)</option>
+            {FEAST_SIZES.map((size) => (
+              <option key={size.id} value={size.id}>
+                {size.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </div>
 
       <Input defaultValue={combo.name} onBlur={(e) => e.target.value !== combo.name && save({ name: e.target.value })} placeholder="Name" />
       <Input
@@ -170,9 +214,13 @@ function ComboCard({
 
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
-          {combo.type === "curated" ? "Items in this combo" : "Eligible items"}
+          {combo.type === "curated"
+            ? "Items in this combo"
+            : brands && combo.eligibleItemIds.length === 0
+              ? "Eligible items — none picked = any item from any open kitchen"
+              : "Eligible items"}
         </p>
-        <ItemPicker items={items} selectedIds={selectedIds} onToggle={toggleItem} />
+        <ItemPicker items={items} selectedIds={selectedIds} onToggle={toggleItem} brands={brands} />
       </div>
 
       <Button variant="danger" onClick={() => onDelete(combo.id)}>
@@ -189,11 +237,16 @@ const emptyForm = {
   description: "",
   discountPercent: "",
   chooseCount: "2",
+  feastSize: "one",
 };
 
-export function CombosPage() {
-  const { brandId } = useParams<{ brandId: string }>();
+/** `feast` = the multi-kitchen Feast combos (brandId FEAST_COMBO_BRAND_ID), whose items can come
+ * from every live kitchen — reached from the sidebar rather than one brand's tabs. */
+export function CombosPage({ feast = false }: { feast?: boolean }) {
+  const params = useParams<{ brandId: string }>();
+  const brandId = feast ? FEAST_COMBO_BRAND_ID : params.brandId;
   const [brand, setBrand] = useState<Brand | null>(null);
+  const [allBrands, setAllBrands] = useState<Brand[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -213,9 +266,13 @@ export function CombosPage() {
       const [brandsRes, combosRes, itemsRes] = await Promise.all([
         adminClient.get<{ brands: Brand[] }>("/admin/brands"),
         adminClient.get<{ combos: Combo[] }>("/menu/combos", { params: { brandId } }),
-        adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
+        // A Feast combo can use any live kitchen's items — /menu/search with no query = all of them.
+        feast
+          ? adminClient.get<{ items: MenuItem[] }>("/menu/search")
+          : adminClient.get<{ items: MenuItem[] }>("/menu", { params: { brandId } }),
       ]);
       setBrand(brandsRes.data.brands.find((b) => b.id === brandId) ?? null);
+      setAllBrands(brandsRes.data.brands);
       setCombos(combosRes.data.combos);
       setItems(itemsRes.data.items);
     } catch (err) {
@@ -238,7 +295,9 @@ export function CombosPage() {
     e.preventDefault();
     setError(null);
     const minNeeded = form.type === "curated" ? 2 : Number(form.chooseCount) || 1;
-    if (selectedIds.length < minNeeded) {
+    // A Feast build-your-own may leave the list empty = any item from any open kitchen.
+    const openFeastPool = feast && form.type === "choose-n" && selectedIds.length === 0;
+    if (selectedIds.length < minNeeded && !openFeastPool) {
       setError(form.type === "curated" ? "Pick at least 2 items for a curated combo." : "Pick at least as many eligible items as the choose count.");
       return;
     }
@@ -254,6 +313,7 @@ export function CombosPage() {
         description: form.description,
         image,
         discountPercent: form.discountPercent ? Number(form.discountPercent) : undefined,
+        feastSize: feast ? form.feastSize : undefined,
         ...(form.type === "curated" ? { itemIds: selectedIds } : { chooseCount: Number(form.chooseCount), eligibleItemIds: selectedIds }),
       });
       setForm(emptyForm);
@@ -276,12 +336,18 @@ export function CombosPage() {
   return (
     <div>
       <PageHeader
-        title={brand ? `${brand.name} — Combos` : "Combos"}
-        description="Curated and choose-your-own combos — items, photos, and the discount applied to each."
+        title={feast ? "Feast Combos" : brand ? `${brand.name} — Combos` : "Combos"}
+        description={
+          feast
+            ? "Multi-kitchen combos shown on the app's Feast page — items from any kitchen, one order, one payment. While a kitchen is closed, Feasts using its items show as unavailable."
+            : "Curated and choose-your-own combos — items, photos, and the discount applied to each."
+        }
         action={
-          <Link to="/brands" className="text-sm font-semibold text-primary-dark hover:underline">
-            ‹ Back to Brands
-          </Link>
+          feast ? undefined : (
+            <Link to="/brands" className="text-sm font-semibold text-primary-dark hover:underline">
+              ‹ Back to Brands
+            </Link>
+          )
         }
       />
 
@@ -297,6 +363,15 @@ export function CombosPage() {
             <option value="curated">Curated (fixed items)</option>
             <option value="choose-n">Choose Your Own</option>
           </Select>
+          {feast && (
+            <Select value={form.feastSize} onChange={(e) => setForm({ ...form, feastSize: e.target.value })}>
+              {FEAST_SIZES.map((size) => (
+                <option key={size.id} value={size.id}>
+                  {size.label}
+                </option>
+              ))}
+            </Select>
+          )}
           <Input
             placeholder="Name (e.g. Chocolate Duo)"
             value={form.name}
@@ -332,9 +407,13 @@ export function CombosPage() {
 
           <div className="sm:col-span-2 lg:col-span-3">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
-              {form.type === "curated" ? "Items in this combo (pick at least 2)" : "Eligible items (pick at least the choose count)"}
+              {form.type === "curated"
+                ? "Items in this combo (pick at least 2)"
+                : feast
+                  ? "Eligible items (leave empty = any item from any open kitchen)"
+                  : "Eligible items (pick at least the choose count)"}
             </p>
-            <ItemPicker items={items} selectedIds={selectedIds} onToggle={toggleSelected} />
+            <ItemPicker items={items} selectedIds={selectedIds} onToggle={toggleSelected} brands={feast ? allBrands : undefined} />
           </div>
 
           <div className="sm:col-span-2 lg:col-span-3">
@@ -361,6 +440,7 @@ export function CombosPage() {
               key={combo.id}
               combo={combo}
               items={items}
+              brands={feast ? allBrands : undefined}
               onSaved={(updated) => setCombos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))}
               onDelete={handleDelete}
             />

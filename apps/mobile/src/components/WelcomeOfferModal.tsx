@@ -28,7 +28,7 @@ interface Props {
 export function WelcomeOfferModal({ brandId, eligible }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { data: coupons } = useActiveCoupons(brandId);
+  const { data: coupons } = useActiveCoupons(brandId ? [brandId] : []);
   const welcomeCoupon = coupons?.find((c) => c.code === WELCOME_COUPON_CODE);
 
   const [visible, setVisible] = useState(false);

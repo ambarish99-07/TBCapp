@@ -28,6 +28,8 @@ const ComboSchema = new Schema(
     // choose-n only
     chooseCount: { type: Number },
     eligibleItemIds: { type: [String], default: undefined },
+    // Feast combos only — "one" | "two" | "four" | "party", the Feast page's tab.
+    feastSize: { type: String, enum: ["one", "two", "four", "party"] },
   },
   { timestamps: true, _id: false }
 );

@@ -11,6 +11,8 @@ export type RootStackParamList = {
   // Optional prefill from "use current location", tapping a Patna address search result, or PickLocation.
   AddAddress: { address?: string; area?: string; city?: string; pincode?: string } | undefined;
   Combos: undefined;
+  /** Multi-kitchen combos — curated Feasts + build-your-own from any open kitchen. */
+  Feast: undefined;
   ChooseCombo: { comboId: string };
   BulkOrder: undefined;
   // GG Tiffin's own flow — reached from the GG Tiffin brand tile instead of RestaurantMenu.

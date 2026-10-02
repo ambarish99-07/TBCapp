@@ -9,14 +9,14 @@ import { CouponValidationError } from "./coupons.errors.js";
  * `userId` (when logged in) additionally drops any oncePerCustomer coupon this account has already
  * redeemed — a welcome offer they've used has nothing left to show them.
  *
- * `brandId` omitted entirely (not just falsy — the caller must actually leave it out) skips the
+ * `brandIds` are every kitchen in the cart (a cart can mix kitchens). Omitted entirely (not just falsy — the caller must actually leave it out) skips the
  * brand filter altogether, returning every brand's coupons at once — powers the Account screen's
  * brand-agnostic "browse all coupons" page, which has no single cart/brand to scope to the way
  * the Cart screen's call always does. */
-export async function listActiveCoupons(brandId: string | undefined, userId?: string | null): Promise<Coupon[]> {
+export async function listActiveCoupons(brandIds: string[] | undefined, userId?: string | null): Promise<Coupon[]> {
   const coupons = await CouponModel.find({
     isActive: true,
-    ...(brandId ? { $or: [{ brandId: { $exists: false } }, { brandId }] } : {}),
+    ...(brandIds?.length ? { $or: [{ brandId: { $exists: false } }, { brandId: { $in: brandIds } }] } : {}),
     $and: [{ $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] }],
   }).sort({ createdAt: -1 });
   return coupons
@@ -35,7 +35,7 @@ export async function listActiveCoupons(brandId: string | undefined, userId?: st
  */
 export async function resolveCoupon(
   code: string,
-  brandId: string,
+  brandIds: string[],
   lines: CartLineInput[],
   userId?: string | null
 ): Promise<{ code: string; discountAmount: number }> {
@@ -46,8 +46,11 @@ export async function resolveCoupon(
   if (coupon.expiresAt && coupon.expiresAt < new Date()) {
     throw new CouponValidationError("This coupon has expired");
   }
-  if (coupon.brandId && coupon.brandId !== brandId) {
-    throw new CouponValidationError("This coupon isn't valid for this brand");
+  // A kitchen-specific coupon still applies to a mixed-kitchen cart as long as that kitchen is in
+  // it — the discount math itself is unchanged (still off the whole subtotal), pending the owner's
+  // review of how coupons should behave on mixed orders.
+  if (coupon.brandId && !brandIds.includes(coupon.brandId)) {
+    throw new CouponValidationError("This coupon isn't valid for the kitchens in your cart");
   }
   if (coupon.oncePerCustomer) {
     if (!userId) {

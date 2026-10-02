@@ -9,6 +9,7 @@ import {
   Store,
   Ticket,
   Users,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -29,6 +30,8 @@ const LICKYEAT_LINKS: { to: string; label: string; icon: LucideIcon; exact?: boo
   { to: "/brands", label: "Brands", icon: Store, exact: true },
   { to: "/orders", label: "Orders", icon: ShoppingBag },
   { to: "/customers", label: "Customers", icon: Users },
+  // Multi-kitchen combos (the app's Feast page) belong to no single brand, so they live here.
+  { to: "/feast-combos", label: "Feast Combos", icon: UtensilsCrossed },
   { to: "/coupons", label: "Coupons", icon: Ticket },
   { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
   { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },

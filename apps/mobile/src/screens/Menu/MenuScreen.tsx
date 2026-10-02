@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, isComboLineId, type Brand, type MenuItem } from "@tbc/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,8 +56,8 @@ export function MenuScreen({ navigation }: Props) {
   // Cross-brand — Recommended/Discounts/Signature/Premium rows still scope to the selected
   // brand, but the Restaurants row needs one representative item photo per brand regardless.
   const { data: allItems } = useAllMenuItems();
-  // Also cross-brand, not scoped to the selected brand — the Combos icon should stay visible
-  // as long as *any* live brand has combos, since tapping it now opens a cross-brand page.
+  // Also cross-brand, not scoped to the selected brand — the Combos icon stays visible as long as
+  // *any* live brand has its own combos, and the Feast icon as long as any Feast combo exists.
   const { data: combos } = useAllCombos();
   const { data: adminRecommendedItemIds } = useMyRecommendations();
   // GG Tiffin has its own separate ordering cutoffs — never fetch/show the catalog-brand status for it.
@@ -68,7 +68,8 @@ export function MenuScreen({ navigation }: Props) {
   const user = useAuthStore((state) => state.user);
   const initial = user?.fullName?.trim().charAt(0).toUpperCase() ?? "?";
   const selectedAddress = useAddressStore((state) => state.selectedAddress);
-  const showCombosBanner = !!combos && combos.length > 0;
+  const showCombosBanner = (combos ?? []).some((combo) => combo.brandId !== FEAST_COMBO_BRAND_ID);
+  const showFeastTab = (combos ?? []).some((combo) => combo.brandId === FEAST_COMBO_BRAND_ID);
   const listRef = useRef<FlatList>(null);
   const [isBrandPickerOpen, setIsBrandPickerOpen] = useState(false);
   const [addingItem, setAddingItem] = useState<MenuItem | null>(null);
@@ -140,7 +141,7 @@ export function MenuScreen({ navigation }: Props) {
     }
   }, [selectedBrandId, selectedBrand, brands, selectBrand, restoreBrand]);
 
-  // Scoped to this brand only — the cross-brand combo has its own home on the Combos screen.
+  // Scoped to this brand only — Feast combos have their own home on the Feast screen.
   const brandCombos = useMemo(() => (combos ?? []).filter((combo) => combo.brandId === selectedBrandId), [combos, selectedBrandId]);
 
   // Shares the ["my-orders"] cache key with OrderHistoryScreen — same query, no duplicate fetch.
@@ -157,7 +158,9 @@ export function MenuScreen({ navigation }: Props) {
     if (!myOrders || !items) return [];
     const orderCountByItemId = new Map<string, number>();
     for (const order of myOrders) {
-      if (order.status !== "delivered" || order.brandId !== selectedBrandId) continue;
+      // No order-level brand check — an order can mix kitchens; `items` below is already just
+      // this brand's menu, which is what scopes the result.
+      if (order.status !== "delivered") continue;
       const seenInThisOrder = new Set<string>();
       for (const line of order.items) {
         if (isComboLineId(line.menuItemId)) continue;
@@ -320,7 +323,7 @@ export function MenuScreen({ navigation }: Props) {
       <View pointerEvents="box-none" style={[styles.floatingFooter, { paddingBottom: insets.bottom + theme.spacing(1) }]}>
         <CartSummaryBar navigation={navigation} />
 
-        {/* Dark floating tab bar (Menu/Combos/Bulk Deals) plus a separate bright accent chip
+        {/* Dark floating tab bar (Menu/Combos/Feast/Bulk Deals) plus a separate bright accent chip
             (GG Tiffin) to its right — modeled on the dark-pill-bar + standout-chip pattern from
             the reference screenshot the user provided, rather than the previous light bordered
             buttons. */}
@@ -347,6 +350,17 @@ export function MenuScreen({ navigation }: Props) {
               >
                 <MaterialCommunityIcons name="gift-outline" size={20} color={TAB_ICON_COLOR} />
                 <Text style={styles.tabLabel}>Combos</Text>
+              </Pressable>
+            )}
+            {/* One order from every kitchen — curated multi-kitchen meals + build-your-own. */}
+            {showFeastTab && (
+              <Pressable
+                style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemActive]}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: false }}
+                onPress={() => navigation.navigate("Feast")}
+              >
+                <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={TAB_ICON_COLOR} />
+                <Text style={styles.tabLabel}>Feast</Text>
               </Pressable>
             )}
             <Pressable
@@ -558,7 +572,9 @@ const makeStyles = (colors: ColorPalette) =>
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      minWidth: 56,
+      // 48 (not wider) so Menu/Combos/Feast/Bulk Deals still fit beside the GG Tiffin chip on a
+      // ~360dp-wide phone.
+      minWidth: 48,
       paddingVertical: theme.spacing(0.75),
       paddingHorizontal: theme.spacing(0.5),
       borderRadius: 14,

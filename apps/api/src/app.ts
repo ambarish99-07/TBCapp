@@ -32,6 +32,11 @@ const PUBLIC_DIR = path.join(__dirname, "../public");
 
 export function createApp(env: Env): Express {
   const app = express();
+  // Cloud Run puts exactly one Google front-end proxy in front of the container. Without this,
+  // req.ip is that proxy's address for every request, so the IP-keyed signup/login rate limiters
+  // would lump all customers into one shared bucket. 1 = trust only the hop Google appends, so a
+  // client can't spoof its IP via its own X-Forwarded-For header.
+  app.set("trust proxy", 1);
 
   app.use(securityHeaders(env));
   app.use("/menu-images", express.static(path.join(PUBLIC_DIR, "menu-images")));

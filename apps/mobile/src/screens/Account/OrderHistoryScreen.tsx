@@ -11,7 +11,7 @@ import { theme, type ColorPalette } from "../../constants/theme";
 import { useAuthStore } from "../../state/authStore";
 import { useBrandStore } from "../../state/brandStore";
 import { useTheme } from "../../state/themeStore";
-import { addLineWithBrandGuard } from "../../utils/addToCartWithBrandGuard";
+import { addLineToCart } from "../../utils/addToCart";
 import type { RootStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "OrderHistory">;
@@ -55,9 +55,8 @@ export function OrderHistoryScreen({ navigation }: Props) {
     });
   }, [deliveredOrders, brands, search]);
 
-  // Same brand-switch handleOpenRestaurant uses everywhere else in the app (selectBrand clears
-  // the cart — a deliberate switch to browse a different brand's menu, same as tapping the hero
-  // carousel or the footer brand picker). No order-tracking link here anymore — the customer can
+  // Same brand-switch handleOpenRestaurant uses everywhere else in the app (the cart is kept — one
+  // order can mix kitchens). No order-tracking link here anymore — the customer can
   // already reach an in-progress order's tracking from the "View Order Status" pill; this list is
   // about repeating what they liked, not re-checking a delivery that already happened.
   function handleViewMenu(brand: Brand) {
@@ -99,7 +98,7 @@ export function OrderHistoryScreen({ navigation }: Props) {
         .map((name) => liveItem.addOns?.find((a) => a.name === name))
         .filter((addOn): addOn is { name: string; price: number; isAvailable: boolean } => !!addOn && addOn.isAvailable);
       const hasSugarIce = liveItem.hasSugarIceCustomization ?? true;
-      addLineWithBrandGuard({
+      addLineToCart({
         lineId: `${liveItem.id}-${Date.now()}-${addedCount}`,
         brandId: liveItem.brandId,
         menuItemId: liveItem.id,

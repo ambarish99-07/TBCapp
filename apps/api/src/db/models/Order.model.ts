@@ -17,6 +17,8 @@ const OrderLineSchema = new Schema(
   {
     lineId: { type: String, required: true },
     menuItemId: { type: String, required: true },
+    // Which kitchen makes this line — "feast" for a Feast combo spanning several kitchens.
+    brandId: { type: String },
     signatureName: { type: String, required: true },
     commonName: { type: String, required: true },
     // Not required — combos without a single representative photo (e.g. "choose your own") may omit it.
@@ -120,7 +122,9 @@ const OrderSchema = new Schema(
     // deliberately NOT the Mongo _id, which is sequential/guessable enough to enumerate.
     accessToken: { type: String, required: true, unique: true },
     orderNumber: { type: String, required: true, unique: true },
+    // Primary (first) kitchen — `brandIds` is the full list when an order mixes kitchens.
     brandId: { type: String, required: true },
+    brandIds: { type: [String], default: undefined },
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     customer: { type: OrderCustomerSchema },
     deliveryFor: { type: String, enum: ["self", "recipient"], required: true, default: "self" },
@@ -156,6 +160,7 @@ const OrderSchema = new Schema(
 // accessToken and orderNumber already get unique indexes from `unique: true` above.
 OrderSchema.index({ userId: 1, createdAt: -1 });
 OrderSchema.index({ brandId: 1, createdAt: -1 });
+OrderSchema.index({ brandIds: 1, createdAt: -1 });
 
 export type OrderDocument = InferSchemaType<typeof OrderSchema>;
 export const OrderModel = model("Order", OrderSchema);

@@ -1,5 +1,5 @@
 import { computeComboPrice } from "@tbc/pricing";
-import { makeComboLineId } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, makeComboLineId } from "@tbc/shared-types";
 import type { CartLine } from "../state/cartStore";
 
 /**
@@ -21,6 +21,9 @@ export function makeComboCartLine(params: {
   payload: string;
   quantity?: number;
   discountPercent?: number;
+  /** Feast combos only: the kitchen of each constituent item, so the cart can check every one of
+   * them is open (and a Feast that lands in one kitchen is just that kitchen's line). */
+  constituentBrandIds?: string[];
 }): CartLine {
   // menuItemId must stay exactly `combo:<comboId>:<payload>` — the server parses
   // payload to recover which items were chosen. lineId only needs to be unique
@@ -31,10 +34,14 @@ export function makeComboCartLine(params: {
   const lineId = `${menuItemId}:${Date.now()}`;
   const price = computeComboPrice(params.constituentBasePrices, params.discountPercent);
   const fullPriceSum = params.constituentBasePrices.reduce((sum, p) => sum + p, 0);
+  const kitchens = params.constituentBrandIds ? [...new Set(params.constituentBrandIds)] : undefined;
+  const brandId =
+    params.brandId === FEAST_COMBO_BRAND_ID && kitchens?.length === 1 ? kitchens[0] : params.brandId;
 
   return {
     lineId,
-    brandId: params.brandId,
+    brandId,
+    kitchenBrandIds: kitchens,
     menuItemId,
     signatureName: params.name,
     commonName: params.description,

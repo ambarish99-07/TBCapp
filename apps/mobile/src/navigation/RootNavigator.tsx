@@ -17,6 +17,7 @@ import { CouponsScreen } from "../screens/Cart/CouponsScreen";
 import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
 import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
+import { FeastScreen } from "../screens/Combos/FeastScreen";
 import { CartAddressButton } from "../components/CartAddressButton";
 import { CartHeaderButton } from "../components/CartHeaderButton";
 import { HelpScreen } from "../screens/Help/HelpScreen";
@@ -91,6 +92,11 @@ export function RootNavigator() {
                 name="Combos"
                 component={CombosScreen}
                 options={{ title: "Combos", headerRight: () => <CartHeaderButton /> }}
+              />
+              <Stack.Screen
+                name="Feast"
+                component={FeastScreen}
+                options={{ title: "Feast", headerRight: () => <CartHeaderButton /> }}
               />
               <Stack.Screen
                 name="ChooseCombo"

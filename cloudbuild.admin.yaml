@@ -1,0 +1,30 @@
+# Submit with:
+#   gcloud builds submit --config=cloudbuild.admin.yaml . \
+#     --substitutions=_API_BASE_URL=<app API url>,_WEBSITE_API_BASE_URL=<website API url>,_WEBSITE_ADMIN_URL=<website web url>/admin-bridge
+#
+# All three are baked into the bundle at build time (see apps/admin/Dockerfile) — changing any of
+# them means resubmitting this build. Image goes to Artifact Registry, tagged with $BUILD_ID
+# ($SHORT_SHA is empty for a manual `gcloud builds submit`).
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-f"
+      - "apps/admin/Dockerfile"
+      - "--build-arg"
+      - "VITE_API_BASE_URL=${_API_BASE_URL}"
+      - "--build-arg"
+      - "VITE_WEBSITE_API_BASE_URL=${_WEBSITE_API_BASE_URL}"
+      - "--build-arg"
+      - "VITE_WEBSITE_ADMIN_URL=${_WEBSITE_ADMIN_URL}"
+      - "-t"
+      - "asia-south1-docker.pkg.dev/$PROJECT_ID/lickyeat/app-admin:$BUILD_ID"
+      - "-t"
+      - "asia-south1-docker.pkg.dev/$PROJECT_ID/lickyeat/app-admin:latest"
+      - "."
+images:
+  - "asia-south1-docker.pkg.dev/$PROJECT_ID/lickyeat/app-admin:$BUILD_ID"
+  - "asia-south1-docker.pkg.dev/$PROJECT_ID/lickyeat/app-admin:latest"
+# Required when the build runs as a user-specified service account (lickyeat-build-sa).
+options:
+  logging: CLOUD_LOGGING_ONLY
