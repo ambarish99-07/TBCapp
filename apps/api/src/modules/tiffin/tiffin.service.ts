@@ -25,6 +25,7 @@ import { generateSubscriptionNumber } from "./subscriptionNumber.js";
 import { buildDishLookupForTier, computeMealsForRange, computeMealsForRangeSkippingClosedDates, getAvailableMealTypesForTierDiet } from "./tiffinSchedule.js";
 import { getUpcomingClosedDates } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
+import { syncTiffinPlan } from "../catalogSync/catalogSync.settings.js";
 
 const MEAL_TYPE_LABELS: Record<TiffinMealType, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 
@@ -425,7 +426,9 @@ export async function createPlan(data: CreateTiffinPlanRequest) {
     throw new TiffinValidationError("Discounts are only available on monthly plans");
   }
   await assertValidTierStyle(data.tier, data.dietType, data.style);
-  return TiffinPlanModel.create(data);
+  const plan = await TiffinPlanModel.create(data);
+  syncTiffinPlan(String(plan._id));
+  return plan;
 }
 
 export async function updatePlan(id: string, data: UpdateTiffinPlanRequest) {
@@ -459,6 +462,7 @@ export async function updatePlan(id: string, data: UpdateTiffinPlanRequest) {
   }
 
   const plan = await TiffinPlanModel.findByIdAndUpdate(id, { $set: set, $unset: unset }, { new: true, runValidators: true });
+  if (plan) syncTiffinPlan(id);
   if (!plan) throw new TiffinValidationError("Plan not found");
   return plan;
 }

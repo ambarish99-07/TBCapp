@@ -1,5 +1,5 @@
 import { getRecommendations } from "@tbc/pricing";
-import { isComboLineId, SetAdminRecommendationRequestSchema, type OrderDeliveryPartner } from "@tbc/shared-types";
+import { AnalyticsSourceSchema, isComboLineId, SetAdminRecommendationRequestSchema, type OrderDeliveryPartner } from "@tbc/shared-types";
 import type { RequestHandler } from "express";
 import type { Env } from "../../config/env.js";
 import { AdminRecommendationModel } from "../../db/models/AdminRecommendation.model.js";
@@ -10,9 +10,13 @@ import { sendProductRecommendation } from "../../integrations/whatsapp/sendRecom
 import { getAnalyticsSummary } from "./analytics.service.js";
 
 export const getAnalytics: RequestHandler = async (req, res) => {
-  const { brandId } = req.query as { brandId?: string };
-  const summary = await getAnalyticsSummary(brandId || undefined);
-  res.json(summary);
+  const { brandId, source } = req.query as { brandId?: string; source?: string };
+  const parsedSource = AnalyticsSourceSchema.safeParse(source ?? "app");
+  try {
+    res.json(await getAnalyticsSummary(brandId || undefined, parsedSource.success ? parsedSource.data : "app"));
+  } catch (err) {
+    res.status(502).json({ error: `Couldn't load the website's figures: ${err instanceof Error ? err.message : "unknown error"}` });
+  }
 };
 
 export const listOrders: RequestHandler = async (req, res) => {

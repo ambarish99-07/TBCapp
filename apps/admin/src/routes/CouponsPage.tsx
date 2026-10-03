@@ -21,7 +21,18 @@ const emptyForm = {
   expiresAt: "",
   isActive: true,
   oncePerCustomer: false,
+  channels: ["app", "website"] as CouponChannel[],
 };
+
+type CouponChannel = "app" | "website";
+const CHANNEL_LABELS: Record<CouponChannel, string> = { app: "📱 App", website: "🌐 Website" };
+
+/** Flips one channel on/off, never leaving the coupon usable nowhere. */
+function toggleChannel(current: CouponChannel[] | undefined, channel: CouponChannel): CouponChannel[] | null {
+  const base = current && current.length ? current : (["app", "website"] as CouponChannel[]);
+  const next = base.includes(channel) ? base.filter((c) => c !== channel) : [...base, channel];
+  return next.length ? next : null;
+}
 
 /** One line of copy per mechanic — shown under the discount column instead of an editable value
  * for coupon types that have no admin-set number of their own. Add a case here (and a branch to
@@ -86,6 +97,7 @@ export function CouponsPage() {
         expiresAt: form.expiresAt || undefined,
         isActive: form.isActive,
         oncePerCustomer: form.oncePerCustomer,
+        channels: form.channels,
       });
       setForm(emptyForm);
       await reload();
@@ -185,6 +197,23 @@ export function CouponsPage() {
             />
             One-time per customer (welcome offer)
           </label>
+          <div className="flex items-center gap-3 text-sm font-semibold text-text" title="Where customers can use this code. Both by default.">
+            Works on:
+            {(Object.keys(CHANNEL_LABELS) as CouponChannel[]).map((channel) => (
+              <label key={channel} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={form.channels.includes(channel)}
+                  onChange={() => {
+                    const next = toggleChannel(form.channels, channel);
+                    if (next) setForm({ ...form, channels: next });
+                  }}
+                  className="h-4 w-4 accent-primary"
+                />
+                {CHANNEL_LABELS[channel]}
+              </label>
+            ))}
+          </div>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Adding…" : "Add Coupon"}
           </Button>
@@ -210,6 +239,7 @@ export function CouponsPage() {
                 <Th>Expires</Th>
                 <Th>Status</Th>
                 <Th>Welcome Offer</Th>
+                <Th>Works On</Th>
                 <Th></Th>
               </Tr>
             </Thead>
@@ -274,6 +304,27 @@ export function CouponsPage() {
                       >
                         {coupon.oncePerCustomer ? `Once per customer · used ${coupon.usedCount ?? 0}×` : "Reusable"}
                       </button>
+                    </Td>
+                    <Td>
+                      <div className="flex gap-1.5">
+                        {(Object.keys(CHANNEL_LABELS) as CouponChannel[]).map((channel) => {
+                          const on = !coupon.channels?.length || coupon.channels.includes(channel);
+                          return (
+                            <button
+                              key={channel}
+                              onClick={() => {
+                                const next = toggleChannel(coupon.channels, channel);
+                                if (next) handleUpdate(coupon.id, { channels: next });
+                                else alert("A coupon must work on at least the app or the website.");
+                              }}
+                              title={`Click to ${on ? "stop" : "allow"} this code on the ${channel}`}
+                              className={`rounded-full px-2.5 py-1 text-xs font-bold ${on ? "bg-primary/10 text-primary-dark" : "bg-surface text-muted line-through"}`}
+                            >
+                              {CHANNEL_LABELS[channel]}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </Td>
                     <Td>
                       <Button variant="danger" onClick={() => handleDelete(coupon.id, coupon.code)}>

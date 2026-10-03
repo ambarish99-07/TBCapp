@@ -9,6 +9,19 @@ import { EmptyState } from "../components/ui/EmptyState.js";
 import { Input } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
 import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
+import { SourceSwitch, useSource } from "../components/SourceSwitch.js";
+
+/** A website customer (separate account system) with their website order stats. */
+interface WebsiteCustomer {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  createdAt: string;
+  orderCount: number;
+  totalSpent: number;
+  lastOrderAt: string | null;
+}
 
 // The shared User type has no `createdAt` (it's stripped from the normal profile-facing shape),
 // but this admin-only endpoint's own controller does select and return it — added here locally.
@@ -35,10 +48,24 @@ export function CustomersPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // App and website customers are separate accounts, so this page shows one side at a time.
+  const [source, setSource] = useSource(false);
+  const [siteResults, setSiteResults] = useState<WebsiteCustomer[]>([]);
 
   async function load(q: string, targetPage: number) {
     setIsLoading(true);
     setLoadError(null);
+    if (source === "website") {
+      try {
+        const { data } = await adminClient.get<{ customers: WebsiteCustomer[] }>("/admin/website/customers", { params: { q: q || undefined } });
+        setSiteResults(data.customers);
+      } catch (err) {
+        setLoadError(extractErrorMessage(err, "Failed to load website customers"));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     try {
       const { data } = await adminClient.get<{ customers: CustomerSummary[]; total: number }>("/admin/customers", {
         params: { q: q || undefined, page: targetPage, pageSize: PAGE_SIZE },
@@ -55,7 +82,7 @@ export function CustomersPage() {
   useEffect(() => {
     load(query, page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, source]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +96,21 @@ export function CustomersPage() {
     <div>
       <PageHeader
         title="Customers"
-        description="Every registered customer and their phone number — browse the full list, or search to jump straight to one."
+        description={
+          source === "website"
+            ? "Everyone with a Lickyeat website account, with their website orders and spend. Website and app accounts are separate."
+            : "Every registered customer and their phone number — browse the full list, or search to jump straight to one."
+        }
+        action={
+          <SourceSwitch
+            value={source}
+            allowBoth={false}
+            onChange={(s) => {
+              setPage(1);
+              setSource(s);
+            }}
+          />
+        }
       />
 
       <Card className="mb-6">
@@ -91,6 +132,41 @@ export function CustomersPage() {
           <p className="text-sm font-medium text-danger">{loadError}</p>
         ) : isLoading ? (
           <p className="text-sm text-muted">Loading…</p>
+        ) : source === "website" ? (
+          siteResults.length === 0 ? (
+            <EmptyState message="No matching website customers." />
+          ) : (
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Name</Th>
+                  <Th>Phone</Th>
+                  <Th>Email</Th>
+                  <Th>Orders</Th>
+                  <Th>Spent</Th>
+                  <Th>Last order</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {siteResults.map((c) => (
+                  <Tr key={c.id}>
+                    <Td className="font-semibold">{c.name}</Td>
+                    <Td>{c.phone ?? "—"}</Td>
+                    <Td>{c.email ?? "—"}</Td>
+                    <Td>{c.orderCount}</Td>
+                    <Td>₹{c.totalSpent}</Td>
+                    <Td>{c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString() : "—"}</Td>
+                    <Td>
+                      <Link to={`/customers/website/${c.id}`} className="text-sm font-semibold text-primary-dark hover:underline">
+                        View ›
+                      </Link>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )
         ) : results.length === 0 ? (
           <EmptyState message="No matching customers." />
         ) : (

@@ -69,11 +69,11 @@ export function getCatalogSyncSecret(): string | null {
 
 // --- id + field mapping -------------------------------------------------------------------
 
-function toCanonicalBrandId(appId: string): string {
+export function toCanonicalBrandId(appId: string): string {
   return config?.appToCanonical.get(appId) ?? appId;
 }
 
-function toAppBrandId(canonicalId: string): string {
+export function toAppBrandId(canonicalId: string): string {
   return config?.canonicalToApp.get(canonicalId) ?? canonicalId;
 }
 
@@ -144,7 +144,7 @@ function comboToCanonical(c: Lean<Record<string, any>>): CanonicalCombo {
 
 // --- outbound -----------------------------------------------------------------------------
 
-async function postSigned(path: string, payload: unknown): Promise<Response> {
+export async function postSigned(path: string, payload: unknown): Promise<Response> {
   if (!config) throw new Error("Catalog sync is not configured");
   const body = JSON.stringify(payload);
   const timestamp = String(Date.now());
@@ -180,7 +180,7 @@ export async function sendCatalogEvents(events: CatalogEvent[]): Promise<void> {
 
 /** Fire-and-forget: an admin's save must never fail or wait because the website is slow or down.
  * A missed change is caught up by the admin's "Push everything to website" button. */
-function sendInBackground(describe: string, build: () => Promise<CatalogEvent[]>): void {
+export function sendInBackground(describe: string, build: () => Promise<CatalogEvent[]>): void {
   if (!config) return;
   void (async () => {
     try {
@@ -428,6 +428,10 @@ export async function pushFullCatalog(options: { removeWebsiteOnly: boolean }) {
     removed = { menuItemIds: diff.websiteOnly.menuItemIds, comboIds: diff.websiteOnly.comboIds, addOnNames: diff.websiteOnly.addOnNames };
   }
   await sendCatalogEvents(events);
+  // Coupons, opening hours, closures and GG Tiffin — imported lazily to avoid a module cycle
+  // (catalogSync.settings imports this file).
+  const { allSettingsEvents } = await import("./catalogSync.settings.js");
+  await sendCatalogEvents(await allSettingsEvents());
   await sendCatalogEvents([
     ...removed.comboIds.map((id) => ({ kind: "combo.delete" as const, id })),
     ...removed.menuItemIds.map((id) => ({ kind: "menuItem.delete" as const, id })),

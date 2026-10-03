@@ -1,6 +1,24 @@
 import { Router } from "express";
 import { getCatalogSyncStatusAdmin, postCatalogSyncPushAdmin } from "../catalogSync/catalogSync.routes.js";
 import { listSupportTicketsAdminHandler, updateSupportTicketAdminHandler } from "../support/support.routes.js";
+import {
+  advanceWebsiteOrder,
+  advanceWebsiteSingleMeal,
+  getWebsiteTiffin,
+  createWebsiteBlogPost,
+  deleteWebsiteBlogPost,
+  getWebsiteCustomer,
+  listWebsiteBlogPosts,
+  listWebsiteCustomers,
+  listWebsiteFeedback,
+  listWebsiteLeads,
+  listWebsiteOrders,
+  listWebsiteSupportTickets,
+  updateWebsiteBlogPost,
+  updateWebsiteFeedback,
+  updateWebsiteLead,
+  updateWebsiteSupportTicket,
+} from "../websiteAdmin/websiteAdmin.routes.js";
 import type { Env } from "../../config/env.js";
 import { listBulkOrderInquiries, updateBulkOrderInquiryStatus } from "../bulkOrders/bulkOrders.controller.js";
 import { createBrand, deleteBrand, listAllBrandsAdmin, updateBrand } from "../brands/brands.controller.js";
@@ -86,6 +104,26 @@ export function createAdminRouter(env: Env): Router {
   // Help requests raised from the app's support assistant.
   router.get("/support-tickets", listSupportTicketsAdminHandler);
   router.patch("/support-tickets/:id", updateSupportTicketAdminHandler);
+
+  // The website's customers, reviews & complaints and help requests (read + answer), for the
+  // admin's App / Website / Both views — proxied over the signed admin-peer link.
+  router.get("/website/customers", listWebsiteCustomers);
+  router.get("/website/customers/:id", getWebsiteCustomer);
+  router.get("/website/feedback", listWebsiteFeedback);
+  router.patch("/website/feedback/:id", updateWebsiteFeedback);
+  router.get("/website/support-tickets", listWebsiteSupportTickets);
+  router.patch("/website/support-tickets/:id", updateWebsiteSupportTicket);
+  // Website orders (advance status), blog and leads — so the website needs no separate admin.
+  router.get("/website/orders", listWebsiteOrders);
+  router.post("/website/orders/:id/status", advanceWebsiteOrder);
+  router.get("/website/blog", listWebsiteBlogPosts);
+  router.post("/website/blog", createWebsiteBlogPost);
+  router.patch("/website/blog/:slug", updateWebsiteBlogPost);
+  router.delete("/website/blog/:slug", deleteWebsiteBlogPost);
+  router.get("/website/leads", listWebsiteLeads);
+  router.patch("/website/leads/:id", updateWebsiteLead);
+  router.get("/website/tiffin", getWebsiteTiffin);
+  router.post("/website/tiffin/single-meal/:id/status", advanceWebsiteSingleMeal);
   router.patch("/feedback/:id/status", updateFeedbackStatusAdmin);
   router.patch("/feedback/:id/respond", respondToFeedbackAdmin);
 

@@ -88,7 +88,7 @@ export function WebsiteSyncPage() {
     <div>
       <PageHeader
         title="Website Sync"
-        description="The app and the website share one menu. Brands, menu items, add-ons, combos (incl. Feasts) and open/closed switches changed in either admin are copied to the other automatically."
+        description="This admin runs both the app and the website. Brands, menu items, add-ons, combos (incl. Feasts), open/closed switches, coupons, opening hours, planned closures and all of GG Tiffin (plans, weekly dishes, meal prices, add-ons, closures) are copied to the website automatically when you change them here."
       />
 
       <div className="flex flex-col gap-4">
@@ -154,7 +154,8 @@ export function WebsiteSyncPage() {
             {result && (
               <p className="mt-3 text-sm">
                 ✅ Sent {result.sent.brands} brands, {result.sent.menuItems} menu items, {result.sent.combos} combos,{" "}
-                {result.sent.addOns} add-ons and {result.sent.storeSwitches} open/closed switches.
+                {result.sent.addOns} add-ons and {result.sent.storeSwitches} open/closed switches, plus coupons, opening hours,
+                closures and GG Tiffin.
                 {result.removed.menuItemIds.length + result.removed.comboIds.length + result.removed.addOnNames.length > 0 &&
                   ` Removed from the website: ${[...result.removed.menuItemIds, ...result.removed.comboIds, ...result.removed.addOnNames].join(", ")}.`}
               </p>

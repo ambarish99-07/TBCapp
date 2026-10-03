@@ -1,4 +1,5 @@
-import { FEAST_COMBO_BRAND_ID, isComboLineId, type AnalyticsSummary } from "@tbc/shared-types";
+import { FEAST_COMBO_BRAND_ID, isComboLineId, type AnalyticsSource, type AnalyticsSummary } from "@tbc/shared-types";
+import { catalogSyncConfigured, postSigned, toAppBrandId, toCanonicalBrandId } from "../catalogSync/catalogSync.service.js";
 import { BrandModel } from "../../db/models/Brand.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
 import { MenuItemModel } from "../../db/models/MenuItem.model.js";
@@ -36,28 +37,14 @@ function periodStats(orders: AnalyticsOrder[], since: Date | null, until: Date |
   };
 }
 
-/** `brandId` scopes every order-derived figure (period stats, revenue, areas, item preferences,
- * customer behavior) to just that brand — omit it for the combined, all-brands view. Catalog
- * counts (menu items/combos) are scoped the same way; `totalBrands` stays global either way,
- * since "how many live brands" isn't a meaningful figure to ask of a single brand. */
-export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSummary> {
-  const [orderDocs, brandDocs, menuItemDocs, totalCombos] = await Promise.all([
-    // An order can mix kitchens — scoping to one brand matches any order that kitchen cooked for.
-    OrderModel.find(brandId ? { $or: [{ brandId }, { brandIds: brandId }] } : {})
-      .select(
-        "createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity items.brandId items.unitPrice items.addOnPrices"
-      )
-      .lean(),
-    BrandModel.find().select("name status").lean(),
-    MenuItemModel.find(brandId ? { brandId } : {})
-      .select("signatureName brandId")
-      .lean(),
-    ComboModel.countDocuments(brandId ? { brandId } : {}),
-  ]);
-  const brandNameById = new Map(brandDocs.map((b) => [String(b._id), b.name]));
-  brandNameById.set(FEAST_COMBO_BRAND_ID, "Feast combos (multi-kitchen)");
-
-  const orders: AnalyticsOrder[] = orderDocs.map((o) => ({
+async function loadAppOrders(brandId?: string): Promise<AnalyticsOrder[]> {
+  // An order can mix kitchens — scoping to one brand matches any order that kitchen cooked for.
+  const orderDocs = await OrderModel.find(brandId ? { $or: [{ brandId }, { brandIds: brandId }] } : {})
+    .select(
+      "createdAt status brandId userId totals.total delivery.area items.menuItemId items.signatureName items.quantity items.brandId items.unitPrice items.addOnPrices"
+    )
+    .lean();
+  return orderDocs.map((o) => ({
     createdAt: o.createdAt as unknown as Date,
     status: o.status ?? "received",
     brandId: o.brandId,
@@ -72,6 +59,61 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
       lineTotal: (line.unitPrice + (line.addOnPrices ?? []).reduce((sum, p) => sum + p, 0)) * line.quantity,
     })),
   }));
+}
+
+interface PeerAnalyticsOrder extends Omit<AnalyticsOrder, "createdAt"> {
+  createdAt: string;
+}
+
+/** The website's orders as the same rows (via the signed admin-peer link), with its brand ids
+ * translated to the app's (the-biryani-lane → TBL) so both sides' kitchens line up. */
+async function loadWebsiteOrders(brandId?: string): Promise<AnalyticsOrder[]> {
+  if (!catalogSyncConfigured()) throw new Error("The website link isn't set up on this server (CATALOG_SYNC_PEER_URL / CATALOG_SYNC_SECRET).");
+  const res = await postSigned("/internal/admin-peer/analytics-orders", brandId ? { brandId: toCanonicalBrandId(brandId) } : {});
+  if (!res.ok) throw new Error(`The website answered ${res.status}.`);
+  const { orders } = (await res.json()) as { orders: PeerAnalyticsOrder[] };
+  return orders.map((o) => ({
+    ...o,
+    createdAt: new Date(o.createdAt),
+    brandId: toAppBrandId(o.brandId),
+    area: o.area?.trim() || UNKNOWN_AREA,
+    items: o.items.map((line) => ({ ...line, brandId: toAppBrandId(line.brandId) })),
+  }));
+}
+
+/**
+ * `source` picks whose orders the figures cover: the app's (default), the website's, or both
+ * together — the same calculation either way, so "Both" is exactly app + website. If the website
+ * can't be reached, "Both" falls back to app-only with a `warning` instead of failing the page.
+ *
+ * `brandId` scopes every order-derived figure (period stats, revenue, areas, item preferences,
+ * customer behavior) to just that brand — omit it for the combined, all-brands view. Catalog
+ * counts (menu items/combos) are scoped the same way; `totalBrands` stays global either way,
+ * since "how many live brands" isn't a meaningful figure to ask of a single brand. Website
+ * customers are separate accounts, so in "Both" someone who uses both counts as two customers.
+ */
+export async function getAnalyticsSummary(brandId?: string, source: AnalyticsSource = "app"): Promise<AnalyticsSummary> {
+  let warning: string | undefined;
+  let orders: AnalyticsOrder[] = [];
+  if (source !== "website") orders = await loadAppOrders(brandId);
+  if (source !== "app") {
+    try {
+      orders = orders.concat(await loadWebsiteOrders(brandId));
+    } catch (err) {
+      if (source === "website") throw err;
+      warning = `Showing app orders only — couldn't load the website's: ${err instanceof Error ? err.message : "unknown error"}`;
+    }
+  }
+
+  const [brandDocs, menuItemDocs, totalCombos] = await Promise.all([
+    BrandModel.find().select("name status").lean(),
+    MenuItemModel.find(brandId ? { brandId } : {})
+      .select("signatureName brandId")
+      .lean(),
+    ComboModel.countDocuments(brandId ? { brandId } : {}),
+  ]);
+  const brandNameById = new Map(brandDocs.map((b) => [String(b._id), b.name]));
+  brandNameById.set(FEAST_COMBO_BRAND_ID, "Feast combos (multi-kitchen)");
 
   // All boundaries anchored to IST "today", not server-local time or the request's own instant —
   // see utils/istDate.ts.
@@ -263,5 +305,7 @@ export async function getAnalyticsSummary(brandId?: string): Promise<AnalyticsSu
       totalMenuItems: menuItemDocs.length,
       totalCombos,
     },
+    source,
+    ...(warning ? { warning } : {}),
   };
 }

@@ -5,6 +5,7 @@ import { TiffinSingleMealOrderModel } from "../../db/models/TiffinSingleMealOrde
 import { TiffinSubscriptionModel } from "../../db/models/TiffinSubscription.model.js";
 import { addIsoDays, todayIsoInIst } from "../../utils/istDate.js";
 import { buildDishLookupForTier, computeMealsForRange, type TierDishLookup } from "./tiffinSchedule.js";
+import { syncTiffinClosures } from "../catalogSync/catalogSync.settings.js";
 
 /** Every ISO calendar date from `startDate` to `endDate`, inclusive. Bounded — a closure is
  * always a handful of days by nature (the request schema doesn't cap it, but 400 days is well
@@ -70,6 +71,7 @@ export async function declareClosure(request: DeclareTiffinClosureRequest) {
   const closedDates = expandDateRange(startDate, endDate);
 
   const closure = await TiffinClosureModel.create({ startDate, endDate, reason });
+  syncTiffinClosures();
 
   // --- Single-meal orders: auto-cancel, full refund if paid.
   const affectedOrders = await TiffinSingleMealOrderModel.find({

@@ -3,6 +3,7 @@ import { STORE_SETTINGS_SINGLETON_ID, StoreSettingsModel, type StoreSettingsDocu
 import { StoreClosureModel } from "../../db/models/StoreClosure.model.js";
 import { todayIsoInIst } from "../../utils/istDate.js";
 import { computeStoreStatus } from "./storeStatusCore.js";
+import { syncStoreClosures } from "../catalogSync/catalogSync.settings.js";
 
 /** There is exactly one of these — created with defaults (open, 12:00-24:00 IST) the first time
  * anything reads it, so there's no separate seed/migration step to remember. */
@@ -28,8 +29,10 @@ export function listStoreClosures() {
   return StoreClosureModel.find().sort({ startDate: -1 });
 }
 
-export function declareStoreClosure(request: DeclareStoreClosureRequest) {
-  return StoreClosureModel.create(request);
+export async function declareStoreClosure(request: DeclareStoreClosureRequest) {
+  const closure = await StoreClosureModel.create(request);
+  syncStoreClosures();
+  return closure;
 }
 
 /** Every declared closure whose end date hasn't passed yet (today, IST, inclusive) — a closure

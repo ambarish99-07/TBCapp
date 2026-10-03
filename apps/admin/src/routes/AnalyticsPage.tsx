@@ -6,6 +6,7 @@ import { TrendChart } from "../components/TrendChart.js";
 import { Card } from "../components/ui/Card.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
+import { SOURCE_LABEL, SourceSwitch, useSource } from "../components/SourceSwitch.js";
 import { Segmented } from "../components/ui/Segmented.js";
 import { Table, Td, Th, Thead, Tr } from "../components/ui/Table.js";
 import { monthLabel } from "../utils/chartLabels.js";
@@ -49,6 +50,8 @@ export function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brandFilter, setBrandFilter] = useState("all");
+  // App, website, or both together — the same figures computed over either storefront's orders.
+  const [source, setSource] = useSource();
   // Without this, a failed request left the page stuck on "Loading…" forever with no way to
   // tell why — `summary` only ever got set on the success path.
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -62,16 +65,25 @@ export function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    const params = brandFilter === "all" ? {} : { brandId: brandFilter };
+    const params = { source, ...(brandFilter === "all" ? {} : { brandId: brandFilter }) };
+    setSummary(null);
+    setLoadError(null);
     adminClient
       .get<AnalyticsSummary>("/admin/analytics", { params })
       .then((res) => setSummary(res.data))
       .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load"));
-  }, [brandFilter]);
+  }, [brandFilter, source]);
+
 
   const brandOptions = useMemo(
     () => [{ key: "all", label: "All Brands" }, ...brands.map((b) => ({ key: b.id, label: b.name }))],
     [brands]
+  );
+  const filters = (
+    <div className="flex flex-wrap items-center gap-2">
+      <SourceSwitch value={source} onChange={setSource} />
+      <Segmented options={brandOptions} value={brandFilter} onChange={setBrandFilter} />
+    </div>
   );
   const selectedBrandName = brandFilter === "all" ? null : (brands.find((b) => b.id === brandFilter)?.name ?? brandFilter);
 
@@ -97,7 +109,7 @@ export function AnalyticsPage() {
   if (loadError) {
     return (
       <div>
-        <PageHeader title="Analytics" />
+        <PageHeader title="Analytics" action={filters} />
         <Card>
           <p className="text-sm font-medium text-danger">{loadError}</p>
           <p className="mt-2 text-sm text-muted">Try refreshing the page, or logging out and back in.</p>
@@ -109,7 +121,7 @@ export function AnalyticsPage() {
   if (!summary) {
     return (
       <div>
-        <PageHeader title="Analytics" action={<Segmented options={brandOptions} value={brandFilter} onChange={setBrandFilter} />} />
+        <PageHeader title="Analytics" action={filters} />
         <p className="text-sm text-muted">Loading…</p>
       </div>
     );
@@ -121,9 +133,20 @@ export function AnalyticsPage() {
     <div>
       <PageHeader
         title="Analytics"
-        description={selectedBrandName ? `Orders, revenue, and customer behavior for ${selectedBrandName}.` : "Orders, revenue, and customer behavior across every brand."}
-        action={<Segmented options={brandOptions} value={brandFilter} onChange={setBrandFilter} />}
+        description={`Orders, revenue, and customer behavior ${selectedBrandName ? `for ${selectedBrandName}` : "across every brand"} — from ${SOURCE_LABEL[source]}.`}
+        action={filters}
       />
+
+      {summary.warning && (
+        <Card className="mb-4 border-accent/40 bg-accent/10">
+          <p className="text-sm font-medium">⚠️ {summary.warning}</p>
+        </Card>
+      )}
+      {source === "both" && (
+        <p className="mb-4 text-xs text-muted">
+          App and website accounts are separate, so someone who orders on both counts as two customers below.
+        </p>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Today" orders={summary.ordersToday.orders} revenue={summary.ordersToday.revenue} dark />

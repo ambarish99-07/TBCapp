@@ -7,6 +7,44 @@ import { Card } from "../components/ui/Card.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { Select } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
+import { SOURCE_LABEL, SourceSwitch, useSource } from "../components/SourceSwitch.js";
+
+/** A help request from either storefront — website ones are answered via /admin/website/support-tickets. */
+type AnyTicket = SupportTicket & { origin: "app" | "website" };
+
+interface WebsiteTicketRow {
+  id: string;
+  ticketNumber: string;
+  customerName: string;
+  customerPhone: string | null;
+  orderCode: string | null;
+  topic: SupportTicket["topic"];
+  message: string;
+  status: SupportTicketStatus;
+  adminReply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function fromWebsite(row: WebsiteTicketRow): AnyTicket {
+  return {
+    id: row.id,
+    ticketNumber: row.ticketNumber,
+    userId: "",
+    customerName: row.customerName,
+    customerPhone: row.customerPhone ?? undefined,
+    orderNumber: row.orderCode ?? undefined,
+    topic: row.topic,
+    message: row.message,
+    status: row.status,
+    adminReply: row.adminReply ?? undefined,
+    repliedAt: row.repliedAt ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    origin: "website",
+  };
+}
 
 const STATUS_LABELS: Record<SupportTicketStatus, string> = { open: "Open", "in-progress": "In progress", resolved: "Resolved" };
 const STATUS_TONE: Record<SupportTicketStatus, string> = {
@@ -21,7 +59,8 @@ const FILTERS: { key: SupportTicketStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: SupportTicket) => void }) {
+function TicketCard({ ticket, onSaved }: { ticket: AnyTicket; onSaved: (t: AnyTicket) => void }) {
+  const fromSite = ticket.origin === "website";
   const [reply, setReply] = useState(ticket.adminReply ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +71,13 @@ function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: S
     setSaving(true);
     setError(null);
     try {
-      const { data } = await adminClient.patch<{ ticket: SupportTicket }>(`/admin/support-tickets/${ticket.id}`, patch);
-      onSaved(data.ticket);
+      if (fromSite) {
+        const { data } = await adminClient.patch<{ ticket: WebsiteTicketRow }>(`/admin/website/support-tickets/${ticket.id}`, patch);
+        onSaved(fromWebsite(data.ticket));
+      } else {
+        const { data } = await adminClient.patch<{ ticket: SupportTicket }>(`/admin/support-tickets/${ticket.id}`, patch);
+        onSaved({ ...data.ticket, origin: "app" });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save");
     } finally {
@@ -47,6 +91,7 @@ function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: S
         <span className="font-bold">{ticket.ticketNumber}</span>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${STATUS_TONE[ticket.status]}`}>{STATUS_LABELS[ticket.status]}</span>
         <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-bold text-muted">{SUPPORT_TOPIC_LABELS[ticket.topic]}</span>
+        <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-bold text-muted">{fromSite ? "🌐 Website" : "📱 App"}</span>
         <span className="ml-auto text-xs text-muted">{new Date(ticket.createdAt).toLocaleString()}</span>
       </div>
 
@@ -68,7 +113,7 @@ function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: S
             )}
           </>
         )}
-        {ticket.orderId && (
+        {ticket.orderId && !fromSite && (
           <>
             {" · "}
             <Link className="text-primary-dark hover:underline" to={`/orders/${ticket.orderId}`}>
@@ -76,6 +121,7 @@ function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: S
             </Link>
           </>
         )}
+        {fromSite && ticket.orderNumber && <> · Website order {ticket.orderNumber}</>}
       </div>
 
       <p className="whitespace-pre-wrap text-sm">{ticket.message}</p>
@@ -119,24 +165,46 @@ function TicketCard({ ticket, onSaved }: { ticket: SupportTicket; onSaved: (t: S
  * spilled items, ...). Replies show up in the customer's chat under "My help requests". */
 export function HelpRequestsPage() {
   const [filter, setFilter] = useState<SupportTicketStatus | "all">("open");
-  const [tickets, setTickets] = useState<SupportTicket[] | null>(null);
+  const [tickets, setTickets] = useState<AnyTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [source, setSource] = useSource();
 
   useEffect(() => {
     setTickets(null);
     setError(null);
-    adminClient
-      .get<{ tickets: SupportTicket[] }>("/admin/support-tickets", { params: filter === "all" ? {} : { status: filter } })
-      .then((res) => setTickets(res.data.tickets))
-      .catch((err) => setError(err instanceof Error ? err.message : "Couldn't load help requests"));
-  }, [filter]);
+    setWarning(null);
+    const params = filter === "all" ? {} : { status: filter };
+    void (async () => {
+      try {
+        const appRows: AnyTicket[] =
+          source === "website"
+            ? []
+            : (await adminClient.get<{ tickets: SupportTicket[] }>("/admin/support-tickets", { params })).data.tickets.map((t) => ({ ...t, origin: "app" as const }));
+        let siteRows: AnyTicket[] = [];
+        if (source !== "app") {
+          try {
+            siteRows = (await adminClient.get<{ tickets: WebsiteTicketRow[] }>("/admin/website/support-tickets", { params })).data.tickets.map(fromWebsite);
+          } catch (err) {
+            if (source === "website") throw err;
+            setWarning(`Showing app requests only — couldn't load the website's: ${err instanceof Error ? err.message : "unknown error"}`);
+          }
+        }
+        setTickets([...appRows, ...siteRows].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't load help requests");
+      }
+    })();
+  }, [filter, source]);
 
   return (
     <div>
       <PageHeader
         title="Help Requests"
-        description="Raised by customers from the app's support assistant. Payment issues first — call or WhatsApp the customer, then reply here so they see it in the app."
+        description={`Raised by customers from the support assistant — ${SOURCE_LABEL[source]}. Payment issues first: call or WhatsApp the customer, then reply here so they see it in their chat.`}
+        action={<SourceSwitch value={source} onChange={setSource} />}
       />
+      {warning && <p className="mb-4 rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium">⚠️ {warning}</p>}
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
@@ -160,7 +228,11 @@ export function HelpRequestsPage() {
           // Payment problems are the most urgent (money taken, no order) — always on top.
           .sort((a, b) => Number(b.topic === "payment-not-confirmed") - Number(a.topic === "payment-not-confirmed"))
           .map((t) => (
-            <TicketCard key={t.id} ticket={t} onSaved={(updated) => setTickets((prev) => prev?.map((x) => (x.id === updated.id ? updated : x)) ?? null)} />
+            <TicketCard
+              key={`${t.origin}-${t.id}`}
+              ticket={t}
+              onSaved={(updated) => setTickets((prev) => prev?.map((x) => (x.id === updated.id && x.origin === updated.origin ? updated : x)) ?? null)}
+            />
           ))}
       </div>
     </div>

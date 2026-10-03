@@ -19,6 +19,8 @@ const CouponSchema = new Schema(
     // time — COD immediately, Razorpay only after payment verification — never at checkout time).
     oncePerCustomer: { type: Boolean, default: false },
     usedByUserIds: { type: [String], default: [] },
+    // Which storefronts honour this code — both by default (shared with the website via catalog sync).
+    channels: { type: [String], enum: ["app", "website"], default: ["app", "website"] },
   },
   {
     timestamps: true,

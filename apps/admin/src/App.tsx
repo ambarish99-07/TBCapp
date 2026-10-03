@@ -13,7 +13,10 @@ import { FeedbackPage } from "./routes/FeedbackPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { CombosPage } from "./routes/CombosPage.js";
 import { WebsiteSyncPage } from "./routes/WebsiteSyncPage.js";
+import { WebsiteBlogPage } from "./routes/WebsiteBlogPage.js";
+import { WebsiteLeadsPage } from "./routes/WebsiteLeadsPage.js";
 import { HelpRequestsPage } from "./routes/HelpRequestsPage.js";
+import { WebsiteCustomerDetailPage } from "./routes/WebsiteCustomerDetailPage.js";
 import { CouponsPage } from "./routes/CouponsPage.js";
 import { CustomerDetailPage } from "./routes/CustomerDetailPage.js";
 import { CustomersPage } from "./routes/CustomersPage.js";
@@ -124,6 +127,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/customers/website/:id"
+          element={
+            <RequireAdmin>
+              <WebsiteCustomerDetailPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
           path="/customers/:id"
           element={
             <RequireAdmin>
@@ -170,6 +181,22 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <WebsiteSyncPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <RequireAdmin>
+              <WebsiteBlogPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/leads"
+          element={
+            <RequireAdmin>
+              <WebsiteLeadsPage />
             </RequireAdmin>
           }
         />

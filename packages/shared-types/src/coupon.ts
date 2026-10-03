@@ -9,6 +9,10 @@ import { z } from "zod";
  * cheapest eligible unit in the cart free — see computeCouponDiscount for the exact math.
  */
 export const CouponTypeSchema = z.enum(["percent", "flat", "bogo"]);
+
+/** A coupon can be limited to one storefront; both by default. */
+export const CouponChannelSchema = z.enum(["app", "website"]);
+export type CouponChannel = z.infer<typeof CouponChannelSchema>;
 export type CouponType = z.infer<typeof CouponTypeSchema>;
 
 /** Admin-managed promo code — validated server-side at both "Apply Coupon" time (cart preview)
@@ -34,6 +38,8 @@ export const CouponSchema = z.object({
   oncePerCustomer: z.boolean().optional(),
   /** How many accounts have already redeemed it — a count, never the raw list of who. */
   usedCount: z.number().nonnegative().optional(),
+  /** Where the code works — the app, the website, or both (default). */
+  channels: z.array(CouponChannelSchema).optional(),
 });
 export type Coupon = z.infer<typeof CouponSchema>;
 
@@ -50,6 +56,7 @@ const couponFieldsShape = z.object({
   expiresAt: z.string().optional(),
   isActive: z.boolean().default(true),
   oncePerCustomer: z.boolean().default(false),
+  channels: z.array(CouponChannelSchema).min(1).default(["app", "website"]),
 });
 
 export const CreateCouponRequestSchema = couponFieldsShape.refine((data) => data.type === "bogo" || data.value > 0, {

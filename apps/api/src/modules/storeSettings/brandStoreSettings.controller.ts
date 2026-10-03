@@ -7,6 +7,7 @@ import {
   listBrandStoreClosures,
   updateBrandStoreSettings,
 } from "./brandStoreSettings.service.js";
+import { syncStoreHours } from "../catalogSync/catalogSync.settings.js";
 
 /** Public — no auth — the mobile app calls this for whichever brand it's currently showing (the
  * selected Home brand, or the cart's own brand), the same way /store/status covers the
@@ -33,6 +34,7 @@ export const putBrandStoreSettingsAdmin: RequestHandler = async (req, res) => {
   }
   await updateBrandStoreSettings(req.params.brandId, parsed.data);
   if (parsed.data.manuallyOpen !== undefined) syncStoreSwitch(req.params.brandId);
+  syncStoreHours(req.params.brandId);
   const status = await getBrandStoreStatus(req.params.brandId);
   res.json(status);
 };

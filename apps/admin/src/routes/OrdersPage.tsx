@@ -7,6 +7,8 @@ import { PageHeader } from "../components/ui/PageHeader.js";
 import { Segmented } from "../components/ui/Segmented.js";
 import { Select } from "../components/ui/Input.js";
 import { OrderTable } from "../components/OrderTable.js";
+import { SourceSwitch, useSource } from "../components/SourceSwitch.js";
+import { WebsiteOrdersTable, websiteOrderKitchens, type WebsiteOrder } from "../components/WebsiteOrdersTable.js";
 
 const STATUS_FILTERS: { key: OrderStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
@@ -35,7 +37,7 @@ const PERIOD_MS: Record<Period, number | null> = {
   month: 30 * 24 * 60 * 60 * 1000,
 };
 
-function withinPeriod(order: Order, period: Period): boolean {
+function withinPeriod(order: { createdAt: string }, period: Period): boolean {
   const ms = PERIOD_MS[period];
   if (ms == null) return true;
   return new Date(order.createdAt).getTime() >= Date.now() - ms;
@@ -60,6 +62,40 @@ export function OrdersPage() {
   // order regardless of whatever status/brand filter is currently applied to the table below.
   const [allOrders, setAllOrders] = useState<Order[]>([]);
 
+  // App / Website / Both — website orders come over the admin-peer link, unfiltered (≤200 newest),
+  // and are filtered here so the same status/brand/period controls work on both.
+  const [source, setSource] = useSource();
+  const [websiteOrders, setWebsiteOrders] = useState<WebsiteOrder[]>([]);
+  const [websiteError, setWebsiteError] = useState<string | null>(null);
+  const showApp = source !== "website";
+  const showWebsite = source !== "app";
+
+  async function reloadWebsiteOrders() {
+    setWebsiteError(null);
+    try {
+      const res = await adminClient.get<{ orders: WebsiteOrder[] }>("/admin/website/orders");
+      setWebsiteOrders(res.data.orders);
+    } catch (err) {
+      setWebsiteError(err instanceof Error ? err.message : "Couldn't load website orders");
+    }
+  }
+
+  useEffect(() => {
+    if (showWebsite) reloadWebsiteOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showWebsite]);
+
+  const filteredWebsiteOrders = useMemo(
+    () =>
+      websiteOrders.filter(
+        (o) =>
+          withinPeriod(o, period) &&
+          (statusFilter === "all" || o.status === statusFilter) &&
+          (brandFilter === "all" || websiteOrderKitchens(o).includes(brandFilter))
+      ),
+    [websiteOrders, period, statusFilter, brandFilter]
+  );
+
   useEffect(() => {
     adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
     adminClient
@@ -72,12 +108,13 @@ export function OrdersPage() {
   // actually showing.
   const statusCounts = useMemo(() => {
     const counts = new Map<OrderStatus, number>();
-    for (const order of allOrders) {
+    const rows: { createdAt: string; status: OrderStatus }[] = [...(showApp ? allOrders : []), ...(showWebsite ? websiteOrders : [])];
+    for (const order of rows) {
       if (!withinPeriod(order, period)) continue;
       counts.set(order.status, (counts.get(order.status) ?? 0) + 1);
     }
     return counts;
-  }, [allOrders, period]);
+  }, [allOrders, websiteOrders, period, showApp, showWebsite]);
 
   async function reloadFilteredOrders() {
     setIsLoading(true);
@@ -110,7 +147,15 @@ export function OrdersPage() {
 
   return (
     <div>
-      <PageHeader title="Orders" action={<Segmented options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />} />
+      <PageHeader
+        title="Orders"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <SourceSwitch value={source} onChange={setSource} />
+            <Segmented options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
+          </div>
+        }
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {STAT_TILES.map((tile) => (
@@ -147,12 +192,25 @@ export function OrdersPage() {
             ))}
           </Select>
         </div>
-        {loadError ? (
-          <p className="text-sm font-medium text-danger">{loadError}</p>
-        ) : isLoading ? (
-          <p className="text-sm text-muted">Loading…</p>
-        ) : (
-          <OrderTable orders={periodFilteredOrders} onCancel={handleCancel} />
+        {showApp &&
+          (source === "both" ? <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">📱 App orders</h3> : null)}
+        {showApp &&
+          (loadError ? (
+            <p className="text-sm font-medium text-danger">{loadError}</p>
+          ) : isLoading ? (
+            <p className="text-sm text-muted">Loading…</p>
+          ) : (
+            <OrderTable orders={periodFilteredOrders} onCancel={handleCancel} />
+          ))}
+        {showWebsite && (
+          <div className={showApp ? "mt-8" : ""}>
+            {source === "both" && <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">🌐 Website orders</h3>}
+            {websiteError ? (
+              <p className="text-sm font-medium text-danger">{websiteError}</p>
+            ) : (
+              <WebsiteOrdersTable orders={filteredWebsiteOrders} brands={brands} onChanged={reloadWebsiteOrders} />
+            )}
+          </div>
         )}
       </Card>
     </div>

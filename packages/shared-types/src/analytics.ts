@@ -82,6 +82,10 @@ export const AnalyticsItemStatsSchema = z.object({
 });
 export type AnalyticsItemStats = z.infer<typeof AnalyticsItemStatsSchema>;
 
+/** Which storefront's orders a combined admin view covers. */
+export const AnalyticsSourceSchema = z.enum(["app", "website", "both"]);
+export type AnalyticsSource = z.infer<typeof AnalyticsSourceSchema>;
+
 export const AnalyticsSummarySchema = z.object({
   ordersToday: AnalyticsPeriodStatsSchema,
   ordersYesterday: AnalyticsPeriodStatsSchema,
@@ -112,5 +116,10 @@ export const AnalyticsSummarySchema = z.object({
   // Least preferred among items currently on the menu (includes ones with zero orders, which a
   // best-sellers-only view could never surface) — sorted asc by total quantity ordered, bottom 5.
   leastItems: z.array(AnalyticsItemStatsSchema),
+  /** Which orders these figures cover — the app's, the website's, or both together. */
+  source: AnalyticsSourceSchema.optional(),
+  /** Set when part of the requested data couldn't be loaded (e.g. the website was unreachable, so
+   * "Both" fell back to app-only) — shown to the admin above the figures. */
+  warning: z.string().optional(),
 });
 export type AnalyticsSummary = z.infer<typeof AnalyticsSummarySchema>;

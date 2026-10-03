@@ -2,6 +2,7 @@ import { DeclareStoreClosureRequestSchema, UpdateStoreSettingsRequestSchema } fr
 import { syncStoreSwitch } from "../catalogSync/catalogSync.service.js";
 import type { RequestHandler } from "express";
 import { declareStoreClosure, getStoreStatus, listStoreClosures, updateStoreSettings } from "./storeSettings.service.js";
+import { syncStoreHours } from "../catalogSync/catalogSync.settings.js";
 
 /** Public — no auth — so the mobile app's Home screen banner and checkout guard can both read it
  * before a customer is necessarily logged in. */
@@ -27,6 +28,7 @@ export const putStoreSettingsAdmin: RequestHandler = async (req, res) => {
   }
   await updateStoreSettings(parsed.data);
   if (parsed.data.manuallyOpen !== undefined) syncStoreSwitch();
+  syncStoreHours();
   const status = await getStoreStatus();
   res.json(status);
 };

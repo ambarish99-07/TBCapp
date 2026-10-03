@@ -84,7 +84,90 @@ export const CanonicalStoreSwitchSchema = z.object({
 });
 export type CanonicalStoreSwitch = z.infer<typeof CanonicalStoreSwitchSchema>;
 
+// --- Shared settings beyond the menu (2026-10-03: the app admin is the one admin for both) -----
+
+/** Which storefronts a coupon works on — both by default, or restricted to one. */
+export const CouponChannelSchema = z.enum(["app", "website"]);
+export const CanonicalCouponSchema = z.object({
+  code: z.string().min(1),
+  type: z.enum(["percent", "flat", "bogo"]),
+  value: z.number().nonnegative(),
+  minOrderAmount: z.number().nonnegative(),
+  maxDiscountAmount: z.number().positive().nullable(),
+  /** A kitchen's brand id, or null for every kitchen. */
+  brandId: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+  isActive: z.boolean(),
+  oncePerCustomer: z.boolean(),
+  channels: z.array(CouponChannelSchema).min(1),
+});
+export type CanonicalCoupon = z.infer<typeof CanonicalCouponSchema>;
+
+/** Daily opening hours (IST) for "lickyeat" (everything) or one kitchen. */
+export const CanonicalStoreHoursSchema = z.object({
+  scope: z.string().min(1),
+  enforceServiceHours: z.boolean(),
+  openHour: z.number().int().min(0).max(23),
+  closeHour: z.number().int().min(1).max(24),
+});
+export type CanonicalStoreHours = z.infer<typeof CanonicalStoreHoursSchema>;
+
+/** The complete list of planned closures for one scope — "lickyeat", a kitchen's brand id, or
+ * "gg-tiffin" for GG Tiffin's own closures. Always the full list, so deletions carry over too. */
+export const CanonicalClosuresSchema = z.object({
+  scope: z.string().min(1),
+  closures: z.array(z.object({ startDate: z.string(), endDate: z.string(), reason: z.string().nullable() })),
+});
+export type CanonicalClosures = z.infer<typeof CanonicalClosuresSchema>;
+
+const TiffinTierSchema = z.enum(["regular", "mini", "premium"]);
+const TiffinDietSchema = z.enum(["veg", "non-veg"]);
+const TiffinMealSchema = z.enum(["breakfast", "lunch", "dinner"]);
+const WeekdaySchema = z.enum(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
+
+export const CanonicalTiffinPlanSchema = z.object({
+  /** The app's plan id — the stable key both sides match on. */
+  syncId: z.string().min(1),
+  name: z.string().min(1),
+  dietType: TiffinDietSchema,
+  tier: TiffinTierSchema,
+  style: z.enum(["single", "twice-daily", "thrice-daily", "lunch-only", "dinner-only"]),
+  durationDays: z.number().int().positive(),
+  price: z.number().nonnegative(),
+  salePercent: z.number().min(1).max(99).nullable(),
+  imageUrl: z.string().nullable(),
+  active: z.boolean(),
+});
+export type CanonicalTiffinPlan = z.infer<typeof CanonicalTiffinPlanSchema>;
+
+const TiffinDishKeySchema = z.object({ tier: TiffinTierSchema, dietType: TiffinDietSchema, mealType: TiffinMealSchema, dayOfWeek: WeekdaySchema });
+export const CanonicalTiffinDishSchema = TiffinDishKeySchema.extend({
+  dishName: z.string().min(1),
+  imageUrl: z.string().nullable(),
+  /** Per-dish price override; null = the (tier, meal) price. */
+  price: z.number().nonnegative().nullable(),
+  hasAddOns: z.boolean(),
+  riceSubstitute: z.enum(["rice", "pulao"]),
+  extraAddOnName: z.string().nullable(),
+});
+export type CanonicalTiffinDish = z.infer<typeof CanonicalTiffinDishSchema>;
+
+export const CanonicalTiffinMealPriceSchema = z.object({ tier: TiffinTierSchema, mealType: TiffinMealSchema, price: z.number().nonnegative(), active: z.boolean() });
+export type CanonicalTiffinMealPrice = z.infer<typeof CanonicalTiffinMealPriceSchema>;
+
+export const CanonicalTiffinAddOnSchema = z.object({ name: z.string().min(1), price: z.number().nonnegative() });
+
 export const CatalogEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("coupon.upsert"), data: CanonicalCouponSchema }),
+  z.object({ kind: z.literal("coupon.delete"), code: z.string().min(1) }),
+  z.object({ kind: z.literal("storeHours.upsert"), data: CanonicalStoreHoursSchema }),
+  z.object({ kind: z.literal("closures.replace"), data: CanonicalClosuresSchema }),
+  z.object({ kind: z.literal("tiffinPlan.upsert"), data: CanonicalTiffinPlanSchema }),
+  z.object({ kind: z.literal("tiffinPlan.delete"), syncId: z.string().min(1) }),
+  z.object({ kind: z.literal("tiffinDish.upsert"), data: CanonicalTiffinDishSchema }),
+  z.object({ kind: z.literal("tiffinDish.delete"), key: TiffinDishKeySchema }),
+  z.object({ kind: z.literal("tiffinMealPrice.upsert"), data: CanonicalTiffinMealPriceSchema }),
+  z.object({ kind: z.literal("tiffinAddOn.upsert"), data: CanonicalTiffinAddOnSchema }),
   z.object({ kind: z.literal("brand.upsert"), data: CanonicalBrandSchema }),
   z.object({ kind: z.literal("brand.delete"), id: z.string().min(1) }),
   z.object({ kind: z.literal("menuItem.upsert"), data: CanonicalMenuItemSchema }),

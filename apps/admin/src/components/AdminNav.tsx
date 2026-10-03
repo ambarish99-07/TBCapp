@@ -1,9 +1,11 @@
 import {
   BarChart3,
   Globe,
+  Handshake,
   LayoutDashboard,
   LifeBuoy,
   MessageSquareWarning,
+  Newspaper,
   Package,
   RefreshCw,
   Power,
@@ -41,6 +43,9 @@ const LICKYEAT_LINKS: { to: string; label: string; icon: LucideIcon; exact?: boo
   { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
   // Raised from the app's support assistant (chatbot).
   { to: "/help-requests", label: "Help Requests", icon: LifeBuoy },
+  // Website-only — the app has no blog or enquiry forms.
+  { to: "/blog", label: "Blog (website)", icon: Newspaper },
+  { to: "/leads", label: "Leads (website)", icon: Handshake },
 ];
 
 function NavLink({ to, label, icon: Icon, exact }: { to: string; label: string; icon: LucideIcon; exact?: boolean }) {
@@ -87,7 +92,7 @@ function WebsiteNavLink() {
       className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-muted transition-colors hover:bg-surface hover:text-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
     >
       <Globe size={17} />
-      Website
+      Website (backup admin)
     </button>
   );
 }

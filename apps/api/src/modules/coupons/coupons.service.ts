@@ -2,6 +2,7 @@ import { cartSubtotal, computeCouponDiscount, round, type CartLineInput } from "
 import type { Coupon, CreateCouponRequest, UpdateCouponRequest } from "@tbc/shared-types";
 import { CouponModel } from "../../db/models/Coupon.model.js";
 import { CouponValidationError } from "./coupons.errors.js";
+import { syncCoupon } from "../catalogSync/catalogSync.settings.js";
 
 /** Powers the Cart screen's "Apply Coupon" browse page — every currently-usable coupon for this
  * brand, so a customer can see what's on offer before typing (or revealing) a code. Expired ones
@@ -16,6 +17,8 @@ import { CouponValidationError } from "./coupons.errors.js";
 export async function listActiveCoupons(brandIds: string[] | undefined, userId?: string | null): Promise<Coupon[]> {
   const coupons = await CouponModel.find({
     isActive: true,
+    // Website-only codes never show in the app (missing field = older coupon = both).
+    channels: { $ne: ["website"] },
     ...(brandIds?.length ? { $or: [{ brandId: { $exists: false } }, { brandId: { $in: brandIds } }] } : {}),
     $and: [{ $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] }],
   }).sort({ createdAt: -1 });
@@ -40,7 +43,7 @@ export async function resolveCoupon(
   userId?: string | null
 ): Promise<{ code: string; discountAmount: number }> {
   const coupon = await CouponModel.findOne({ code: code.trim().toUpperCase() });
-  if (!coupon || !coupon.isActive) {
+  if (!coupon || !coupon.isActive || (coupon.channels?.length && !coupon.channels.includes("app"))) {
     throw new CouponValidationError("Invalid coupon code");
   }
   if (coupon.expiresAt && coupon.expiresAt < new Date()) {
@@ -108,7 +111,9 @@ export async function createCoupon(data: CreateCouponRequest) {
   if (existing) {
     throw new CouponValidationError(`A coupon with code "${code}" already exists`);
   }
-  return CouponModel.create({ ...data, code });
+  const created = await CouponModel.create({ ...data, code });
+  syncCoupon(code);
+  return created;
 }
 
 export async function updateCoupon(id: string, data: UpdateCouponRequest) {
@@ -116,13 +121,17 @@ export async function updateCoupon(id: string, data: UpdateCouponRequest) {
     throw new CouponValidationError("Coupons aren't available for GG Tiffin — see Festival Specials instead");
   }
   const update = { ...data, ...(data.code ? { code: data.code.trim().toUpperCase() } : {}) };
+  const before = await CouponModel.findById(id, "code").lean();
   const coupon = await CouponModel.findByIdAndUpdate(id, update, { new: true, runValidators: true });
   if (!coupon) {
     throw new CouponValidationError("Coupon not found");
   }
+  syncCoupon(coupon.code);
+  if (before && before.code !== coupon.code) syncCoupon(before.code); // renamed → old code removed on the website
   return coupon;
 }
 
 export async function deleteCoupon(id: string) {
-  await CouponModel.findByIdAndDelete(id);
+  const deleted = await CouponModel.findByIdAndDelete(id);
+  if (deleted) syncCoupon(deleted.code);
 }

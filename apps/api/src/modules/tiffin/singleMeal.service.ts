@@ -20,6 +20,7 @@ import { resolveSingleMealTargetDate, todayIsoInIst } from "./mealOrderingWindow
 import { generateSingleMealOrderNumber } from "./singleMealOrderNumber.js";
 import { getUpcomingClosedDates, isDateClosed } from "./tiffinClosure.service.js";
 import { TiffinValidationError } from "./tiffin.errors.js";
+import { syncTiffinMealPrice } from "../catalogSync/catalogSync.settings.js";
 
 const DIET_TYPES: SingleMealMenuItem["dietType"][] = ["veg", "non-veg"];
 
@@ -267,12 +268,15 @@ export function listMealPrices() {
   return TiffinMealPriceModel.find().sort({ tier: 1, mealType: 1 });
 }
 
-export function createMealPrice(data: CreateTiffinMealPriceRequest) {
-  return TiffinMealPriceModel.create(data);
+export async function createMealPrice(data: CreateTiffinMealPriceRequest) {
+  const price = await TiffinMealPriceModel.create(data);
+  syncTiffinMealPrice(String(price._id));
+  return price;
 }
 
 export async function updateMealPrice(id: string, data: UpdateTiffinMealPriceRequest) {
   const price = await TiffinMealPriceModel.findByIdAndUpdate(id, data, { new: true });
   if (!price) throw new TiffinValidationError("Meal price not found");
+  syncTiffinMealPrice(id);
   return price;
 }

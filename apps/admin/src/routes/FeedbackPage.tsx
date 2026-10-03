@@ -7,6 +7,35 @@ import { Card } from "../components/ui/Card.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { Select } from "../components/ui/Input.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
+import { SOURCE_LABEL, SourceSwitch, useSource } from "../components/SourceSwitch.js";
+
+/** A row from either storefront — website rows are answered through /admin/website/feedback. */
+type AnyFeedback = Feedback & { origin: "app" | "website" };
+
+interface WebsiteFeedbackRow {
+  id: string;
+  orderCode: string;
+  brandId: string;
+  customerName: string;
+  type: FeedbackType;
+  rating: number | null;
+  category: string | null;
+  message: string;
+  status: FeedbackStatus;
+  adminResponse: string | null;
+  createdAt: string;
+}
+
+function fromWebsite(row: WebsiteFeedbackRow): AnyFeedback {
+  return {
+    ...(row as unknown as Feedback),
+    orderNumber: row.orderCode,
+    rating: row.rating ?? undefined,
+    category: (row.category ?? undefined) as Feedback["category"],
+    adminResponse: row.adminResponse ?? undefined,
+    origin: "website",
+  };
+}
 import { Button } from "../components/ui/Button.js";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,12 +73,14 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-function FeedbackCard({ item, brandName, onReload }: { item: Feedback; brandName: string; onReload: () => void }) {
+function FeedbackCard({ item, brandName, onReload }: { item: AnyFeedback; brandName: string; onReload: () => void }) {
+  const fromSite = item.origin === "website";
   const [responseDraft, setResponseDraft] = useState(item.adminResponse ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleStatusChange(status: string) {
-    await adminClient.patch(`/admin/feedback/${item.id}/status`, { status });
+    if (fromSite) await adminClient.patch(`/admin/website/feedback/${item.id}`, { status });
+    else await adminClient.patch(`/admin/feedback/${item.id}/status`, { status });
     onReload();
   }
 
@@ -57,7 +88,8 @@ function FeedbackCard({ item, brandName, onReload }: { item: Feedback; brandName
     if (!responseDraft.trim()) return;
     setIsSaving(true);
     try {
-      await adminClient.patch(`/admin/feedback/${item.id}/respond`, { adminResponse: responseDraft.trim() });
+      if (fromSite) await adminClient.patch(`/admin/website/feedback/${item.id}`, { adminResponse: responseDraft.trim() });
+      else await adminClient.patch(`/admin/feedback/${item.id}/respond`, { adminResponse: responseDraft.trim() });
       onReload();
     } finally {
       setIsSaving(false);
@@ -79,6 +111,7 @@ function FeedbackCard({ item, brandName, onReload }: { item: Feedback; brandName
               </span>
             )}
             <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_TONE[item.status]}`}>{STATUS_LABELS[item.status]}</span>
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-muted">{fromSite ? "🌐 Website" : "📱 App"}</span>
           </div>
           <p className="mt-1.5 text-sm font-semibold text-text">
             {item.customerName} · {brandName} · {item.orderNumber}
@@ -123,7 +156,9 @@ function FeedbackCard({ item, brandName, onReload }: { item: Feedback; brandName
 }
 
 export function FeedbackPage() {
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [feedback, setFeedback] = useState<AnyFeedback[]>([]);
+  const [source, setSource] = useSource();
+  const [warning, setWarning] = useState<string | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">("all");
@@ -136,29 +171,50 @@ export function FeedbackPage() {
     adminClient.get<{ brands: Brand[] }>("/admin/brands").then((res) => setBrands(res.data.brands));
   }, []);
 
-  function reload() {
+  async function reload() {
     setIsLoading(true);
     setLoadError(null);
+    setWarning(null);
     const params: Record<string, string> = {};
     if (typeFilter !== "all") params.type = typeFilter;
     if (statusFilter !== "all") params.status = statusFilter;
-    adminClient
-      .get<{ feedback: Feedback[] }>("/admin/feedback", { params })
-      .then((res) => setFeedback(res.data.feedback))
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load feedback"))
-      .finally(() => setIsLoading(false));
+    try {
+      const appRows: AnyFeedback[] =
+        source === "website"
+          ? []
+          : (await adminClient.get<{ feedback: Feedback[] }>("/admin/feedback", { params })).data.feedback.map((f) => ({ ...f, origin: "app" as const }));
+      let siteRows: AnyFeedback[] = [];
+      if (source !== "app") {
+        try {
+          siteRows = (await adminClient.get<{ feedback: WebsiteFeedbackRow[] }>("/admin/website/feedback", { params })).data.feedback.map(fromWebsite);
+        } catch (err) {
+          if (source === "website") throw err;
+          setWarning(`Showing app feedback only — couldn't load the website's: ${err instanceof Error ? err.message : "unknown error"}`);
+        }
+      }
+      setFeedback([...appRows, ...siteRows].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load feedback");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
-    reload();
+    void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, source]);
 
   const brandNameById = useMemo(() => new Map(brands.map((b) => [b.id, b.name])), [brands]);
 
   return (
     <div>
-      <PageHeader title="Reviews & Complaints" description="Everything customers have said about a delivered order." />
+      <PageHeader
+        title="Reviews & Complaints"
+        description={`Everything customers have said about a delivered order — from ${SOURCE_LABEL[source]}.`}
+        action={<SourceSwitch value={source} onChange={setSource} />}
+      />
+      {warning && <p className="mb-4 rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium">⚠️ {warning}</p>}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {TYPE_FILTERS.map((filter) => (
@@ -193,7 +249,7 @@ export function FeedbackPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {feedback.map((item) => (
-            <FeedbackCard key={item.id} item={item} brandName={brandNameById.get(item.brandId) ?? item.brandId} onReload={reload} />
+            <FeedbackCard key={`${item.origin}-${item.id}`} item={item} brandName={brandNameById.get(item.brandId) ?? item.brandId} onReload={() => void reload()} />
           ))}
         </div>
       )}

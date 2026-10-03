@@ -453,8 +453,7 @@ directly to its models and never re-sends (no loops). Sends are fire-and-forget 
 admin save never fails because the other side is down. `catalogSync.types.ts` is the identical wire
 format in both repos (canonical = website field names/brand ids; the app maps `image`↔`imageUrl`,
 `TBL`↔`the-biryani-lane`, `displayOrder`↔`sortOrder`; relative website photo paths are resolved
-against the peer URL). NOT synced: opening hours/planned closures (modelled differently), coupons,
-tiffin. App admin **Website Sync** page shows what differs and has "Push everything to website"
+against the peer URL). Shared settings are synced too, app → website only — see §4.15. App admin **Website Sync** page shows what differs and has "Push everything to website"
 (optionally deleting website-only items/combos/add-ons; never brands). Config: `CATALOG_SYNC_PEER_URL`
 + `CATALOG_SYNC_SECRET` on both APIs (`.env.example`); off when unset (tests, plain local dev).
 The website admin's menu page says to add/delete items in the app admin (it has no item editor).
@@ -470,8 +469,51 @@ Entry points: Help & Support (top card) and Order Status ("Need help with this o
 that order). Problems become `SupportTicket`s (`modules/support`: `POST /support/tickets`,
 `POST /support/photo` [own uploads only, 5 MB], `GET /support/tickets/mine`, 10/day/account) →
 admin **Help Requests** page (payment issues on top, call/WhatsApp links, reply + status); the reply
-shows in the customer's chat. Website has no assistant yet. Support phone/WhatsApp/email in
+shows in the customer's chat. Support phone/WhatsApp/email in
 `apps/mobile/src/constants/support.ts` are still PLACEHOLDERS.
+
+### 4.14 Combined admin: App / Website / Both (2026-10-03)
+The website now has its own reviews & complaints (one per delivered order, "Rate / report" on My
+orders), help requests and the same guided assistant on a new `/help` page (+ "Need help with this
+order?" on its order page; contact buttons use the website's `WHATSAPP`/`LICKYEAT_SUPPORT_EMAIL`).
+The app admin shows both storefronts: Analytics, Reviews & Complaints and Help Requests have an
+**App / Website / Both** switch (`components/SourceSwitch.tsx`, remembered in localStorage);
+Customers has App | Website (separate accounts) with a website customer detail page. Mechanism:
+the website exposes signed `/internal/admin-peer/*` endpoints (same HMAC + `CATALOG_SYNC_SECRET` as
+catalog sync); the app API proxies them under `/admin/website/*` and, for analytics, pulls the
+website's orders as the same rows `analytics.service.ts` already computes on (website brand ids
+mapped to app ids; website customer ids prefixed `site:`, so a person on both counts twice).
+If the website is unreachable, "Both" falls back to app-only with a warning.
+
+### 4.15 One admin for both: the Lickyeat Admin (2026-10-03)
+The app admin (`apps/admin`) is THE admin for the app and the website ("Lickyeat Admin").
+- **Shared settings synced app → website** (`catalogSync.settings.ts` in both repos, same signed
+  link, also sent by "Push everything"): coupons (`coupon.*`), opening hours (`storeHours.upsert` —
+  the app's single daily window becomes the website's 7 weekday entries), planned closures
+  (`closures.replace`, Lickyeat-wide / per brand / GG Tiffin), and GG Tiffin plans, weekly dishes,
+  single-meal prices and add-on prices (`tiffin*`). The website's tiffin menu/prices were constants in
+  code; they're now defaults overridden by DB collections (`TiffinCatalog.model.ts`), reloaded on
+  boot, every 60 s and right after a sync (`refreshTiffinCatalog`). Website plans carry `syncId` (the
+  app plan id); the first sync adopts the matching existing plan (same diet/tier/style/days) and a
+  delete only deactivates (subscribers keep their plan). A GG Tiffin closure from the app runs the
+  website's own `declareClosure` (closes subscription meals, extends plans, refunds single-meal
+  orders) once per new range and never removes one. Website hours/closure checks now use IST.
+- **Coupons have channels** (`["app","website"]` default; Coupons page "Works on" checkboxes and
+  per-row toggles). The app refuses a website-only code; the website keeps an app-only code switched off.
+- **Website work done from the Lickyeat Admin** via admin-peer (`/admin/website/*` proxies):
+  Orders page App / Website / Both (website orders: next status, rider assigned at out-for-delivery,
+  copy rider link — rider page is on the website origin from `VITE_WEBSITE_ADMIN_URL`), GG Tiffin
+  Deliveries App / Website / Both (website single-meal orders from today on + subscribers + today's
+  meals in the prep count), **Blog** and **Leads** pages (website-only features). Website errors like
+  "Cannot move from received to delivered" pass through as 400.
+- **Website side**: header "Admin" opens the Lickyeat Admin (`components/admin/OpenLickyeatAdmin.tsx`
+  — bridge with the app token picked up at login, else the admin's `/dashboard`). The website's
+  `/admin` is a **backup** for website-only day-to-day work (Dashboard, Orders, GG Tiffin orders,
+  Blog, Leads) with a banner to the Lickyeat Admin; its Menu & brands / Feast / Coupons / Store pages
+  show a "moved" notice (files kept), and its tiffin page no longer declares closures — anything
+  shared changed only on the website would drift from the app.
+- Not synced back website → app: settings (one-way by design). Menu/brand/combo/add-on/switch sync is
+  still two-way (§4.12).
 
 ---
 

@@ -2,6 +2,7 @@ import type { UpsertTiffinAddOnPriceRequest, UpsertTiffinDishRequest, UpsertTiff
 import { TiffinAddOnPriceModel } from "../../db/models/TiffinAddOnPrice.model.js";
 import { TiffinDishModel } from "../../db/models/TiffinDish.model.js";
 import { TiffinFestivalSpecialModel } from "../../db/models/TiffinFestivalSpecial.model.js";
+import { syncTiffinAddOn, syncTiffinDish } from "../catalogSync/catalogSync.settings.js";
 
 /** The full weekly rotation — ~110 rows, small enough to hand the admin panel (and the mobile
  * app's menu-browsing screens) the whole thing at once rather than paginating or filtering
@@ -14,9 +15,11 @@ export function listTiffinDishes() {
  * usually an update keyed on the compound unique index — but `upsert: true` also lets the admin
  * panel genuinely create a brand-new slot (e.g. Mini's first-ever breakfast dish) directly from
  * the Menu page, not just fix a slot missing after a bad migration. */
-export function upsertTiffinDish(data: UpsertTiffinDishRequest) {
+export async function upsertTiffinDish(data: UpsertTiffinDishRequest) {
   const { tier, dietType, mealType, dayOfWeek, ...update } = data;
-  return TiffinDishModel.findOneAndUpdate({ tier, dietType, mealType, dayOfWeek }, { tier, dietType, mealType, dayOfWeek, ...update }, { new: true, upsert: true, runValidators: true });
+  const dish = await TiffinDishModel.findOneAndUpdate({ tier, dietType, mealType, dayOfWeek }, { tier, dietType, mealType, dayOfWeek, ...update }, { new: true, upsert: true, runValidators: true });
+  syncTiffinDish({ tier, dietType, mealType, dayOfWeek });
+  return dish;
 }
 
 /** Removing a slot's dish entirely (not just changing what it serves) — the same "just isn't on
@@ -24,8 +27,10 @@ export function upsertTiffinDish(data: UpsertTiffinDishRequest) {
  * from the Menu page instead of being fixed at seed time. Subscription/single-meal resolution
  * already handles an absent slot gracefully (see singleMealMenu.ts#resolveDishSlot,
  * tiffin.service.ts#getAvailableMealTypesForTierDiet) — no special-casing needed here. */
-export function deleteTiffinDish(id: string) {
-  return TiffinDishModel.findByIdAndDelete(id);
+export async function deleteTiffinDish(id: string) {
+  const deleted = await TiffinDishModel.findByIdAndDelete(id);
+  if (deleted) syncTiffinDish({ tier: deleted.tier, dietType: deleted.dietType, mealType: deleted.mealType, dayOfWeek: deleted.dayOfWeek });
+  return deleted;
 }
 
 /** Every festival special, past and future — small table, admin panel gets it all at once, same
@@ -58,6 +63,8 @@ export function listAddOnPrices() {
 /** Keyed on name (unique) — same "there's a small fixed vocabulary, editing just changes an
  * existing row" shape as dishes above, but exposed as its own upsert since an admin might
  * legitimately want to introduce one more named add-on later. */
-export function upsertAddOnPrice(data: UpsertTiffinAddOnPriceRequest) {
-  return TiffinAddOnPriceModel.findOneAndUpdate({ name: data.name }, data, { new: true, upsert: true, runValidators: true });
+export async function upsertAddOnPrice(data: UpsertTiffinAddOnPriceRequest) {
+  const addOn = await TiffinAddOnPriceModel.findOneAndUpdate({ name: data.name }, data, { new: true, upsert: true, runValidators: true });
+  syncTiffinAddOn(data.name);
+  return addOn;
 }

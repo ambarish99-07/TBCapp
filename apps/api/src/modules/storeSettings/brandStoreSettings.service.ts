@@ -4,6 +4,7 @@ import { BrandStoreSettingsModel, type BrandStoreSettingsDocument } from "../../
 import { todayIsoInIst } from "../../utils/istDate.js";
 import { getStoreStatus } from "./storeSettings.service.js";
 import { computeStoreStatus } from "./storeStatusCore.js";
+import { syncStoreClosures } from "../catalogSync/catalogSync.settings.js";
 
 /** One of these per brand, created with defaults (open, 12:00-24:00 IST) the first time
  * anything reads or writes a given brandId's settings — a brand-new brand needs no setup step
@@ -33,8 +34,10 @@ export function listBrandStoreClosures(brandId: string) {
   return BrandStoreClosureModel.find({ brandId }).sort({ startDate: -1 });
 }
 
-export function declareBrandStoreClosure(brandId: string, request: DeclareBrandStoreClosureRequest) {
-  return BrandStoreClosureModel.create({ brandId, ...request });
+export async function declareBrandStoreClosure(brandId: string, request: DeclareBrandStoreClosureRequest) {
+  const closure = await BrandStoreClosureModel.create({ brandId, ...request });
+  syncStoreClosures(brandId);
+  return closure;
 }
 
 async function getUpcomingBrandClosures(brandId: string): Promise<BrandStoreClosure[]> {
