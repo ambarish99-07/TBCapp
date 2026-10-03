@@ -1,11 +1,12 @@
 import { SignupRequestSchema, LoginRequestSchema, RequestOtpSchema, UpdateProfileRequestSchema, VerifyOtpSchema, type User } from "@tbc/shared-types";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "express";
 import { OtpCodeModel } from "../../db/models/OtpCode.model.js";
 import { UserModel } from "../../db/models/User.model.js";
 import type { Env } from "../../config/env.js";
 import { hashPassword, verifyPassword, verifyAgainstDummyHash } from "./auth.service.js";
 import { signAccessToken } from "./jwt.js";
+import { sendOtpSms, smsConfigured, toIndianMobile } from "../../integrations/sms/msg91.js";
 
 /**
  * Dev-only stand-in for a real SMS provider (Meta/MSG91/Twilio etc.) — no such
@@ -16,6 +17,11 @@ import { signAccessToken } from "./jwt.js";
  * (OtpCode model) are real, even though the code itself is fixed.
  */
 const MOCK_OTP_CODE = "123456";
+
+/** Codes are stored only as a keyed hash — a database leak never exposes a usable OTP. */
+function hashOtp(env: Env, phone: string, code: string): string {
+  return createHmac("sha256", env.JWT_SECRET).update(`otp:${phone}:${code}`).digest("hex");
+}
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -112,25 +118,47 @@ export function login(env: Env): RequestHandler {
   };
 }
 
-export function requestOtp(_env: Env): RequestHandler {
+export function requestOtp(env: Env): RequestHandler {
   return async (req, res) => {
     const parsed = RequestOtpSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Please enter a valid mobile number." });
       return;
     }
+    const { phone } = parsed.data;
+    const isReviewLogin = !!env.OTP_REVIEW_PHONE && !!env.OTP_REVIEW_CODE && phone === env.OTP_REVIEW_PHONE;
+    const realSms = smsConfigured(env) && !isReviewLogin;
+
+    const mobile = toIndianMobile(phone);
+    if (realSms && !mobile) {
+      res.status(400).json({ error: "Please enter a valid 10-digit Indian mobile number." });
+      return;
+    }
+
+    const code = isReviewLogin ? env.OTP_REVIEW_CODE! : realSms ? String(randomInt(0, 1_000_000)).padStart(6, "0") : MOCK_OTP_CODE;
 
     // Upserting means a resend simply replaces the previous code/expiry/attempts.
     await OtpCodeModel.findOneAndUpdate(
-      { phone: parsed.data.phone },
-      { code: MOCK_OTP_CODE, expiresAt: new Date(Date.now() + OTP_TTL_MS), attempts: 0 },
+      { phone },
+      { code: hashOtp(env, phone, code), expiresAt: new Date(Date.now() + OTP_TTL_MS), attempts: 0 },
       { upsert: true }
     );
 
-    // Real send would go here. For now, log it the same way the WhatsApp
-    // integration logs instead of sending when it isn't configured.
-    console.log(`[otp] mock code for ${parsed.data.phone}: ${MOCK_OTP_CODE}`);
-    res.json({ sent: true });
+    if (!realSms) {
+      if (!isReviewLogin) console.log(`[otp] SMS not configured — test code for ${phone}: ${MOCK_OTP_CODE}`);
+      res.json({ sent: true });
+      return;
+    }
+
+    try {
+      await sendOtpSms(env, mobile!, code);
+      res.json({ sent: true });
+    } catch (err) {
+      // Don't leave the customer waiting for a code that was never sent.
+      await OtpCodeModel.deleteOne({ phone });
+      console.error("[otp] send failed:", err instanceof Error ? err.message : err);
+      res.status(502).json({ error: "We couldn't send the OTP right now. Please try again in a minute." });
+    }
   };
 }
 
@@ -158,7 +186,9 @@ export function verifyOtp(env: Env): RequestHandler {
       res.status(429).json({ error: "Too many incorrect attempts. Please request a new code." });
       return;
     }
-    if (otp !== pending.code) {
+    const given = Buffer.from(hashOtp(env, phone, otp.trim()), "hex");
+    const stored = Buffer.from(pending.code, "hex");
+    if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
       pending.attempts += 1;
       await pending.save();
       res.status(401).json({ error: "The OTP is incorrect. Please try again." });

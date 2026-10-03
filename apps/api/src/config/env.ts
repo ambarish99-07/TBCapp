@@ -21,6 +21,17 @@ const EnvSchema = z.object({
   // container restarts/recycling instead of vanishing.
   GCS_BUCKET_NAME: z.string().optional(),
 
+  // Real OTP SMS via MSG91 (integrations/sms/msg91.ts). Unset → the fixed test code 123456 is used
+  // and nothing is sent (local dev, tests). AUTH_KEY is a secret (Secret Manager in production);
+  // TEMPLATE_ID is MSG91's own template id (not the DLT id); OTP_VAR is the template's variable name.
+  MSG91_AUTH_KEY: z.string().min(10).optional(),
+  MSG91_OTP_TEMPLATE_ID: z.string().min(5).optional(),
+  MSG91_OTP_VAR: z.string().min(1).default("number"),
+  // Optional fixed login for app-store reviewers, who can't receive our SMS: this one number always
+  // accepts this one code and no SMS is sent. Leave unset unless a review needs it.
+  OTP_REVIEW_PHONE: z.string().optional(),
+  OTP_REVIEW_CODE: z.string().regex(/^\d{6}$/).optional(),
+
   // Catalog sync with the Lickyeat website (see modules/catalogSync). Off unless both are set.
   // PEER_URL = the website API's public base URL; SECRET = the same random value on both sides.
   CATALOG_SYNC_PEER_URL: z.string().url().optional(),

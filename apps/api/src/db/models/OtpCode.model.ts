@@ -10,6 +10,7 @@ import { Schema, model, type InferSchemaType } from "mongoose";
  */
 const OtpCodeSchema = new Schema({
   phone: { type: String, required: true, unique: true },
+  // A keyed hash of the code (see hashOtp in auth.controller.ts) — never the code itself.
   code: { type: String, required: true },
   expiresAt: { type: Date, required: true },
   attempts: { type: Number, required: true, default: 0 },
