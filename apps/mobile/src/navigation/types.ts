@@ -63,6 +63,8 @@ export type RootStackParamList = {
   Login: undefined;
   Account: undefined;
   Help: undefined;
+  /** The guided support assistant — opened from an order's screen it starts with that order. */
+  SupportChat: { accessToken?: string } | undefined;
   OrderHistory: undefined;
   // A delivered order's own combined review/complaint form — reached from Order History.
   OrderFeedback: { orderId: string; brandName: string };

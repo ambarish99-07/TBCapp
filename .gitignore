@@ -13,3 +13,7 @@ android/
 ios/
 .vscode/
 *.tsbuildinfo
+
+# Customer photos attached to help requests in local dev (production stores them in Cloud Storage)
+apps/api/public/support-images/*
+!apps/api/public/support-images/.gitkeep

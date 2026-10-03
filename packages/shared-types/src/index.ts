@@ -12,3 +12,4 @@ export * from "./coupon.js";
 export * from "./analytics.js";
 export * from "./feedback.js";
 export * from "./storeSettings.js";
+export * from "./support.js";

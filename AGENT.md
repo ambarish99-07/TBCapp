@@ -433,6 +433,46 @@ categories — `MenuCategorySchema` is free text, add-ons are a shared named cat
 brand-scoped admin/mobile feature (Store Status, size variants, availability toggles, the brand
 tabs page) is keyed by `brandId` and works identically for a brand created five minutes ago.
 
+**New brand ids must be lowercase slugs** (`the-momo-house`) — enforced in `createBrand`, because the
+id is shared with the website (4.12). The Biryani Lane's app id is the historic `TBL` (website:
+`the-biryani-lane`); that one alias is built into catalog sync.
+
+**Gharana Grills** (`gharana-grills`, added 2026-10-03): a full-menu North Indian + Indo-Chinese
+kitchen — 35 dishes (rice bowls, breads, paneer, dal/veg, chicken/mutton/egg, Indo-Chinese),
+curries in Half/Full sizes. Created as **coming-soon** with a plain placeholder photo and DRAFT
+prices by `D:\Plan for app and website\scripts\add-gharana-grills.mjs` (re-runnable, goes through
+the admin API so it syncs to the website). To launch: upload logo/banner/dish photos, review prices,
+switch to Live — it then joins the Feast build-your-own automatically.
+
+### 4.12 App ↔ website catalog sync (2026-10-03)
+The two projects keep separate databases; `modules/catalogSync` in BOTH APIs keeps the catalog
+identical. Every admin write to a brand, menu item, add-on, combo (incl. Feasts) or open/closed
+switch is sent to the other API as a signed event (`POST /internal/catalog-sync`, HMAC-SHA256 over
+the raw body + timestamp, 5-min window, shared `CATALOG_SYNC_SECRET`); the receiver applies it
+directly to its models and never re-sends (no loops). Sends are fire-and-forget with 2 retries — an
+admin save never fails because the other side is down. `catalogSync.types.ts` is the identical wire
+format in both repos (canonical = website field names/brand ids; the app maps `image`↔`imageUrl`,
+`TBL`↔`the-biryani-lane`, `displayOrder`↔`sortOrder`; relative website photo paths are resolved
+against the peer URL). NOT synced: opening hours/planned closures (modelled differently), coupons,
+tiffin. App admin **Website Sync** page shows what differs and has "Push everything to website"
+(optionally deleting website-only items/combos/add-ons; never brands). Config: `CATALOG_SYNC_PEER_URL`
++ `CATALOG_SYNC_SECRET` on both APIs (`.env.example`); off when unset (tests, plain local dev).
+The website admin's menu page says to add/delete items in the app admin (it has no item editor).
+
+### 4.13 Support assistant (chatbot) + Help Requests (2026-10-03)
+`SupportChatScreen` ("Lickyeat Assistant") — a GUIDED chat, deliberately not an AI model: fixed,
+tested flows over the customer's real data — track (ETA/late/rider), cancel (policy + refund shown
+before confirming), problem with order (missing/wrong/spilled/quality/late → description → optional
+photo), payment taken but not confirmed, refund status, kitchens open now, offers, delivery info,
+Feast, my help requests, talk to a person. Typed text → `src/support/intents.ts` keyword matching
+(English + common Hinglish, unit-tested); "my shake spilled" jumps straight to the right topic.
+Entry points: Help & Support (top card) and Order Status ("Need help with this order?", starts with
+that order). Problems become `SupportTicket`s (`modules/support`: `POST /support/tickets`,
+`POST /support/photo` [own uploads only, 5 MB], `GET /support/tickets/mine`, 10/day/account) →
+admin **Help Requests** page (payment issues on top, call/WhatsApp links, reply + status); the reply
+shows in the customer's chat. Website has no assistant yet. Support phone/WhatsApp/email in
+`apps/mobile/src/constants/support.ts` are still PLACEHOLDERS.
+
 ---
 
 ## 5. What's explicitly deferred / not done

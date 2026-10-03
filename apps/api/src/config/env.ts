@@ -20,6 +20,13 @@ const EnvSchema = z.object({
   // Set on Cloud Run (and any host with an ephemeral filesystem) so uploaded images survive
   // container restarts/recycling instead of vanishing.
   GCS_BUCKET_NAME: z.string().optional(),
+
+  // Catalog sync with the Lickyeat website (see modules/catalogSync). Off unless both are set.
+  // PEER_URL = the website API's public base URL; SECRET = the same random value on both sides.
+  CATALOG_SYNC_PEER_URL: z.string().url().optional(),
+  CATALOG_SYNC_SECRET: z.string().min(32, "CATALOG_SYNC_SECRET must be at least 32 characters").optional(),
+  // Optional extra "appBrandId=websiteBrandId" pairs, comma-separated (TBL=the-biryani-lane is built in).
+  CATALOG_SYNC_BRAND_ALIASES: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

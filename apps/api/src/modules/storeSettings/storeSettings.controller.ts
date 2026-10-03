@@ -1,4 +1,5 @@
 import { DeclareStoreClosureRequestSchema, UpdateStoreSettingsRequestSchema } from "@tbc/shared-types";
+import { syncStoreSwitch } from "../catalogSync/catalogSync.service.js";
 import type { RequestHandler } from "express";
 import { declareStoreClosure, getStoreStatus, listStoreClosures, updateStoreSettings } from "./storeSettings.service.js";
 
@@ -25,6 +26,7 @@ export const putStoreSettingsAdmin: RequestHandler = async (req, res) => {
     return;
   }
   await updateStoreSettings(parsed.data);
+  if (parsed.data.manuallyOpen !== undefined) syncStoreSwitch();
   const status = await getStoreStatus();
   res.json(status);
 };

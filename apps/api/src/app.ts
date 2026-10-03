@@ -22,6 +22,9 @@ import { createRecipientsRouter } from "./modules/recipients/recipients.routes.j
 import { createTiffinRouter } from "./modules/tiffin/tiffin.routes.js";
 import { createPremiumMembershipRouter } from "./modules/premiumMembership/premiumMembership.routes.js";
 import { createStoreSettingsRouter } from "./modules/storeSettings/storeSettings.routes.js";
+import { createCatalogSyncInternalRouter } from "./modules/catalogSync/catalogSync.routes.js";
+import { createSupportRouter } from "./modules/support/support.routes.js";
+import { configureCatalogSync } from "./modules/catalogSync/catalogSync.service.js";
 import { createErrorHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
@@ -31,6 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "../public");
 
 export function createApp(env: Env): Express {
+  configureCatalogSync(env);
   const app = express();
   // Cloud Run puts exactly one Google front-end proxy in front of the container. Without this,
   // req.ip is that proxy's address for every request, so the IP-keyed signup/login rate limiters
@@ -42,6 +46,8 @@ export function createApp(env: Env): Express {
   app.use("/menu-images", express.static(path.join(PUBLIC_DIR, "menu-images")));
   app.use("/brand-images", express.static(path.join(PUBLIC_DIR, "brand-images")));
   app.use("/tiffin-images", express.static(path.join(PUBLIC_DIR, "tiffin-images")));
+  // Customer photos attached to help requests (local-disk fallback; GCS when GCS_BUCKET_NAME is set).
+  app.use("/support-images", express.static(path.join(PUBLIC_DIR, "support-images")));
   app.use(
     cors({
       origin: env.CORS_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean),
@@ -50,7 +56,16 @@ export function createApp(env: Env): Express {
   // A well-formed order payload (50 lines, delivery details) fits comfortably
   // under this; the cap exists to reject abusive oversized bodies, not to be
   // generous headroom.
-  app.use(express.json({ limit: "256kb" }));
+  // `verify` keeps the exact raw bytes alongside the parsed body — the catalog-sync endpoint
+  // checks its HMAC signature against them (re-serialising the parsed body isn't byte-exact).
+  app.use(
+    express.json({
+      limit: "256kb",
+      verify: (req, _res, buf) => {
+        (req as unknown as { rawBody?: string }).rawBody = buf.toString("utf8");
+      },
+    })
+  );
   app.use(requestLogger);
 
   // Reflects real DB connectivity, not just "the Express process is up" — a hosting
@@ -74,6 +89,10 @@ export function createApp(env: Env): Express {
   app.use("/premium-membership", createPremiumMembershipRouter(env));
   app.use("/coupons", createCouponsRouter(env));
   app.use("/store", createStoreSettingsRouter());
+  // The in-app support assistant's help requests (customer side).
+  app.use("/support", createSupportRouter(env));
+  // Server-to-server only: the Lickyeat website's API pushes its admin's catalog changes here.
+  app.use("/internal/catalog-sync", createCatalogSyncInternalRouter());
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

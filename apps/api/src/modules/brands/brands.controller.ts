@@ -1,4 +1,5 @@
 import { CreateBrandRequestSchema, UpdateBrandRequestSchema } from "@tbc/shared-types";
+import { syncBrand } from "../catalogSync/catalogSync.service.js";
 import type { RequestHandler } from "express";
 import { BrandModel } from "../../db/models/Brand.model.js";
 import {
@@ -37,6 +38,13 @@ export const createBrand: RequestHandler = async (req, res) => {
     return;
   }
 
+  // The id is shared with the Lickyeat website (catalog sync), whose brand ids must be lowercase
+  // slugs — enforced for every new brand so it's identical on both sides with no alias needed.
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(parsed.data.id)) {
+    res.status(400).json({ error: "Brand id must be lowercase letters, numbers and dashes, e.g. the-momo-house" });
+    return;
+  }
+
   const existing = await BrandModel.findById(parsed.data.id);
   if (existing) {
     res.status(409).json({ error: "A brand with this id already exists" });
@@ -48,6 +56,7 @@ export const createBrand: RequestHandler = async (req, res) => {
   // own comment for why a brand can never be left with no displayOrder at all.
   const displayOrder = rest.displayOrder ?? (await nextDisplayOrder());
   const brand = await BrandModel.create({ _id: id, ...rest, displayOrder });
+  syncBrand(id);
   res.status(201).json({ brand: withId(brand.toObject()) });
 };
 
@@ -59,6 +68,7 @@ export const updateBrand: RequestHandler = async (req, res) => {
   }
 
   const brand = await BrandModel.findByIdAndUpdate(req.params.id, parsed.data, { new: true, runValidators: true });
+  if (brand) syncBrand(req.params.id);
   if (!brand) {
     res.status(404).json({ error: "Brand not found" });
     return;
@@ -68,5 +78,6 @@ export const updateBrand: RequestHandler = async (req, res) => {
 
 export const deleteBrand: RequestHandler = async (req, res) => {
   await BrandModel.findByIdAndDelete(req.params.id);
+  syncBrand(req.params.id);
   res.status(204).send();
 };

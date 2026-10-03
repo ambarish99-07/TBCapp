@@ -1,4 +1,5 @@
 import { UpsertComboRequestSchema, UpsertMenuAddOnPriceRequestSchema, UpsertMenuItemRequestSchema } from "@tbc/shared-types";
+import { syncAddOn, syncCombo, syncMenuItem } from "../catalogSync/catalogSync.service.js";
 import type { Request, RequestHandler, Response } from "express";
 import { AdminRecommendationModel } from "../../db/models/AdminRecommendation.model.js";
 import { ComboModel } from "../../db/models/Combo.model.js";
@@ -78,6 +79,7 @@ export const upsertAddOnPriceAdmin: RequestHandler = async (req, res) => {
     return;
   }
   const price = await upsertAddOnPrice(parsed.data);
+  syncAddOn(price.name);
   res.json({ addOnPrice: withId(price.toObject()) });
 };
 
@@ -107,12 +109,14 @@ export const upsertMenuItem: RequestHandler = async (req, res) => {
   }
   const { id, ...update } = parsed.data;
   const item = await MenuItemModel.findByIdAndUpdate(id, update, { upsert: true, new: true, runValidators: true });
+  syncMenuItem(id);
   const [resolved] = item ? await withResolvedAddOns([item.toObject()]) : [null];
   res.json({ item: resolved ? withId(resolved) : null });
 };
 
 export const deleteMenuItem: RequestHandler = async (req, res) => {
   await MenuItemModel.findByIdAndDelete(req.params.id);
+  syncMenuItem(req.params.id);
   res.status(204).send();
 };
 
@@ -153,10 +157,12 @@ export const upsertCombo: RequestHandler = async (req, res) => {
     { $set: set, $unset: unset },
     { upsert: true, new: true, runValidators: true }
   );
+  syncCombo(id);
   res.json({ combo: combo ? withId(combo.toObject()) : null });
 };
 
 export const deleteCombo: RequestHandler = async (req, res) => {
   await ComboModel.findByIdAndDelete(req.params.id);
+  syncCombo(req.params.id);
   res.status(204).send();
 };

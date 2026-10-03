@@ -103,6 +103,10 @@ export function OrderStatusScreen({ route, navigation }: Props) {
         <Text style={styles.orderNumber}>{order.orderNumber}</Text>
         <Text style={styles.eta}>Estimated delivery: {order.estimatedMinutes} minutes</Text>
 
+        <Pressable style={styles.helpButton} onPress={() => navigation.navigate("SupportChat", { accessToken: route.params.accessToken })}>
+          <Text style={styles.helpButtonText}>💬 Need help with this order?</Text>
+        </Pressable>
+
         {order.deliveryFor === "recipient" && (
           <Text style={styles.recipientBanner}>
             Your order has been placed successfully and will be delivered to {order.delivery.fullName} at {order.delivery.address},{" "}
@@ -247,6 +251,16 @@ const makeStyles = (colors: ColorPalette) =>
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
     orderNumber: { fontSize: 18, fontWeight: "800", color: colors.primary },
     eta: { fontSize: 13, color: colors.muted, marginBottom: theme.spacing(2) },
+    helpButton: {
+      alignSelf: "flex-start",
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      marginBottom: theme.spacing(2),
+    },
+    helpButtonText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
     recipientBanner: {
       backgroundColor: colors.surface,
       borderRadius: theme.radius,

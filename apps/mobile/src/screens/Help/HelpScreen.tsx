@@ -1,8 +1,11 @@
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_WHATSAPP_NUMBER } from "../../constants/support";
 import { theme, type ColorPalette } from "../../constants/theme";
 import { useTheme } from "../../state/themeStore";
+import type { RootStackParamList } from "../../navigation/types";
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -46,6 +49,7 @@ function FaqRow({ item, isOpen, onToggle, s }: { item: (typeof FAQS)[number]; is
 }
 
 export function HelpScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -54,6 +58,17 @@ export function HelpScreen() {
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
       <Text style={s.title}>We're here to help</Text>
       <Text style={s.subtitle}>Reach us directly for anything to do with an order, a payment, or your account.</Text>
+
+      {/* The assistant solves the common things instantly (track, cancel, refunds, hours) and
+          raises everything else as a help request — first thing on the page. */}
+      <Pressable style={s.chatCard} onPress={() => navigation.navigate("SupportChat")}>
+        <Text style={s.chatEmoji}>💬</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.chatTitle}>Chat with Lickyeat Assistant</Text>
+          <Text style={s.chatSubtitle}>Track or cancel an order, report a problem, check a refund — instant answers, any time.</Text>
+        </View>
+        <Text style={s.chatChevron}>›</Text>
+      </Pressable>
 
       <View style={s.contactCard}>
         <Pressable style={s.contactRow} onPress={() => Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_NUMBER}`)}>
@@ -99,6 +114,21 @@ export function HelpScreen() {
 
 const makeStyles = (colors: ColorPalette) =>
   StyleSheet.create({
+    chatCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      backgroundColor: colors.primary + "14",
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.75),
+      marginBottom: theme.spacing(2),
+    },
+    chatEmoji: { fontSize: 28 },
+    chatTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    chatSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
+    chatChevron: { fontSize: 24, fontWeight: "700", color: colors.primary },
     screen: { flex: 1, backgroundColor: colors.background },
     content: { padding: theme.spacing(2), paddingBottom: theme.spacing(4) },
     title: { fontSize: 20, fontWeight: "800", color: colors.text },

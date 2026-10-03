@@ -340,7 +340,7 @@ export function MenuScreen({ navigation }: Props) {
                 <MaterialCommunityIcons name="glass-mug-variant" size={18} color={TAB_ICON_COLOR} />
                 <MaterialCommunityIcons name="bowl-mix-outline" size={18} color={TAB_ICON_COLOR} />
               </View>
-              <Text style={styles.tabLabel}>Menu</Text>
+              <Text style={styles.tabLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Menu</Text>
             </Pressable>
             {showCombosBanner && (
               <Pressable
@@ -349,7 +349,7 @@ export function MenuScreen({ navigation }: Props) {
                 onPress={() => navigation.navigate("Combos")}
               >
                 <MaterialCommunityIcons name="gift-outline" size={20} color={TAB_ICON_COLOR} />
-                <Text style={styles.tabLabel}>Combos</Text>
+                <Text style={styles.tabLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Combos</Text>
               </Pressable>
             )}
             {/* One order from every kitchen — curated multi-kitchen meals + build-your-own. */}
@@ -360,7 +360,7 @@ export function MenuScreen({ navigation }: Props) {
                 onPress={() => navigation.navigate("Feast")}
               >
                 <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={TAB_ICON_COLOR} />
-                <Text style={styles.tabLabel}>Feast</Text>
+                <Text style={styles.tabLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Feast</Text>
               </Pressable>
             )}
             <Pressable
@@ -369,7 +369,7 @@ export function MenuScreen({ navigation }: Props) {
               onPress={() => navigation.navigate("BulkOrder")}
             >
               <MaterialCommunityIcons name="tag-multiple-outline" size={20} color={TAB_ICON_COLOR} />
-              <Text style={styles.tabLabel}>Bulk Deals</Text>
+              <Text style={styles.tabLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Bulk Deals</Text>
             </Pressable>
           </View>
           {/* Mirrors the GG Tiffin chip's own left wedge (below) — same CSS-triangle trick, pointed

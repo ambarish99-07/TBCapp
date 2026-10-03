@@ -1,4 +1,5 @@
 import { DeclareBrandStoreClosureRequestSchema, UpdateStoreSettingsRequestSchema } from "@tbc/shared-types";
+import { syncStoreSwitch } from "../catalogSync/catalogSync.service.js";
 import type { RequestHandler } from "express";
 import {
   declareBrandStoreClosure,
@@ -31,6 +32,7 @@ export const putBrandStoreSettingsAdmin: RequestHandler = async (req, res) => {
     return;
   }
   await updateBrandStoreSettings(req.params.brandId, parsed.data);
+  if (parsed.data.manuallyOpen !== undefined) syncStoreSwitch(req.params.brandId);
   const status = await getBrandStoreStatus(req.params.brandId);
   res.json(status);
 };

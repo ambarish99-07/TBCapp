@@ -18,6 +18,7 @@ import { CheckoutScreen } from "../screens/Checkout/CheckoutScreen";
 import { ChooseComboScreen } from "../screens/Combos/ChooseComboScreen";
 import { CombosScreen } from "../screens/Combos/CombosScreen";
 import { FeastScreen } from "../screens/Combos/FeastScreen";
+import { SupportChatScreen } from "../screens/Support/SupportChatScreen";
 import { CartAddressButton } from "../components/CartAddressButton";
 import { CartHeaderButton } from "../components/CartHeaderButton";
 import { HelpScreen } from "../screens/Help/HelpScreen";
@@ -133,6 +134,7 @@ export function RootNavigator() {
               <Stack.Screen name="GuestLookup" component={GuestLookupScreen} options={{ title: "Track Order" }} />
               <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account" }} />
               <Stack.Screen name="Help" component={HelpScreen} options={{ title: "Help & Support" }} />
+              <Stack.Screen name="SupportChat" component={SupportChatScreen} options={{ title: "Lickyeat Assistant" }} />
               <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: "Order History" }} />
               <Stack.Screen name="AllCoupons" component={AllCouponsScreen} options={{ title: "Coupons" }} />
               <Stack.Screen name="OrderFeedback" component={OrderFeedbackScreen} options={{ title: "Rate & Review" }} />

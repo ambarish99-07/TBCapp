@@ -12,6 +12,8 @@ import { DashboardPage } from "./routes/DashboardPage.js";
 import { FeedbackPage } from "./routes/FeedbackPage.js";
 import { BulkOrdersPage } from "./routes/BulkOrdersPage.js";
 import { CombosPage } from "./routes/CombosPage.js";
+import { WebsiteSyncPage } from "./routes/WebsiteSyncPage.js";
+import { HelpRequestsPage } from "./routes/HelpRequestsPage.js";
 import { CouponsPage } from "./routes/CouponsPage.js";
 import { CustomerDetailPage } from "./routes/CustomerDetailPage.js";
 import { CustomersPage } from "./routes/CustomersPage.js";
@@ -152,6 +154,22 @@ function AppRoutes() {
               <BrandTabsLayout>
                 <MenuItemsPage />
               </BrandTabsLayout>
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/help-requests"
+          element={
+            <RequireAdmin>
+              <HelpRequestsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/website-sync"
+          element={
+            <RequireAdmin>
+              <WebsiteSyncPage />
             </RequireAdmin>
           }
         />

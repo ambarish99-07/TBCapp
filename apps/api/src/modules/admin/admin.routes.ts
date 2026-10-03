@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { getCatalogSyncStatusAdmin, postCatalogSyncPushAdmin } from "../catalogSync/catalogSync.routes.js";
+import { listSupportTicketsAdminHandler, updateSupportTicketAdminHandler } from "../support/support.routes.js";
 import type { Env } from "../../config/env.js";
 import { listBulkOrderInquiries, updateBulkOrderInquiryStatus } from "../bulkOrders/bulkOrders.controller.js";
 import { createBrand, deleteBrand, listAllBrandsAdmin, updateBrand } from "../brands/brands.controller.js";
@@ -66,6 +68,10 @@ export function createAdminRouter(env: Env): Router {
 
   router.get("/analytics", getAnalytics);
 
+  // Website catalog sync — status/differences, and the "push everything" catch-up.
+  router.get("/catalog-sync", getCatalogSyncStatusAdmin);
+  router.post("/catalog-sync/push", postCatalogSyncPushAdmin);
+
   router.get("/store-settings", getStoreSettingsAdmin);
   router.put("/store-settings", putStoreSettingsAdmin);
   router.get("/store-closures", listStoreClosuresAdmin);
@@ -77,6 +83,9 @@ export function createAdminRouter(env: Env): Router {
   router.post("/brands/:brandId/store-closures", declareBrandStoreClosureAdmin);
 
   router.get("/feedback", listFeedbackAdmin);
+  // Help requests raised from the app's support assistant.
+  router.get("/support-tickets", listSupportTicketsAdminHandler);
+  router.patch("/support-tickets/:id", updateSupportTicketAdminHandler);
   router.patch("/feedback/:id/status", updateFeedbackStatusAdmin);
   router.patch("/feedback/:id/respond", respondToFeedbackAdmin);
 

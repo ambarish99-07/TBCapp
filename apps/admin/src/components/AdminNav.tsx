@@ -2,8 +2,10 @@ import {
   BarChart3,
   Globe,
   LayoutDashboard,
+  LifeBuoy,
   MessageSquareWarning,
   Package,
+  RefreshCw,
   Power,
   ShoppingBag,
   Store,
@@ -33,8 +35,12 @@ const LICKYEAT_LINKS: { to: string; label: string; icon: LucideIcon; exact?: boo
   // Multi-kitchen combos (the app's Feast page) belong to no single brand, so they live here.
   { to: "/feast-combos", label: "Feast Combos", icon: UtensilsCrossed },
   { to: "/coupons", label: "Coupons", icon: Ticket },
+  // App ↔ website menu sync — status, differences, and the full push.
+  { to: "/website-sync", label: "Website Sync", icon: RefreshCw },
   { to: "/bulk-orders", label: "Bulk Orders", icon: Package },
   { to: "/feedback", label: "Reviews & Complaints", icon: MessageSquareWarning },
+  // Raised from the app's support assistant (chatbot).
+  { to: "/help-requests", label: "Help Requests", icon: LifeBuoy },
 ];
 
 function NavLink({ to, label, icon: Icon, exact }: { to: string; label: string; icon: LucideIcon; exact?: boolean }) {
